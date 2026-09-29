@@ -61,7 +61,7 @@ Thang cỡ (px): 12 · 14 · 16 · 18 · 20 · 24 · 32 · 40.
 
 ## 5. Navigation
 
-Bottom nav 3 mục (icon Lucide stroke 1.5 + nhãn): **Thư viện** · **Chụp** (nút giữa nổi, primary) · **Đang nghe**.
+Bottom nav 4 mục (icon Lucide stroke 1.5 + nhãn): **Thư viện** · **Đánh dấu** · **Chụp** (nút giữa nổi, primary) · **Đang nghe**.
 Reader/Camera là màn full-screen, có nút quay lại rõ ràng; bottom nav ẩn khi đang đọc.
 
 ## 6. Component chính
@@ -74,11 +74,20 @@ Reader/Camera là màn full-screen, có nút quay lại rõ ràng; bottom nav �
 - Mỗi thumbnail có trạng thái: đang tải lên → đã nhận → lỗi (chạm để chụp lại). Có thể xoá/chụp lại trước khi gửi.
 - Xử lý quyền camera bị từ chối: màn giải thích + hướng dẫn bật lại; yêu cầu HTTPS.
 
-### 6.2 Thư viện
-- **Kệ theo chủ đề**: mỗi chủ đề một kệ (sắp theo bảng chữ cái tiếng Việt), kệ "Chưa phân loại" cuối cùng. Mobile: kệ cuộn ngang, bìa rộng 136px; ≥768px: lưới xuống dòng.
-- **Bìa chung** (một bộ sách đóng cùng tủ, mọi sách giống nhau trừ tên): tỉ lệ 2:3, nền đỏ rượu vang `--cover-bg`→`--cover-bg-deep`, khung đôi + 4 góc lượn + 2 fleuron màu `--cover-ornament`, tên sách Cormorant 600 màu `--cover-ink` ở giữa, co chữ theo độ dài, tối đa 4 dòng. Giữ nguyên ở cả 2 theme. Component: `web/js/components/book-cover.js`; phương án tham khảo: `docs/mockups/cover-preview.html` (đã chọn A). Bìa là trang trí (`aria-hidden`), tên sách luôn hiện dạng chữ cạnh bìa.
-- Dưới bìa: tên, tiến độ nghe (thanh mảnh `--primary`), trạng thái xử lý ("Đang chuyển giọng · 12/20 đoạn").
-- Empty state: minh hoạ kệ sách SVG + "Chụp trang sách đầu tiên".
+### 6.2 Thư viện & Đang nghe
+**Thư viện — thùng đĩa than:**
+- **Thùng (crate)**: mỗi chủ đề một thùng (sắp theo bảng chữ cái tiếng Việt), thùng "Chưa phân loại" cuối. Nền `--surface-sunken`, viền vàng 1px, tab thùng in hoa + icon collapsible ở đầu. **Tab thùng sticky** khi cuộn → người dùng biết chủ đề hiện tại. Bên trong mỗi thùng: hero "Nghe tiếp" (card khung `OrnateFrame` + vỏ đĩa), rồi lưới 2 cột vỏ đĩa vuông (mỗi sách một vỏ).
+- **Vỏ đĩa vuông (sleeve)**: tỉ lệ 1:1, **5 màu da** chọn cố định theo `hash(book.id) % 5`: wine, moss, slate, amber, parchment. Khung hoa văn góc lượn + 4 góc + 2 fleuron, tên sách Cormorant 600 ở giữa, co chữ theo độ dài (tối đa 3 dòng). Bìa là trang trí (`aria-hidden`), tên sách luôn hiện dạng chữ cạnh vỏ. Sách chưa `ready` không có đĩa ("Đang ép đĩa · x/y"). Chữ bìa ≥4.5:1 trên cả 5 màu.
+- **Hero "Nghe tiếp"**: vỏ đĩa nhớ sách user đang nghe dở (fetch `/api/me/continue`), đĩa ló ra bên phải (trạng thái ấy), nút primary "Nghe tiếp" hoặc "Tiếp tục đọc", nền giống thùng.
+- **Menu chủ đề (iOS)**: nút segmented "Mọi chủ đề ⌃⌄" ở trên hero, pull-down menu (không cuộn ngang chip), chọn → filter các thùng khác ở dưới, empty state khi chọn chủ đề không có sách.
+- **Tìm kiếm**: ô bỏ dấu (client-side, accent-insensitive; không yêu cầu server).
+- Dưới vỏ: tên, tiến độ nghe của user hiện tại (thanh mảnh `--primary`), trạng thái xử lý ("Đang chuyển giọng · 12/20 đoạn").
+- Empty state: minh hoạ thùng đĩa SVG + "Chụp trang sách đầu tiên".
+
+**Chế độ Đang nghe:**
+- Route: `#/listen/:id` (cùng `ReaderView` instance với `#/read/:id`, không ngắt audio khi chuyển mode).
+- Vỏ đĩa trái, **đĩa than ló ra bên phải**. Phát → đĩa trượt ra 900ms + xoay 33⅓ vòng/phút (chỉ khi `playing`), **cần đồng thau** (tonearm arm 9.5° → 29.5° theo % tiến độ chunk, ở đầu chunk 9.5°, ở cuối 29.5°). Tạm dừng → cần nhấc lên, đĩa trượt về vỏ 600ms. **`prefers-reduced-motion` → tắt hết animation**, vỏ/đĩa/cần tĩnh, không trượt hay xoay.
+- Nút đĩa trên topbar reader (mode read) → chuyển sang listen; mini player hiện vỏ 48px + đĩa nhỏ xoay khi phát.
 
 ### 6.3 Reader + Audio Player
 - Nền giấy, văn bản Literata; **đoạn đang đọc** nền `--highlight`, chuyển mượt 200ms, tự cuộn giữ đoạn ở ~1/3 màn hình (tắt tự cuộn khi người dùng tự kéo; hiện nút "Về đoạn đang đọc").
@@ -87,6 +96,16 @@ Reader/Camera là màn full-screen, có nút quay lại rõ ràng; bottom nav �
 - Mở rộng thành sheet: chọn chương, hẹn giờ tắt, chọn giọng, cỡ chữ, sáng/tối.
 - Đoạn chưa có audio: chữ `--ink-muted` + spinner nhỏ; đoạn lỗi: icon + "Thử lại".
 - Media Session API: điều khiển ở màn hình khoá, nghe khi tắt màn hình.
+
+### 6.3.1 Đánh dấu
+- Trang `#/bookmarks`: danh sách đánh dấu của user hiện tại (mới nhất trước), nhóm theo sách, mỗi thẻ = "Đoạn n" + trích 160 ký tự + thời gian tương đối. "Nghe từ đây" → `#/listen/:id?seq=n` (mở đúng đoạn, không tự phát; đoạn không còn thì lấy đoạn kế tiếp). Đánh dấu/bỏ dấu: chip dấu trang ở màn Đang nghe (đoạn đang phát) và nút dấu trang 44px cạnh nút sửa ở mỗi đoạn trong reader.
+
+### 6.3.2 Đăng nhập iOS
+- Hero: `RecordSleeve` (vỏ brand wine) + `VinylDisc` (đĩa trượt một lần 900ms khi load), `:focus-within` → hero co scale 0.52, ẩn tagline.
+- Segmented tablist (role=tab) "Đăng nhập / Đăng ký" + form nhóm + nút primary 52px ở nửa dưới.
+- Input: username `autocapitalize=none autocorrect=off spellcheck=false enterkeyhint=next`, password `current-password`/`new-password` + `passwordrules="minlength: 6; maxlength: 128;"` (khớp backend), display name `autocomplete=name`, mã mời `autocomplete=off`, font ≥17px. Nút mắt toggle trong ô password.
+- Lỗi field: vạch đỏ + nhãn đỏ + dòng lỗi dưới group (`role=alert`); lỗi form chung giữ banner. Chuyển tab xoá lỗi nhưng giữ giá trị.
+- Busy: đĩa xoay, nút disabled "Đang mở thư viện…", input blur (bàn phím hạ).
 
 ### 6.4 Trạng thái xử lý
 Timeline dọc cho mỗi lần upload: Tải ảnh → Nhận dạng chữ → Chuyển giọng → Sẵn sàng. Skeleton cho trang đang OCR; không spinner chặn toàn màn hình.
@@ -99,8 +118,14 @@ Hình khối dùng chung ở `web/js/components/ornament-shapes.js` (góc lượ
 | Tiêu đề trang (Thư viện, tên sách, Chụp trang sách) | Cormorant + đường kẻ `── ❦ ──` (`.fleuron-rule`, `.header-rule` dưới header) |
 | Tiêu đề mục, tiêu đề trong sheet | In hoa La Mã giãn chữ + hairline chạy tới hình thoi (`.section-heading`, `.player-sheet-section h3`) |
 | Divider có nhãn (Trang lỗi) | `◆──── NHÃN ────◆` (`.ornament`) |
+| Vỏ đĩa (sleeve) | Tỉ lệ 1:1, 5 màu da, khung đôi + 4 góc lượn + 2 fleuron, tên Cormorant ở giữa (3 dòng tối đa, co chữ theo độ dài) |
+| Đĩa than (disc) | Vinyl đen `#111` + viền mặt 3D, xoay 33⅓ vòng/phút khi phát (chỉ khi `playing`), tắt khi `prefers-reduced-motion` |
+| Cần đồng thau (tonearm) | Góc 9.5° → 29.5° theo % tiến độ, chuyên động mượt; lift khi pause, reset khi tab thùng/cue; màu brass hi/mid/lo theo độ sáng |
+| Tab thùng | In hoa + icon collapse/expand, sticky khi cuộn, nền `--surface-sunken`, viền vàng 1px |
+| Menu chủ đề (pull-down) | Nút segmented "Mọi chủ đề ⌃⌄", dropdown không cuộn ngang, mỗi mục text chủ đề + số sách |
+| Segmented control | Tabs in hoa giãn chữ, indicator trượt dưới tab chọn (không nền), focus viền `--gold` |
 | Tên kệ | Biển đồng thau viền đôi, dưới kệ vạch đôi 3px |
-| Màn đăng nhập | Frontispiece `OrnateFrame`; tab in hoa, tab chọn có gạch đỏ + hình thoi |
+| Màn đăng nhập | Hero `RecordSleeve` + `VinylDisc`; segmented Đăng nhập/Đăng ký in hoa; tab chọn có gạch đỏ + hình thoi; form nhóm; nút primary 52px |
 | Nút primary | Nền đỏ, hairline vàng lồng trong 2px, hình thoi hai bên nhãn |
 | Nút secondary / danger | Viền `--gold-soft` (danger: `--danger`) + rule lồng trong mờ |
 | Chip | Góc vuông, viền vàng; chip chọn giống nút primary (không hình thoi) |
@@ -136,3 +161,7 @@ Không làm: nền damask/hoạ tiết, góc lượn quanh mọi card, divider h
 ## 9. Anti-patterns
 
 Glassmorphism/Liquid Glass (kể cả topbar mờ), gradient neon, nền trắng tinh #FFF, emoji làm icon, chữ vàng nhỏ `--gold` trên nền ngà (dùng `--gold-ink`), animation trang trí > 300ms, auto-play khi mở app, hoa văn trong vùng đọc, góc lượn (`OrnateFrame`) ở mọi card, bo tròn lớn kiểu pill cho nút/chip.
+
+**Từ vinyl redesign:**
+- **Không gỗ**: thử kệ gỗ + mâm gỗ cho thùng/đĩa → loại (quá sạm, không khớp với ngà + vàng cổ).
+- **Không chip row ngang động**: topic menu cũ dùng chip cuộn ngang → chuyển sang segmented pull-down (cố định, dễ lướt).

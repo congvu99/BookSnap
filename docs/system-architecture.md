@@ -235,7 +235,17 @@ CREATE TABLE progress (
   updated_at TEXT NOT NULL,              -- For prefer-newer merge (local vs server)
   PRIMARY KEY(user_id, book_id)
 );
+
+CREATE TABLE bookmarks (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+  chunk_seq INTEGER NOT NULL,            -- Chunk sequence (unsealed tail can be replaced; seq survives)
+  created_at TEXT NOT NULL,
+  PRIMARY KEY(user_id, book_id, chunk_seq)
+);
 ```
+
+**Why `chunk_seq` not `chunk_id`:** The unsealed tail chunk is replaced when pages are added (`chunk_repository.replace_tail`), so its `id` changes; bookmarks keyed by `seq` survive the replacement.
 
 ### Indexes (for claim, resume, TTL)
 ```sql
@@ -279,6 +289,11 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 | DELETE | `/books/{id}` | ✓ người tạo | 204 | xoá DB + audio + ảnh tạm |
 | GET | `/books/{id}/export` | ✓ | 200 | ZIP stream (MP3 theo seq + `text.json`) |
 | GET/PUT | `/books/{id}/progress` | ✓ | 200 | `{chunk_seq, offset_ms, updated_at}` của user hiện tại |
+| **Bookmarks** ||||
+| GET | `/bookmarks` | ✓ | 200 | `[{book_id, book_title, chunk_seq, excerpt, created_at}]` (mới nhất trước, excerpt 160 ký tự) |
+| GET | `/books/{id}/bookmarks` | ✓ | 200 | `[chunk_seq]` cho sách này, user hiện tại |
+| PUT | `/books/{id}/bookmarks/{seq}` | ✓ | 200 | `{chunk_seq, created_at}`; idempotent (tái add giữ created_at cũ) |
+| DELETE | `/books/{id}/bookmarks/{seq}` | ✓ | 204 | xoá bookmark; idempotent (xoá 2 lần OK) |
 | **Topics** ||||
 | GET | `/topics` | ✓ | 200 | `[{id, name, book_count}]` — chỉ chủ đề đang có sách, sắp theo tên |
 | **Pages** ||||
@@ -309,6 +324,27 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 ```
 
 **Error codes:** `invalid_request` (400), `username_invalid` / `display_name_invalid` / `password_invalid` / `title_invalid` / `topic_invalid` / `text_invalid` (400), `unauthorized` / `invalid_credentials` (401), `forbidden` / `invite_invalid` (403), `not_found` (404), `page_seq_taken` / `username_taken` / `page_not_discardable` / `page_not_retryable` / `chunk_not_retryable` (409), `image_too_large` / `request_too_large` (413), `image_type_invalid` (415), `rate_limited` (429, có `Retry-After`).
+
+## Web Routes (Hash-based SPA)
+
+**App shell routes** (`web/js/app.js` parseRoute):
+- `#/auth` → `AuthView` (login/register, invite code)
+- `#/library` → `LibraryView` (crate library, hero "Continue")
+- `#/bookmarks` → Bookmarks view (per-user bookmarks, newest first)
+- `#/capture` / `#/capture/:bookId` → `CaptureView` (camera + upload queue)
+- `#/book/:id` → `BookStatusView` (processing timeline)
+- `#/read/:id` · `#/listen/:id` → `ReaderView` (mode="read" | "listen", same component instance; optional `?seq=N` to start at chunk N)
+
+**Key pattern:** Listen/read routes share a single `ReaderView` instance (keyed by `bookId`) so audio doesn't interrupt when user switches between read and listen mode. `parseRoute` returns `name='read'` with separate `mode` prop; the component re-renders but doesn't remount.
+
+## Service Worker (`web/sw.js`)
+
+**Cache strategy:**
+- **Shell cache** (cache-first): HTML, JS, CSS, fonts — version `booksnap-shell-v11` (bump on any `web/` change to bust cache)
+- **API cache** (network-first): `/api/*` fallback to cache if offline
+- **Audio cache** (cache on demand): user-initiated offline download per book
+
+**Shell assets** guarded by `tests/test_service_worker_assets.py` (ensure sw.js SHELL_ASSETS list matches files).
 
 ## Page Status Machine
 

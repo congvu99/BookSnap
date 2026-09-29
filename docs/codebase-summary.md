@@ -27,6 +27,7 @@ BookSnap/
 │   ├── api/                             HTTP routes & serializers
 │   │   ├── books_routes.py              [~70 LOC] POST/GET/PATCH/DELETE /books
 │   │   ├── pages_routes.py              [98 LOC] POST /pages (upload JPEG/PNG/WebP), retry, discard
+│   │   ├── bookmarks_routes.py          [~46 LOC] GET/PUT/DELETE /bookmarks, per-user bookmarks
 │   │   ├── audio_routes.py              [~45 LOC] GET /chunks/{id}/audio (Range request via Starlette)
 │   │   ├── voices_routes.py             [25 LOC] GET /voices (Gemini + Azure voice list)
 │   │   ├── export_routes.py             [104 LOC] GET /books/{id}/export (ZIP stream: MP3 + text.json)
@@ -36,6 +37,7 @@ BookSnap/
 │   │   ├── book_repository.py           [~90 LOC] CRUD books, get_summary (denormalized counts)
 │   │   ├── page_repository.py           [~130 LOC] CRUD pages, claim_next_uploaded, resume_processing
 │   │   ├── chunk_repository.py          [~160 LOC] CRUD chunks, claim_next_pending (sealing logic), tail ops
+│   │   ├── bookmark_repository.py       [~63 LOC] CRUD bookmarks, list per-user, per-book; idempotent add
 │   │   ├── user_repository.py           [~35 LOC] CRUD users, lookup by username
 │   │   ├── session_repository.py        [~35 LOC] CRUD sessions, lookup by token_hash
 │   │   ├── progress_repository.py       [~20 LOC] Upsert progress (per user_id + book_id)
@@ -62,7 +64,11 @@ BookSnap/
 │   ├── css/                             No CSS framework, design tokens only
 │   │   ├── tokens.css                   [~50 LOC] Colors (wine-red, ivory, gold), fonts (Cormorant)
 │   │   ├── app.css                      [~80 LOC] Global layout, form inputs, buttons
-│   │   ├── library.css                  [~60 LOC] Book grid, covers
+│   │   ├── library.css                  [~60 LOC] Crates, shelves, hero cards
+│   │   ├── vinyl.css                    [new] Record sleeve colors (5 palettes), vinyl disc, tonearm
+│   │   ├── now-playing.css              [new] Listen mode NowPlayingPanel + disc animation
+│   │   ├── bookmarks.css                [new] Bookmarks view styling
+│   │   ├── auth.css                     [new] iOS-optimized signin/signup form
 │   │   ├── camera.css                   [~50 LOC] Camera frame, shutter, progress
 │   │   └── reader.css                   [~60 LOC] Reader layout, timeline, mini-player
 │   │
@@ -74,10 +80,11 @@ BookSnap/
 │   │   ├── icon-192.png, icon-512.png   [maskable PNG]
 │   │
 │   └── js/                              ES modules (no build step)
-│       ├── app.js                       [100 LOC] Hash router (#/auth, #/library, #/capture, #/read)
+│       ├── app.js                       [100 LOC] Hash router (#/auth, #/library, #/bookmarks, #/capture, #/read, #/listen)
 │       ├── api-client.js                [~80 LOC] Fetch wrapper, 401 logout, error parsing
 │       ├── store.js                     [~60 LOC] AuthStore + ThemeStore (pub-sub, localStorage)
 │       ├── icons.js                     [~70 LOC] Inline SVG icons (Lucide-style, stroke 1.5)
+│       ├── sleeve-palette.js            [new] FNV-1a hash → 5 leather colors (wine, moss, slate, amber, parchment)
 │       ├── camera-capture.js            [~90 LOC] getUserMedia, canvas JPEG, torch, vibrate
 │       ├── upload-queue.js              [~120 LOC] Sequential upload, seq conflict + gap handling
 │       ├── audio-playlist.js            [~130 LOC] Dual <audio> preload, seek, playback rate
@@ -85,19 +92,28 @@ BookSnap/
 │       ├── media-session.js             [~40 LOC] Lock-screen play/pause/next/prev
 │       ├── offline-audio-cache.js       [~50 LOC] Cache API download, verify, remove
 │       ├── offline-book-cache.js        [~40 LOC] localStorage per-book manifest
+│       ├── text-fold.js                 [new] Accent-insensitive search (strip diacritics)
 │       │
 │       ├── views/                       Route components (Preact)
-│       │   ├── auth-view.js             [~80 LOC] Register/login form, invite code validation
-│       │   ├── library-view.js          [~70 LOC] Book grid, empty state, offline fallback
+│       │   ├── auth-view.js             [~90 LOC] iOS-optimized signin (hero + segmented + form), invite validation
+│       │   ├── library-view.js          [~120 LOC] Crates by topic, hero "Continue", iOS topic menu, search
+│       │   ├── bookmarks-view.js        [new] Per-user bookmarks list (newest first)
 │       │   ├── capture-view.js          [~240 LOC] Book chooser → camera → shutter + thumbnail strip
 │       │   ├── book-status-view.js      [~90 LOC] Timeline (pages, chunks), retry, discard buttons
-│       │   └── reader-view.js           [~310 LOC] Reader (text + highlight), player shell, progress sync
+│       │   └── reader-view.js           [~395 LOC] Reader (text + highlight) + listen mode (disc+tonearm), progress sync
 │       │
 │       └── components/                  Reusable UI components
-│           ├── book-cover.js            [~30 LOC] Visual book cover render
-│           ├── bottom-nav.js            [~50 LOC] Tab bar (library, capture, library, settings)
+│           ├── record-sleeve.js         [new] Square record sleeve (1:1) with 5 leather colors
+│           ├── vinyl-disc.js            [new] Vinyl disc animation (33⅓ rpm when playing)
+│           ├── tonearm.js               [new] Brass tonearm (angle by % progress, lift on pause)
+│           ├── now-playing-panel.js     [new] Listen mode: full-screen sleeve/disc + controls
+│           ├── library-crate.js         [new] Crate section (topic tab + grid of sleeves)
+│           ├── library-hero-card.js     [new] Hero "Continue" card (sleeve + disc + button)
+│           ├── library-account-menu.js  [new] Account menu (logout, language)
+│           ├── topic-filter-menu.js     [new] iOS segmented "Mọi chủ đề ⌃⌄" pull-down
+│           ├── bottom-nav.js            [~52 LOC] Tab bar (library, bookmarks, capture, listen; 4 items)
 │           ├── progress-timeline.js     [~70 LOC] Page/chunk status timeline
-│           ├── mini-player.js           [~60 LOC] Inline player: play/pause/rate/download
+│           ├── mini-player.js           [~90 LOC] Inline player with sleeve icon + disc (48px)
 │           ├── player-sheet.js          [~80 LOC] Bottom sheet: rate, theme, offline mode, export
 │           ├── chunk-paragraph.js       [~50 LOC] Text render + edit button (long-press)
 │           └── chunk-editor.js          [~50 LOC] Edit dialog for chunk text

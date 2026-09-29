@@ -66,3 +66,5 @@ Không làm (YAGNI): đổi tên/xoá chủ đề, nhiều chủ đề/sách, m�
 - Mở rộng theo yêu cầu user: hoa văn cổ điển Tây Âu mức "Vừa" cho phần khung (`web/css/ornaments.css`, `ornament-shapes.js`, `ornate-frame.js`); ghi vào `docs/design-guidelines.md` §6.5.
 - Chưa kiểm: thiết bị thật (iOS/Android), Lighthouse a11y.
 
+**Note:** Quyết định T4 (một bìa đỏ chung) bị thay bởi **[plans/260929-1545-vinyl-library-redesign](../260929-1545-vinyl-library-redesign/plan.md)** — V3 dùng 5 màu da thay vì một màu chung.
+

@@ -18,14 +18,17 @@
 - [x] Audio file storage: hash-based cache (`{seq:05d}-{hash[:8]}.mp3`)
 - [x] Worker lifecycle: resume on restart, graceful shutdown
 
-**Frontend (Phase 3–4):**
+**Frontend (Phase 3–6):**
 - [x] PWA (no build step, Preact + htm vendored)
 - [x] Camera: `getUserMedia` + canvas JPEG (no device library)
-- [x] Library: book grid, create/delete, owner-only voice change
+- [x] Library: **vinyl redesign** — record crates by topic, 5-color sleeves (hash by book.id), hero "Continue", sticky tabs, iOS topic menu, search
+- [x] Listen mode: dedicated `#/listen/:id` (sleeve + disc + tonearm), 33⅓ rpm spin, tonearm angle by progress, pause → lift + slide
+- [x] Bookmarks: per-user marks by chunk_seq, full-stack (DB + API + UI)
 - [x] Capture: sequential upload queue, seq conflict handling
 - [x] Reader: text display, tap-to-jump, sync highlight
-- [x] Audio player: dual-audio preload, seek, playback rate
-- [x] Offline: SW cache-first shell, network-first API, Range requests for partial audio
+- [x] Audio player: dual-audio preload, seek, playback rate; mini-player with disc icon
+- [x] Auth: iOS-optimized signin (hero + segmented + form, correct autocomplete attrs, 17px fonts)
+- [x] Offline: SW cache-first shell (bumped to v11), network-first API, Range requests for partial audio
 - [x] Progress: local 5s + server 15s debounce, prefer-newer merge
 
 **Deploy (Phase 5 partial):**
