@@ -4,12 +4,15 @@ import { booksApi } from '../api-client.js';
 import { CameraCapture, CameraError } from '../camera-capture.js';
 import { MAX_PAGES_PER_SESSION, UploadQueue } from '../upload-queue.js';
 import { Icon } from '../icons.js';
+import { TopicInput } from '../components/topic-input.js';
+import { OrnateFrame } from '../components/ornate-frame.js';
 
 /** @param {{ bookId?: string }} props */
 export function CaptureView({ bookId }) {
   const [step, setStep] = useState(bookId ? 'camera' : 'choose');
   const [books, setBooks] = useState(/** @type {any[]} */ ([]));
   const [newTitle, setNewTitle] = useState('');
+  const [newTopic, setNewTopic] = useState('');
   const [chooseError, setChooseError] = useState(/** @type {string|null} */ (null));
   const [activeBookId, setActiveBookId] = useState(bookId || null);
   const [nextSeq, setNextSeq] = useState(0);
@@ -87,7 +90,7 @@ export function CaptureView({ bookId }) {
     const title = newTitle.trim();
     if (!title) return;
     try {
-      const book = await booksApi.create({ title });
+      const book = await booksApi.create({ title, topic: newTopic.trim() || null });
       setActiveBookId(book.id);
       setStep('camera');
       window.location.hash = `#/capture/${book.id}`;
@@ -147,18 +150,20 @@ export function CaptureView({ bookId }) {
   if (step === 'choose') {
     return html`
       <div class="container">
-        <h1>Chụp trang sách</h1>
+        <h1 style=${{ marginBottom: 0 }}>Chụp trang sách</h1>
+        <div class="fleuron-rule" aria-hidden="true"><i></i></div>
         ${chooseError && html`<div class="banner banner-error" role="alert">${chooseError}</div>`}
-        <form onSubmit=${startWithNewBook} class="card" style=${{ marginBottom: '24px' }}>
+        <${OrnateFrame} as="form" onSubmit=${startWithNewBook} className="card" style=${{ marginBottom: '24px' }}>
           <div class="field">
             <label for="new-title">Sách mới</label>
             <input id="new-title" placeholder="Tên sách" value=${newTitle} onInput=${(e) => setNewTitle(e.currentTarget.value)} />
           </div>
+          <${TopicInput} id="new-topic" value=${newTopic} onInput=${setNewTopic} />
           <button type="submit" class="btn btn-primary btn-block" disabled=${!newTitle.trim()}>Bắt đầu chụp</button>
-        </form>
+        <//>
         ${books.length > 0 &&
         html`
-          <h2>Thêm vào sách có sẵn</h2>
+          <h2 class="section-heading">Thêm vào sách có sẵn</h2>
           <ul style=${{ listStyle: 'none', padding: 0 }}>
             ${books.map(
               (b) => html`
@@ -180,7 +185,8 @@ export function CaptureView({ bookId }) {
     return html`
       <div class="capture-permission">
         <${Icon} name="alert-circle" size=${48} />
-        <h2>Không dùng được camera</h2>
+        <h2 style=${{ margin: 0 }}>Không dùng được camera</h2>
+        <div class="fleuron-rule" aria-hidden="true"><i></i></div>
         <p>${cameraError}</p>
         <p class="text-muted">Cần bật quyền Camera cho trang này trong cài đặt trình duyệt, và trang phải chạy qua HTTPS.</p>
         <a class="btn btn-primary" href="#/library">Về thư viện</a>

@@ -40,6 +40,7 @@ export function MiniPlayer({
       <input
         type="range"
         class="mini-player-progress"
+        style=${{ '--fill': `${pct}%` }}
         min="0"
         max="1000"
         value=${Math.round(pct * 10)}

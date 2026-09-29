@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from app.pipeline.text_chunker import MAX_CHARS, MIN_CHARS, chunk_text
+from app.pipeline.text_chunker import MAX_CHARS, MIN_CHARS, chunk_text, spoken_text
 
 
 def _words(text: str) -> list[str]:
@@ -95,3 +95,24 @@ def test_cross_page_join_without_blank_line_reads_as_one_paragraph():
     chunks = chunk_text(joined)
     assert len(chunks) == 1
     assert chunks[0] == joined
+
+
+def test_heading_stays_on_its_own_line_above_the_paragraph():
+    page = "Chương một: Mùa nước nổi\n\nBuổi sáng hôm ấy, sương còn phủ trắng mặt sông. Ông Tư chống xuồng."
+    assert chunk_text(page) == ["Chương một: Mùa nước nổi\nBuổi sáng hôm ấy, sương còn phủ trắng mặt sông. Ông Tư chống xuồng."]
+
+
+def test_sentences_within_one_paragraph_join_with_a_space():
+    assert chunk_text("Câu một. Câu hai.\n\nĐoạn hai.") == ["Câu một. Câu hai.\nĐoạn hai."]
+
+
+def test_spoken_text_adds_a_pause_after_a_heading_only():
+    assert spoken_text("Chương một\nBuổi sáng hôm ấy.") == "Chương một. Buổi sáng hôm ấy."
+    assert spoken_text("Anh nói: “Đi thôi.”\nCô gật đầu.") == "Anh nói: “Đi thôi.” Cô gật đầu."
+
+
+def test_spoken_text_leaves_a_sentence_that_continues_in_the_next_chunk_open():
+    assert spoken_text("Con đường làng quanh co dẫn") == "Con đường làng quanh co dẫn"
+    assert spoken_text("Chương hai\nCon đường làng quanh co dẫn") == "Chương hai. Con đường làng quanh co dẫn"
+
+

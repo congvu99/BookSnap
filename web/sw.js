@@ -3,7 +3,7 @@
 // Range requests with 206 + Content-Range for Safari's <audio> to seek while offline.
 // v2: fixes C3 (206 responses can never be cache.put'd — see handleChunkAudio) and ships the
 // H3/M3/M4 client-side fixes; bumped so already-installed clients pick up the new sw.js bytes.
-const SHELL_CACHE = 'booksnap-shell-v4';
+const SHELL_CACHE = 'booksnap-shell-v10';
 const AUDIO_CACHE = 'booksnap-audio-v1';
 
 const SHELL_ASSETS = [
@@ -15,6 +15,7 @@ const SHELL_ASSETS = [
   '/css/library.css',
   '/css/camera.css',
   '/css/reader.css',
+  '/css/ornaments.css',
   '/vendor/preact-htm.module.js',
   '/js/app.js',
   '/js/api-client.js',
@@ -37,6 +38,9 @@ const SHELL_ASSETS = [
   '/js/components/progress-timeline.js',
   '/js/components/mini-player.js',
   '/js/components/player-sheet.js',
+  '/js/components/topic-input.js',
+  '/js/components/ornament-shapes.js',
+  '/js/components/ornate-frame.js',
   '/js/components/chunk-paragraph.js',
   '/js/components/chunk-editor.js',
   '/icons/icon.svg',

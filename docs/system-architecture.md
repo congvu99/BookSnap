@@ -57,7 +57,7 @@ POST /api/books/{id}/pages
     ├─ For each book, walk contiguous seqs from 0
     ├─ Stop at first missing/failed/non-ocr_done page (ordering invariant)
     ├─ Incorporate pages' text into carry string (join with space or \n\n)
-    ├─ Split carry via chunker.chunk_text (1000–1500 chars)
+    ├─ Split carry via chunker.chunk_text (1000–1500 chars; paragraph breaks kept as one newline per chunk)
     ├─ Replace unsealed tail chunk: DELETE old, INSERT pieces
     ├─ Mark pages chunked=1
     ↓
@@ -65,7 +65,8 @@ POST /api/books/{id}/pages
     ├─ Claim next pending chunk: SELECT … WHERE status='pending' AND sealed=1
     │   OR (tail AND book idle > grace_seconds)
     ├─ Hash(text, provider, voice): check if audio exists on disk
-    ├─ If miss: call TTS provider (respects RPM limiter + quota pause)
+    ├─ If miss: call TTS provider with text_chunker.spoken_text(text) — paragraphs flattened,
+    │   full stop added after headings so the voice pauses (respects RPM limiter + quota pause)
     ├─ Get MP3 bytes, write to /data/library/{book_id}/{seq:05d}-{hash[:8]}.mp3
     ├─ Mark status='done', store content_hash + claim_token
     ├─ On quota (429): mark status='waiting_quota', set not_before, pause provider
@@ -73,7 +74,7 @@ POST /api/books/{id}/pages
     ↓
 [Client — Reader]
     ├─ Poll GET /api/books/{id}/chunks
-    ├─ For each chunk: display text, audio_url (if done)
+    ├─ For each chunk: display text (one <p> per paragraph; short unpunctuated lines as headings), audio_url (if done)
     ├─ <audio> Range-request MP3 from /api/chunks/{id}/audio
     ├─ SW passes through (online) or serves from cache (offline)
     ├─ Track progress: local 5s → server 15s debounce
@@ -111,13 +112,14 @@ User:      Press "Retry" on page 2 → pages.status='ocr_processing' → chunks 
 - Chunker always preserves 1 unsealed (`sealed=0`) tail chunk
 - `ChunkRepository.claim_next_pending`: atomic SQL check
   ```sql
-  UPDATE chunks SET status='processing', sealed=1, claim_token=?, … 
-  WHERE (sealed=1 OR (book.updated_at <= now - grace AND no active pages))
-  AND status='pending' AND claim_token IS NULL
-  RETURNING …
+  UPDATE chunks SET status='processing', sealed=1, claim_token=<new>, provider=<book>, voice=<book>
+  WHERE id = (oldest pending chunk of an unpaused provider
+              AND (sealed=1 OR (book.updated_at <= now - grace AND no uploaded/ocr_processing page)))
+  AND status='pending'
+  RETURNING *
   ```
-- On voice change or text edit: leave `processing` chunks alone (D2 re-review fix)
-- Claim token prevents stale TTS finishing after chunk was re-claimed (H2 partial fix)
+- Voice change / text edit / retry reset the chunk to `pending` even while it is `processing`; the in-flight run then fails the claim-token check in `mark_*` and deletes its own file unless another row references it
+- Claiming seals the chunk, so pages added later start a new chunk instead of rewriting spoken text
 
 **Result:** Last chunk of a book synthesizes after grace period, but never early.
 
@@ -179,6 +181,7 @@ CREATE TABLE books (
   created_by TEXT NOT NULL REFERENCES users(id),
   tts_provider TEXT NOT NULL,            -- "gemini" or "azure"
   tts_voice TEXT NOT NULL,               -- e.g. "Kore", "vi-VN-HoaiMyNeural" (not validated; M1)
+  topic_id TEXT REFERENCES topics(id),   -- v3; NULL = "Chưa phân loại"
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL               -- Touched on every relevant change (for tail-seal grace)
 );
@@ -241,9 +244,15 @@ CREATE INDEX idx_pages_status ON pages(status);
 CREATE INDEX idx_chunks_status ON chunks(status);
 ```
 
-**Migration #2 (post-review):**
+**Migrations (append-only, `PRAGMA user_version`):**
 ```sql
-ALTER TABLE chunks ADD COLUMN claim_token TEXT;  -- C1 fix
+-- v2: guard TTS results against a chunk reset/re-claimed mid-synthesis
+ALTER TABLE chunks ADD COLUMN claim_token TEXT;
+-- v3: shared user-created topics, 0–1 per book
+CREATE TABLE topics (id TEXT PRIMARY KEY, name TEXT NOT NULL, name_key TEXT NOT NULL UNIQUE,
+                     created_by TEXT REFERENCES users(id), created_at TEXT NOT NULL);
+ALTER TABLE books ADD COLUMN topic_id TEXT REFERENCES topics(id);
+CREATE INDEX idx_books_topic ON books(topic_id);
 ```
 
 **Single aiosqlite connection (async), one write lock (asyncio.Lock) around all mutations. Reads don't lock.**
@@ -252,32 +261,41 @@ ALTER TABLE chunks ADD COLUMN claim_token TEXT;  -- C1 fix
 
 **Base:** `/api/` (all except `register`/`login`/`logout` require `CurrentUser`).
 
+Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cookie session, thiếu → 401.
+
 | Method | Path | Auth | Status | Returns |
 |--------|------|------|--------|---------|
 | **Auth** ||||
-| POST | `/auth/register` | — | 201 | `{id, username, display_name}` |
-| POST | `/auth/login` | — | 200 | (sets cookie) |
-| POST | `/auth/logout` | ✓ | 204 | — |
+| POST | `/auth/register` | — | 201 | `{id, username, display_name}` + cookie; cần `invite_code` |
+| POST | `/auth/login` | — | 200 | `{id, username, display_name}` + cookie |
+| POST | `/auth/logout` | — | 204 | xoá session nếu có (idempotent) |
 | GET | `/me` | ✓ | 200 | `{id, username, display_name}` |
+| GET | `/me/continue` | ✓ | 200 | `[book_out]` sách user đang nghe dở, mới nhất trước |
 | **Books** ||||
-| POST | `/books` | ✓ | 201 | `book_out(...)` |
-| GET | `/books` | ✓ | 200 | `[book_out(...), …]` |
-| GET | `/books/{id}` | ✓ | 200 | `book_out(...)` |
-| PATCH | `/books/{id}` | ✓ | 200 | `book_out(...)` (title, tts_voice, tts_provider) |
-| DELETE | `/books/{id}` | ✓ | 204 | — (creator only) |
-| GET | `/books/{id}/export` | ✓ | 200 | ZIP stream (MP3 + text.json) |
+| POST | `/books` | ✓ | 201 | `book_detail`; body `{title, topic?, tts_provider?, tts_voice?}` |
+| GET | `/books` | ✓ | 200 | `[book_out]` (thư viện chung, tiến độ của user hiện tại) |
+| GET | `/books/{id}` | ✓ | 200 | `book_detail` = `book_out` + `page_list` + `pages.missing_seqs` |
+| PATCH | `/books/{id}` | ✓ người tạo | 200 | `book_detail`; `title?`, `topic?` (null/"" = bỏ, bỏ trống field = giữ), `tts_provider?`, `tts_voice?` (đổi giọng → mọi chunk về `pending`) |
+| DELETE | `/books/{id}` | ✓ người tạo | 204 | xoá DB + audio + ảnh tạm |
+| GET | `/books/{id}/export` | ✓ | 200 | ZIP stream (MP3 theo seq + `text.json`) |
+| GET/PUT | `/books/{id}/progress` | ✓ | 200 | `{chunk_seq, offset_ms, updated_at}` của user hiện tại |
+| **Topics** ||||
+| GET | `/topics` | ✓ | 200 | `[{id, name, book_count}]` — chỉ chủ đề đang có sách, sắp theo tên |
 | **Pages** ||||
-| POST | `/books/{id}/pages` | ✓ | 202 | `page_out(...)` (uploads JPEG/PNG/WebP image) |
-| POST | `/books/{id}/pages/{seq}/discard` | ✓ | 200 | `page_out(...)` (marks failed/missing seq as discarded) |
-| POST | `/pages/{id}/retry` | ✓ | 200 | `page_out(...)` (reset failed page to `uploaded`) |
+| POST | `/books/{id}/pages` | ✓ | 202 (200 khi gửi lại cùng `upload_id`) | `page_out`; multipart `image`, `seq`, `upload_id?` |
+| POST | `/books/{id}/pages/{seq}/discard` | ✓ | 200 | `page_out`; trang `failed` hoặc seq còn thiếu (≤ next_seq) |
+| POST | `/pages/{id}/retry` | ✓ | 200 | `page_out`; chỉ trang `failed` còn ảnh |
 | **Chunks** ||||
-| GET | `/books/{id}/chunks` | ✓ | 200 | `[chunk_out(...), …]` |
-| GET | `/chunks/{id}/audio` | ✓ | 200/206 | MP3 bytes (Ranges supported for offline) |
-| PUT | `/books/{id}/progress` | ✓ | 204 | (chunk_seq, offset_ms) |
+| GET | `/books/{id}/chunks` | ✓ | 200 | `[chunk_out]`; `audio_url` chỉ có khi `done` |
+| PATCH | `/chunks/{id}` | ✓ | 200 | `chunk_out`; sửa `text` → seal + `pending` |
+| POST | `/chunks/{id}/retry` | ✓ | 200 | `chunk_out`; từ `failed`/`waiting_quota` |
+| GET | `/chunks/{id}/audio` | ✓ | 200/206 | MP3, hỗ trợ `Range` |
 | **Voices** ||||
 | GET | `/voices` | ✓ | 200 | `{default_provider, providers: {gemini: {default, voices}, azure: {…}}}` |
 | **Health** ||||
 | GET | `/health` | — | 200/503 | `{status, db, data_dir}` |
+
+`book_out.topic` = `{id, name}` hoặc `null`. Chủ đề được nhận diện theo `name_key` (NFC + casefold + gộp khoảng trắng): "Văn học" và "VĂN  HỌC" là một.
 
 **Error format (all endpoints):**
 ```json
@@ -290,7 +308,7 @@ ALTER TABLE chunks ADD COLUMN claim_token TEXT;  -- C1 fix
 }
 ```
 
-**Error codes:** `page_seq_taken`, `page_not_discardable`, `page_not_retryable`, `image_too_large`, `image_type_invalid`, `book_not_found`, `invalid_invite_code`, `username_taken`, `unauthorized`, `forbidden`, `offline`, `request_too_large`, …
+**Error codes:** `invalid_request` (400), `username_invalid` / `display_name_invalid` / `password_invalid` / `title_invalid` / `topic_invalid` / `text_invalid` (400), `unauthorized` / `invalid_credentials` (401), `forbidden` / `invite_invalid` (403), `not_found` (404), `page_seq_taken` / `username_taken` / `page_not_discardable` / `page_not_retryable` / `chunk_not_retryable` (409), `image_too_large` / `request_too_large` (413), `image_type_invalid` (415), `rate_limited` (429, có `Retry-After`).
 
 ## Page Status Machine
 

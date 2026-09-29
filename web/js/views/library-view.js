@@ -46,6 +46,37 @@ function BookCard({ book, offline = false }) {
   `;
 }
 
+const UNSORTED_LABEL = 'Chưa phân loại';
+
+/**
+ * One shelf per topic, sorted by Vietnamese collation; books without a topic go last.
+ * Within a shelf books keep the server order (most recently updated first).
+ * @param {any[]} books @returns {{key: string, name: string, books: any[]}[]}
+ */
+export function groupIntoShelves(books) {
+  const shelves = new Map();
+  for (const book of books) {
+    const key = book.topic ? book.topic.id : '';
+    if (!shelves.has(key)) shelves.set(key, { key, name: book.topic ? book.topic.name : UNSORTED_LABEL, books: [] });
+    shelves.get(key).books.push(book);
+  }
+  const named = [...shelves.values()].filter((s) => s.key !== '');
+  named.sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }));
+  return shelves.has('') ? [...named, shelves.get('')] : named;
+}
+
+function Shelf({ shelf, offline }) {
+  const headingId = `shelf-${shelf.key || 'unsorted'}`;
+  return html`
+    <section class="shelf" aria-labelledby=${headingId}>
+      <h2 class="shelf-title" id=${headingId}>${shelf.name} <span class="shelf-count">${shelf.books.length}</span></h2>
+      <div class="shelf-row">
+        ${shelf.books.map((b) => html`<div class="shelf-item" key=${b.id}><${BookCard} book=${b} offline=${offline} /></div>`)}
+      </div>
+    </section>
+  `;
+}
+
 export function LibraryView() {
   const [books, setBooks] = useState(/** @type {any[]|null} */ (null));
   const [continuing, setContinuing] = useState(/** @type {any[]} */ ([]));
@@ -92,12 +123,13 @@ export function LibraryView() {
   return html`
     <div>
       <header class="library-header">
-        <h1 style=${{ margin: 0, fontSize: '24px' }}>Thư viện</h1>
+        <h1 style=${{ margin: 0, fontSize: '28px' }}>Thư viện</h1>
         <div class="library-user">
           <span>${user ? user.display_name : ''}</span>
           <button class="icon-btn" aria-label="Đăng xuất" onClick=${logout}><${Icon} name="log-out" /></button>
         </div>
       </header>
+      <div class="fleuron-rule header-rule" aria-hidden="true"><i></i></div>
 
       <div class="container">
         ${error && html`<div class="banner banner-error" role="alert">${error}</div>`}
@@ -107,14 +139,13 @@ export function LibraryView() {
         ${continuing.length > 0 &&
         html`
           <section class="continue-section">
-            <h2>Tiếp tục nghe</h2>
+            <h2 class="section-heading">Tiếp tục nghe</h2>
             <div class="continue-scroll">
               ${continuing.map((b) => html`<div class="continue-card" key=${b.id}><${BookCard} book=${b} offline=${isOffline} /></div>`)}
             </div>
           </section>
         `}
 
-        <h2>Toàn bộ sách</h2>
         ${books === null &&
         html`<div class="book-grid">
           ${[1, 2, 3, 4].map((i) => html`<div class="skeleton" style=${{ aspectRatio: '2/3' }} key=${i}></div>`)}
@@ -123,12 +154,13 @@ export function LibraryView() {
         html`
           <div class="empty-state">
             <${Icon} name="book-open" size=${64} />
+            <div class="fleuron-rule" aria-hidden="true"><i></i></div>
             <p>Chưa có sách nào trong thư viện.</p>
             <a class="btn btn-primary" href="#/capture">Chụp trang sách đầu tiên</a>
           </div>
         `}
         ${books !== null && books.length > 0 &&
-        html`<div class="book-grid">${books.map((b) => html`<${BookCard} key=${b.id} book=${b} offline=${isOffline} />`)}</div>`}
+        groupIntoShelves(books).map((shelf) => html`<${Shelf} key=${shelf.key || 'unsorted'} shelf=${shelf} offline=${isOffline} />`)}
       </div>
     </div>
   `;

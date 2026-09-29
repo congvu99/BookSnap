@@ -101,6 +101,12 @@ export const chunksApi = {
   retry: (id) => apiFetch(`/api/chunks/${id}/retry`, { method: 'POST' }),
 };
 
+// ---- Topics ----
+export const topicsApi = {
+  /** Topics that currently hold at least one book: [{id, name, book_count}] sorted by name. */
+  list: () => apiFetch('/api/topics'),
+};
+
 // ---- Voices ----
 export const voicesApi = {
   list: () => apiFetch('/api/voices'),

@@ -1,7 +1,8 @@
 // Sheet mở rộng: tốc độ, hẹn giờ tắt, cỡ chữ, sáng/tối, tải offline, cài đặt sách (chủ sách).
-import { html, useState } from '../../vendor/preact-htm.module.js';
+import { html, useEffect, useState } from '../../vendor/preact-htm.module.js';
 import { Icon } from '../icons.js';
 import { setTheme } from '../store.js';
+import { TopicInput } from './topic-input.js';
 
 const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
 const SLEEP_OPTIONS = [
@@ -19,12 +20,26 @@ const FONT_SIZES = [16, 18, 20, 22, 24];
  *   theme:string, sleepMinutes:number|null, onSetSleep:(m:number|null)=>void,
  *   downloadState:{status:string, done:number, total:number}, onDownload:()=>void,
  *   canManage:boolean, book:object, voices:object|null,
- *   onChangeVoice:(provider:string, voice:string)=>void, onDelete:()=>void, exportUrl:string,
+ *   onChangeVoice:(provider:string, voice:string)=>void, onChangeTopic:(name:string)=>Promise<boolean>, onDelete:()=>void, exportUrl:string,
  *   onClose:()=>void,
  * }} props
  */
 export function PlayerSheet(props) {
-  const { rate, onSetRate, fontSize, onSetFontSize, sleepMinutes, onSetSleep, downloadState, onDownload, canManage, book, voices, onChangeVoice, onDelete, exportUrl, onClose } = props;
+  const { rate, onSetRate, fontSize, onSetFontSize, sleepMinutes, onSetSleep, downloadState, onDownload, canManage, book, voices, onChangeVoice, onChangeTopic, onDelete, exportUrl, onClose } = props;
+  const savedTopic = book.topic ? book.topic.name : '';
+  const [topicDraft, setTopicDraft] = useState(savedTopic);
+  // Show the server's spelling after a save ("VĂN HỌC" → "Văn học").
+  useEffect(() => setTopicDraft(savedTopic), [savedTopic]);
+
+  async function commitTopic(value) {
+    if (value.trim() === savedTopic) return;
+    if (!(await onChangeTopic(value.trim()))) setTopicDraft(savedTopic);
+  }
+
+  function close() {
+    if (canManage) commitTopic(topicDraft);
+    onClose();
+  }
   const [confirmVoice, setConfirmVoice] = useState(/** @type {string|null} */ (null));
   const theme = props.theme;
 
@@ -38,7 +53,7 @@ export function PlayerSheet(props) {
   }
 
   return html`
-    <div class="player-sheet-backdrop" onClick=${onClose}></div>
+    <div class="player-sheet-backdrop" onClick=${close}></div>
     <div class="player-sheet" role="dialog" aria-label="Tuỳ chọn phát">
       <div class="player-sheet-handle"></div>
 
@@ -90,6 +105,12 @@ export function PlayerSheet(props) {
       html`
         <div class="player-sheet-section">
           <h3>Cài đặt sách</h3>
+          <${TopicInput}
+            id="book-topic"
+            value=${topicDraft}
+            onInput=${setTopicDraft}
+            onCommit=${commitTopic}
+          />
           ${voices &&
           html`
             <div class="field">

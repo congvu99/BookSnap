@@ -250,6 +250,17 @@ export function ReaderView({ bookId }) {
     }
   }
 
+  /** @returns {Promise<boolean>} false when the server rejected the topic (the sheet then reverts). */
+  async function handleChangeTopic(name) {
+    try {
+      setBook(await booksApi.patch(bookId, { topic: name || null }));
+      return true;
+    } catch (err) {
+      setError(err.message);
+      return false;
+    }
+  }
+
   async function handleDelete() {
     if (!window.confirm('Xoá sách này? Không thể hoàn tác.')) return;
     try {
@@ -332,6 +343,7 @@ export function ReaderView({ bookId }) {
         book=${book}
         voices=${voices}
         onChangeVoice=${handleChangeVoice}
+        onChangeTopic=${handleChangeTopic}
         onDelete=${handleDelete}
         exportUrl=${booksApi.exportUrl(bookId)}
         onClose=${() => setSheetOpen(false)}

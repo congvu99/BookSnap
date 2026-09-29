@@ -4,6 +4,8 @@ Rules (see plan.md D-decisions / phase-02 spec):
 - Split on sentence enders `. ! ? … : ;` and newlines. A run of consecutive enders
   (e.g. "...", "?!") counts as a single boundary; a boundary only "counts" when
   followed by whitespace or end of line, so things like "3.14" are not split.
+- Paragraph breaks (line breaks in the input) survive inside a chunk as a single newline, so a
+  heading never runs into the paragraph under it; sentences of one paragraph join with a space.
 - Merge sentences into chunks, aiming for ~TARGET_CHARS, never exceeding MAX_CHARS.
   MIN_CHARS is a soft target used while merging (we keep adding sentences until we
   reach it); the very last chunk of a text may end up shorter since there is
@@ -22,6 +24,7 @@ TARGET_CHARS = 1200
 MAX_CHARS = 1500
 
 _SENTENCE_ENDERS = ".!?…:;"
+_CLOSERS = "\"'”’»)]"
 
 
 def chunk_text(text: str) -> list[str]:
@@ -35,14 +38,30 @@ def chunk_text(text: str) -> list[str]:
     return _merge(sentences)
 
 
-def _split_sentences(text: str) -> list[str]:
-    sentences: list[str] = []
+def spoken_text(chunk: str) -> str:
+    """Chunk text as sent to TTS: paragraphs flattened onto one line.
+
+    A paragraph with no sentence ender (a heading such as "Chương một") gets a full stop so
+    the voice pauses before the next paragraph. The last paragraph is left alone: it may be
+    the first half of a sentence that continues in the next chunk.
+    """
+    lines = [line.strip() for line in chunk.splitlines() if line.strip()]
+    return " ".join(
+        line if i == len(lines) - 1 or line.rstrip(_CLOSERS)[-1:] in _SENTENCE_ENDERS else line + "."
+        for i, line in enumerate(lines)
+    )
+
+
+def _split_sentences(text: str) -> list[tuple[str, bool]]:
+    """Sentences paired with whether each one opens a paragraph."""
+    sentences: list[tuple[str, bool]] = []
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
             continue
-        sentences.extend(_split_line(line))
-    return [s for s in sentences if s]
+        parts = [part for part in _split_line(line) if part]
+        sentences.extend((part, i == 0) for i, part in enumerate(parts))
+    return sentences
 
 
 def _split_line(line: str) -> list[str]:
@@ -69,12 +88,13 @@ def _split_line(line: str) -> list[str]:
     return out
 
 
-def _merge(sentences: list[str]) -> list[str]:
+def _merge(sentences: list[tuple[str, bool]]) -> list[str]:
     chunks: list[str] = []
     current = ""
-    for sentence in sentences:
-        for piece in _split_long_sentence(sentence):
-            candidate = f"{current} {piece}".strip() if current else piece
+    for sentence, opens_paragraph in sentences:
+        for i, piece in enumerate(_split_long_sentence(sentence)):
+            separator = "\n" if opens_paragraph and i == 0 else " "
+            candidate = f"{current}{separator}{piece}" if current else piece
             if len(candidate) <= MAX_CHARS:
                 current = candidate
                 if len(current) >= TARGET_CHARS:

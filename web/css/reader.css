@@ -3,7 +3,7 @@
 .reader-topbar {
   position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
   padding: calc(env(safe-area-inset-top) + var(--space-2)) var(--space-3) var(--space-2);
-  background: var(--bg); border-bottom: 1px solid var(--border);
+  background: var(--bg); border-bottom: 3px double var(--gold-soft);
 }
 .reader-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; text-align: center; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -19,7 +19,17 @@
   transition: background-color 200ms ease-out;
   background: transparent;
 }
-.reader-paragraph[aria-current='true'] { background: var(--highlight); }
+/* The only ornament touching the text: a gilt rule marking the paragraph being read aloud. */
+.reader-paragraph[aria-current='true'] { background: var(--highlight); box-shadow: inset 2px 0 0 var(--gold); }
+.reader-line { margin: 0 0 .5em; }
+.reader-line:last-child { margin-bottom: 0; }
+.reader-line--heading {
+  font-family: var(--font-display); font-weight: 600; font-size: 1.3em; line-height: 1.3; text-align: center;
+  margin: .4em 0 .8em; text-wrap: balance;
+}
+.reader-edit-btn, .reader-play-btn { width: 32px; height: 32px; vertical-align: middle; }
+/* Play-from-here is a tap on the text for pointer users; keyboard users get this button on focus. */
+.reader-play-btn:not(:focus-visible) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .reader-paragraph-meta { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-muted); margin-bottom: 4px; font-family: var(--font-ui); }
 .reader-paragraph--pending { color: var(--ink-muted); }
 .reader-paragraph--failed .reader-paragraph-meta { color: var(--danger); }
@@ -28,26 +38,38 @@
 .scroll-resume-btn {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: 150px; z-index: 15;
   background: var(--ink); color: var(--bg); border: none; border-radius: 999px;
-  padding: var(--space-2) var(--space-4); font-size: 14px; box-shadow: var(--elevation-sheet);
+  padding: var(--space-2) var(--space-4); font-size: 14px;
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 3px var(--gold), var(--elevation-sheet);
   display: flex; align-items: center; gap: 6px;
 }
 
 .mini-player {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-  background: var(--surface-sunken); box-shadow: var(--elevation-sheet);
+  background: var(--surface-sunken); box-shadow: var(--elevation-sheet); border-top: 3px double var(--gold);
   padding: var(--space-2) var(--space-4);
   padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom));
 }
 .mini-player-progress {
-  width: 100%; height: 4px; border-radius: 2px; background: var(--border); appearance: none; cursor: pointer;
-  accent-color: var(--primary);
+  --track: linear-gradient(to right, var(--primary) var(--fill, 0%), var(--gold-soft) var(--fill, 0%));
+  --lozenge: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  display: block; width: 100%; height: 24px; margin: 0; background: transparent;
+  -webkit-appearance: none; appearance: none; cursor: pointer;
 }
+/* Gilt rule with a lozenge slider; the played part is inked in --primary. */
+.mini-player-progress::-webkit-slider-runnable-track { height: 2px; background: var(--track); }
+.mini-player-progress::-moz-range-track { height: 2px; background: var(--track); }
+.mini-player-progress::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -7px;
+  border: none; background: var(--primary); clip-path: var(--lozenge);
+}
+.mini-player-progress::-moz-range-thumb { width: 16px; height: 16px; border: none; border-radius: 0; background: var(--primary); clip-path: var(--lozenge); }
 .mini-player-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-2); }
 .mini-player-times { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink-muted); display: flex; justify-content: space-between; }
 .mini-player-controls { display: flex; align-items: center; gap: var(--space-2); }
 .mini-player-play {
   width: 56px; height: 56px; border-radius: 50%; background: var(--primary); color: var(--on-primary);
   display: flex; align-items: center; justify-content: center; border: none; cursor: pointer;
+  box-shadow: 0 0 0 2px var(--surface-sunken), 0 0 0 3.5px var(--gold);
 }
 .mini-player-meta { flex: 1; overflow: hidden; }
 .mini-player-book { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -58,18 +80,29 @@
 }
 .player-sheet {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 26;
-  background: var(--surface); border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--surface); border-radius: var(--radius-sheet) var(--radius-sheet) 0 0; border-top: 3px double var(--gold);
   box-shadow: var(--elevation-sheet); padding: var(--space-4) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom));
   max-height: 85dvh; overflow-y: auto;
 }
-.player-sheet-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto var(--space-4); }
+/* Sheet crest: a fleuron where the grab bar would be. */
+.player-sheet-handle {
+  width: 48px; height: 14px; margin: 0 auto var(--space-4); background: var(--gold);
+  -webkit-mask: var(--fleuron-mask) center / contain no-repeat; mask: var(--fleuron-mask) center / contain no-repeat;
+}
 .player-sheet-section { margin-bottom: var(--space-6); }
-.player-sheet-section h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-muted); font-family: var(--font-ui); }
 .chip-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .chip {
-  min-height: 44px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border);
-  background: var(--surface-sunken); color: var(--ink); cursor: pointer; font-size: 14px;
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; padding: 8px 16px; border-radius: var(--radius-sm); border: 1px solid var(--gold-soft);
+  background: var(--surface); color: var(--ink); cursor: pointer; font-size: 14px; font-variant-numeric: tabular-nums;
+  transition: background-color 150ms ease-out;
 }
-.chip[aria-pressed='true'] { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.chip:hover { background: var(--surface-sunken); }
+.chip[aria-pressed='true'] {
+  background: var(--primary); color: var(--on-primary); border-color: var(--primary);
+  box-shadow: inset 0 0 0 2px var(--primary), inset 0 0 0 3px color-mix(in srgb, var(--gold) 75%, var(--primary));
+}
 
-.book-settings-row { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--border); }
+.book-settings-row { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--gold-faint); }
+
+.chunk-editor-text { font-family: var(--font-read); line-height: 1.6; padding: 12px; resize: vertical; }

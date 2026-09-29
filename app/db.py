@@ -90,6 +90,18 @@ MIGRATIONS: list[str] = [
     """,
     # Claim token guards TTS results against a chunk being reset/re-claimed mid-synthesis.
     "ALTER TABLE chunks ADD COLUMN claim_token TEXT;",
+    # Shared, user-created topics; name_key (NFC + casefold + collapsed spaces) is the identity.
+    """
+    CREATE TABLE topics (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        name_key TEXT NOT NULL UNIQUE,
+        created_by TEXT REFERENCES users(id),
+        created_at TEXT NOT NULL
+    );
+    ALTER TABLE books ADD COLUMN topic_id TEXT REFERENCES topics(id);
+    CREATE INDEX idx_books_topic ON books(topic_id);
+    """,
 ]
 
 

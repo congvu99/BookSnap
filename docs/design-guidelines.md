@@ -6,9 +6,9 @@ Nguồn: ui-ux-pro-max (style `E-Ink / Paper`, palette `Book & Reading Tracker`,
 
 ## 1. Nguyên tắc
 
-1. **Trang sách là nhân vật chính** — UI chrome tối thiểu, lùi về sau khi đọc/nghe.
+1. **Trang sách là nhân vật chính** — vùng đọc luôn sạch, không hoa văn; khi đọc/nghe mọi chrome lùi về sau.
 2. **Sáng, ấm, không chói** — nền ngà thay vì trắng tinh; không gradient loè, không glassmorphism.
-3. **Sang trọng qua typography & khoảng trắng**, không qua hiệu ứng.
+3. **Sang trọng qua typography, khoảng trắng và hoa văn cổ điển Tây Âu xuyên suốt** — mọi phần chrome (tiêu đề, kệ, bìa, nút, input, card, sheet, nav, timeline, camera) nói cùng một ngôn ngữ: góc gần vuông, hairline vàng lồng trong, hình thoi, fleuron. Không dùng hiệu ứng (blur, gradient loè, bóng dày). Xem §6.5.
 4. **Một CTA chính mỗi màn hình** (Chụp / Phát).
 5. **Tiếng Việt trước tiên** — mọi font phải có subset `vietnamese`, kiểm tra dấu chồng (ẫ, ự, ổ).
 
@@ -46,14 +46,15 @@ Quy tắc: không hardcode hex trong component; trạng thái luôn có icon + t
 
 Thang cỡ (px): 12 · 14 · 16 · 18 · 20 · 24 · 32 · 40.
 - Body đọc: 18px, line-height 1.7, measure 60–68 ký tự (mobile ~36–45), người dùng chỉnh 16–24px.
-- Tiêu đề Cormorant cần lớn hơn ~2px so với serif thường (x-height thấp); không dùng Cormorant < 20px.
+- Tiêu đề Cormorant cần lớn hơn ~2px so với serif thường (x-height thấp); không dùng Cormorant chữ thường < 20px. Ngoại lệ: nhãn **in hoa giãn chữ** (tiêu đề mục 17px, biển tên kệ 15px) — chữ hoa có chiều cao thị giác lớn nên vẫn rõ.
 - Thời gian player: `font-variant-numeric: tabular-nums`.
 
 ## 4. Layout & spacing
 
 - Mobile-first, breakpoints 375 / 768 / 1024. Nội dung đọc max-width `38rem`, căn giữa trên tablet/desktop.
 - Spacing 4/8: 4 · 8 · 12 · 16 · 24 · 32 · 48. Gutter mobile 20px.
-- Radius: `--radius-sm 6px` (nút, input), `--radius-md 12px` (card), sheet 20px trên cùng. Bìa sách 4px (giống sách thật).
+- Radius gần vuông như bản in: `--radius-sm 2px` (nút, input, chip), `--radius-md 3px` (card), sheet 10px trên cùng. Bìa sách 4px. Tròn chỉ giữ cho nút icon, nút Chụp, nút Play.
+- Hairline vàng: `--gold-soft` (viền control), `--gold-faint` (rule lồng trong, halo focus) — suy ra từ `--gold` nên tự theo theme.
 - Elevation: 2 cấp duy nhất — `0 1px 2px rgba(31,27,22,.06)` (card), `0 8px 24px rgba(31,27,22,.10)` (sheet/player nổi).
 - Dùng `min-h-dvh`, tôn trọng safe-area (`env(safe-area-inset-*)`).
 - Ornament: đường kẻ mảnh `--gold` 1px + dấu `❦` bằng SVG làm divider chương (không emoji).
@@ -74,7 +75,8 @@ Reader/Camera là màn full-screen, có nút quay lại rõ ràng; bottom nav �
 - Xử lý quyền camera bị từ chối: màn giải thích + hướng dẫn bật lại; yêu cầu HTTPS.
 
 ### 6.2 Thư viện
-- Lưới bìa sách 2 cột (mobile) / 4 cột (tablet), tỉ lệ 2:3; bìa tự sinh: nền `--surface` + viền `--gold`, tên sách Cormorant căn giữa, giống bìa vải bọc.
+- **Kệ theo chủ đề**: mỗi chủ đề một kệ (sắp theo bảng chữ cái tiếng Việt), kệ "Chưa phân loại" cuối cùng. Mobile: kệ cuộn ngang, bìa rộng 136px; ≥768px: lưới xuống dòng.
+- **Bìa chung** (một bộ sách đóng cùng tủ, mọi sách giống nhau trừ tên): tỉ lệ 2:3, nền đỏ rượu vang `--cover-bg`→`--cover-bg-deep`, khung đôi + 4 góc lượn + 2 fleuron màu `--cover-ornament`, tên sách Cormorant 600 màu `--cover-ink` ở giữa, co chữ theo độ dài, tối đa 4 dòng. Giữ nguyên ở cả 2 theme. Component: `web/js/components/book-cover.js`; phương án tham khảo: `docs/mockups/cover-preview.html` (đã chọn A). Bìa là trang trí (`aria-hidden`), tên sách luôn hiện dạng chữ cạnh bìa.
 - Dưới bìa: tên, tiến độ nghe (thanh mảnh `--primary`), trạng thái xử lý ("Đang chuyển giọng · 12/20 đoạn").
 - Empty state: minh hoạ kệ sách SVG + "Chụp trang sách đầu tiên".
 
@@ -89,6 +91,33 @@ Reader/Camera là màn full-screen, có nút quay lại rõ ràng; bottom nav �
 ### 6.4 Trạng thái xử lý
 Timeline dọc cho mỗi lần upload: Tải ảnh → Nhận dạng chữ → Chuyển giọng → Sẵn sàng. Skeleton cho trang đang OCR; không spinner chặn toàn màn hình.
 
+### 6.5 Hoa văn cổ điển Tây Âu (xuyên suốt app)
+Hình khối dùng chung ở `web/js/components/ornament-shapes.js` (góc lượn, fleuron) và mask `--lozenge-mask`/`--fleuron-mask` trong `web/css/ornaments.css` — không vẽ hoa văn mới rời rạc. Style của từng control nằm ngay trong file CSS gốc của nó (app/library/reader/camera.css), không đè lớp riêng.
+
+| Vị trí | Xử lý |
+|---|---|
+| Tiêu đề trang (Thư viện, tên sách, Chụp trang sách) | Cormorant + đường kẻ `── ❦ ──` (`.fleuron-rule`, `.header-rule` dưới header) |
+| Tiêu đề mục, tiêu đề trong sheet | In hoa La Mã giãn chữ + hairline chạy tới hình thoi (`.section-heading`, `.player-sheet-section h3`) |
+| Divider có nhãn (Trang lỗi) | `◆──── NHÃN ────◆` (`.ornament`) |
+| Tên kệ | Biển đồng thau viền đôi, dưới kệ vạch đôi 3px |
+| Màn đăng nhập | Frontispiece `OrnateFrame`; tab in hoa, tab chọn có gạch đỏ + hình thoi |
+| Nút primary | Nền đỏ, hairline vàng lồng trong 2px, hình thoi hai bên nhãn |
+| Nút secondary / danger | Viền `--gold-soft` (danger: `--danger`) + rule lồng trong mờ |
+| Chip | Góc vuông, viền vàng; chip chọn giống nút primary (không hình thoi) |
+| Input, select, textarea | Viền `--gold-soft`, bóng lõm nhẹ; focus = viền `--primary` + halo `--gold-faint` |
+| Nhãn field | Cormorant in hoa `--gold-ink`, số lining |
+| Card | Viền `--gold-soft` + rule mờ lồng trong 3px; `OrnateFrame` (góc lượn) chỉ 1 card mỗi màn |
+| Banner | Viền màu nhạt; hình thoi đầu dòng khi banner không có icon |
+| Bottom nav, mini player, sheet, topbar reader | Vạch đôi vàng ở mép; tab đang mở có hình thoi nằm trên vạch; sheet dùng fleuron thay thanh kéo |
+| Nút Chụp, Play, shutter camera | Vành vàng mảnh |
+| Thanh tiến độ phát | Rule vàng 2px, phần đã nghe tô `--primary`, con trượt hình thoi |
+| Timeline trạng thái | Mốc hình thoi trên sợi chỉ vàng chấm |
+| Khung ngắm camera | 4 góc vàng dạng thước ngắm + hairline mờ; thumbnail viền vàng |
+| Empty state, lỗi camera | Icon vàng + fleuron rule |
+| Reader | Tiêu đề chương (dòng ngắn không dấu câu cuối) Cormorant căn giữa; drop cap ở đoạn văn đầu tiên của sách (sau tiêu đề); đoạn đang đọc có vạch vàng 2px bên trái. Không hoa văn khác trong nội dung |
+
+Không làm: nền damask/hoạ tiết, góc lượn quanh mọi card, divider hoa văn giữa các đoạn đọc, hình thoi trong chip (quá dày khi nhiều chip).
+
 ## 7. Motion
 
 - 150–250ms, ease-out khi vào, exit ngắn hơn ~30%. Chỉ animate `transform`/`opacity`.
@@ -101,8 +130,9 @@ Timeline dọc cho mỗi lần upload: Tải ảnh → Nhận dạng chữ → C
 - Touch target ≥44px, cách nhau ≥8px.
 - Nút icon có `aria-label` tiếng Việt; player có `role` và `aria-valuenow`.
 - Đoạn đang đọc thông báo qua `aria-current="true"`, không dùng `aria-live` liên tục.
+- Đoạn đọc không mang `role="button"`/`aria-label` (sẽ che nội dung với screen reader): chữ là `<p>`, tiêu đề chương là `role="heading"`; "Phát từ đoạn N" là nút riêng, chỉ hiện khi focus bàn phím.
 - Không khoá zoom; cỡ chữ đọc tuỳ chỉnh.
 
 ## 9. Anti-patterns
 
-Glassmorphism/Liquid Glass, gradient neon, nền trắng tinh #FFF, emoji làm icon, chữ vàng nhỏ trên nền ngà, animation trang trí > 300ms, auto-play khi mở app.
+Glassmorphism/Liquid Glass (kể cả topbar mờ), gradient neon, nền trắng tinh #FFF, emoji làm icon, chữ vàng nhỏ `--gold` trên nền ngà (dùng `--gold-ink`), animation trang trí > 300ms, auto-play khi mở app, hoa văn trong vùng đọc, góc lượn (`OrnateFrame`) ở mọi card, bo tròn lớn kiểu pill cho nút/chip.

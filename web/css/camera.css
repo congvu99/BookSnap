@@ -6,10 +6,15 @@
 .capture-video-wrap { flex: 1; position: relative; overflow: hidden; }
 .capture-video { width: 100%; height: 100%; object-fit: cover; }
 .capture-frame-guide {
-  position: absolute; inset: 8% 6%;
-  border: 1px solid var(--gold);
-  border-radius: var(--radius-md);
-  pointer-events: none;
+  --c: var(--gold); --len: 28px; --w: 2px;
+  position: absolute; inset: 8% 6%; pointer-events: none;
+  outline: 1px solid var(--gold-faint); outline-offset: -6px;
+  background:
+    linear-gradient(var(--c) 0 0) left top / var(--len) var(--w), linear-gradient(var(--c) 0 0) left top / var(--w) var(--len),
+    linear-gradient(var(--c) 0 0) right top / var(--len) var(--w), linear-gradient(var(--c) 0 0) right top / var(--w) var(--len),
+    linear-gradient(var(--c) 0 0) left bottom / var(--len) var(--w), linear-gradient(var(--c) 0 0) left bottom / var(--w) var(--len),
+    linear-gradient(var(--c) 0 0) right bottom / var(--len) var(--w), linear-gradient(var(--c) 0 0) right bottom / var(--w) var(--len);
+  background-repeat: no-repeat;
 }
 .capture-topbar {
   position: absolute; top: 0; left: 0; right: 0;
@@ -24,8 +29,8 @@
   background: #000; padding: var(--space-3) var(--space-4);
   padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
 }
-.capture-thumbs { display: flex; gap: var(--space-2); overflow-x: auto; padding-bottom: var(--space-3); }
-.capture-thumb { position: relative; flex: 0 0 auto; width: 56px; height: 74px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid rgba(255,255,255,.3); }
+.capture-thumbs { scrollbar-width: thin; scrollbar-color: var(--gold) transparent; display: flex; gap: var(--space-2); overflow-x: auto; padding-bottom: var(--space-3); }
+.capture-thumb { position: relative; flex: 0 0 auto; width: 56px; height: 74px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--gold); }
 .capture-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .capture-thumb-status {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -41,6 +46,7 @@
 .capture-shutter {
   width: 72px; height: 72px; border-radius: 50%;
   background: #fff; border: 4px solid rgba(255,255,255,.5);
+  box-shadow: 0 0 0 3px #000, 0 0 0 4.5px var(--gold);
   margin: 0 auto;
 }
 .capture-shutter:active { transform: scale(0.95); }
@@ -51,21 +57,30 @@
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: var(--space-8) 20px; text-align: center; gap: var(--space-4); z-index: 30;
 }
+.capture-permission > svg { color: var(--gold); }
+.capture-permission .fleuron-rule { width: 200px; margin: 0; }
 
 /* Book status timeline */
 .status-timeline { list-style: none; margin: 0; padding: 0; }
 .status-step { display: flex; gap: var(--space-3); padding-bottom: var(--space-6); position: relative; }
+/* Steps are lozenges on a dotted gilt thread; the diamond is a rotated backdrop so icons stay upright. */
 .status-step::before {
-  content: ''; position: absolute; left: 11px; top: 28px; bottom: -8px; width: 2px; background: var(--border);
+  content: ''; position: absolute; left: 12px; top: 30px; bottom: -6px; border-left: 1px dotted var(--gold);
 }
 .status-step:last-child::before { display: none; }
 .status-step-dot {
-  width: 24px; height: 24px; border-radius: 50%; flex: 0 0 auto;
+  --dot-bg: var(--surface-sunken); --dot-rule: var(--gold-soft);
+  position: relative; isolation: isolate;
+  width: 25px; height: 25px; flex: 0 0 auto;
   display: flex; align-items: center; justify-content: center;
-  background: var(--surface-sunken); color: var(--ink-muted); border: 2px solid var(--border);
+  color: var(--ink-muted); font-family: var(--font-display); font-weight: 700; font-size: 13px;
 }
-.status-step--done .status-step-dot { background: var(--success); border-color: var(--success); color: var(--on-primary); }
-.status-step--active .status-step-dot { border-color: var(--primary); color: var(--primary); }
-.status-step--failed .status-step-dot { border-color: var(--danger); color: var(--danger); }
+.status-step-dot::before {
+  content: ''; position: absolute; inset: 4px; z-index: -1; transform: rotate(45deg);
+  background: var(--dot-bg); border: 1.5px solid var(--dot-rule);
+}
+.status-step--done .status-step-dot { --dot-bg: var(--success); --dot-rule: var(--success); color: var(--on-primary); }
+.status-step--active .status-step-dot { --dot-rule: var(--primary); color: var(--primary); }
+.status-step--failed .status-step-dot { --dot-rule: var(--danger); color: var(--danger); }
 .status-step-title { font-weight: 600; }
 .status-step-detail { font-size: 14px; color: var(--ink-muted); }

@@ -38,7 +38,8 @@ export function ChunkEditor({ chunk, onClose, onSaved }) {
           value=${text}
           onInput=${(e) => setText(e.currentTarget.value)}
           rows="6"
-          style=${{ width: '100%', fontFamily: 'var(--font-read)', fontSize: '16px', padding: '12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', color: 'var(--ink)' }}
+          class="text-input chunk-editor-text"
+          aria-label="Nội dung đoạn"
         ></textarea>
         ${error && html`<div class="field-error">${error}</div>`}
         <p class="text-muted" style=${{ fontSize: '13px' }}>Lưu sẽ sinh lại audio cho đoạn này; các đoạn khác không đổi.</p>

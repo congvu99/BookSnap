@@ -18,6 +18,8 @@ class Book:
 @dataclass(frozen=True)
 class BookSummary(Book):
     created_by_name: str
+    topic_id: str | None
+    topic_name: str | None
     pages_total: int
     pages_done: int
     pages_failed: int
@@ -40,7 +42,7 @@ class BookSummary(Book):
 
 
 _SUMMARY_SQL = """
-SELECT b.*, u.display_name AS created_by_name,
+SELECT b.*, u.display_name AS created_by_name, t.name AS topic_name,
        COALESCE(ps.total, 0) AS pages_total,
        COALESCE(ps.done, 0) AS pages_done,
        COALESCE(ps.failed, 0) AS pages_failed,
@@ -62,6 +64,7 @@ SELECT b.*, u.display_name AS created_by_name,
        pr.updated_at AS progress_updated_at
 FROM books b
 JOIN users u ON u.id = b.created_by
+LEFT JOIN topics t ON t.id = b.topic_id
 LEFT JOIN (
     SELECT book_id, COUNT(*) AS total,
            SUM(status = 'ocr_done') AS done,
@@ -98,15 +101,20 @@ class BookRepository:
     def __init__(self, db: Database) -> None:
         self.db = db
 
-    async def create(self, title: str, created_by: str, tts_provider: str, tts_voice: str) -> Book:
+    async def create(
+        self, title: str, created_by: str, tts_provider: str, tts_voice: str, topic_id: str | None = None
+    ) -> Book:
         now = now_iso()
         book = Book(new_id(), title, created_by, tts_provider, tts_voice, now, now)
         await self.db.execute(
-            "INSERT INTO books(id, title, created_by, tts_provider, tts_voice, created_at, updated_at)"
-            " VALUES (?,?,?,?,?,?,?)",
-            (book.id, book.title, book.created_by, book.tts_provider, book.tts_voice, now, now),
+            "INSERT INTO books(id, title, created_by, tts_provider, tts_voice, topic_id, created_at, updated_at)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (book.id, book.title, book.created_by, book.tts_provider, book.tts_voice, topic_id, now, now),
         )
         return book
+
+    async def set_topic(self, book_id: str, topic_id: str | None) -> None:
+        await self.db.execute("UPDATE books SET topic_id=?, updated_at=? WHERE id=?", (topic_id, now_iso(), book_id))
 
     async def get(self, book_id: str) -> Book | None:
         return row_to(Book, await self.db.fetchone("SELECT * FROM books WHERE id=?", (book_id,)))

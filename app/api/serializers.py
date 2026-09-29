@@ -45,6 +45,7 @@ def book_out(b: BookSummary, user: User) -> dict:
         "can_manage": b.created_by == user.id,
         "tts_provider": b.tts_provider,
         "tts_voice": b.tts_voice,
+        "topic": {"id": b.topic_id, "name": b.topic_name} if b.topic_id else None,
         "created_at": b.created_at,
         "updated_at": b.updated_at,
         "state": book_state(b),

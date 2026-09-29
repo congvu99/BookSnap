@@ -103,6 +103,7 @@ export function BookStatusView({ bookId }) {
         </div>
         ${book.can_manage && html`<button class="icon-btn" aria-label="Xoá sách" onClick=${remove}><${Icon} name="trash" /></button>`}
       </div>
+      <div class="fleuron-rule header-rule" aria-hidden="true"><i></i></div>
 
       <div class="container">
         ${error && html`<div class="banner banner-error" role="alert">${error}</div>`}

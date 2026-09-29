@@ -3,6 +3,7 @@ import { html, useState } from '../../vendor/preact-htm.module.js';
 import { authApi, ApiError } from '../api-client.js';
 import { authStore, cacheUser } from '../store.js';
 import { Icon } from '../icons.js';
+import { OrnateFrame } from '../components/ornate-frame.js';
 
 const FIELD_LABEL = {
   username: 'Tên đăng nhập',
@@ -56,8 +57,11 @@ export function AuthView({ onAuthed }) {
 
   return html`
     <div class="auth-view">
-      <div class="auth-logo">BookSnap</div>
-      <p class="auth-tagline text-muted">Chụp trang sách, nghe lại bằng giọng đọc tiếng Việt</p>
+      <${OrnateFrame} className="auth-frontispiece">
+        <div class="auth-logo">BookSnap</div>
+        <div class="fleuron-rule" aria-hidden="true"><i></i></div>
+        <p class="auth-tagline text-muted">Chụp trang sách, nghe lại bằng giọng đọc tiếng Việt</p>
+      <//>
 
       <div class="auth-tabs" role="tablist">
         <button

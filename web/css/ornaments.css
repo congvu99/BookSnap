@@ -1,0 +1,82 @@
+/* Classic European ornament layer (design-guidelines §1): ornament lives on the chrome —
+   headings, shelves, framed surfaces — never inside running reader text. */
+
+:root {
+  /* Fleuron (twin scrolls + lozenge) as a mask, so it takes any token colour. */
+  --lozenge-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M5 0 L10 5 L5 10 L0 5 Z'/%3E%3C/svg%3E");
+  --fleuron-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-16 -8 32 16'%3E%3Cg fill='none' stroke='black'%3E%3Cpath d='M0 0 C-6 -6 -14 -3 -13 3 C-12 8 -5 7 -4 3 C-3 0 -7 -1 -8 1' stroke-width='1.1'/%3E%3Cpath d='M0 0 C6 -6 14 -3 13 3 C12 8 5 7 4 3 C3 0 7 -1 8 1' stroke-width='1.1'/%3E%3C/g%3E%3Cpath d='M0 -5 l3 5 -3 5 -3 -5 z'/%3E%3C/svg%3E");
+}
+
+/* Cormorant's old-style figures read as "ı" beside capitals; engraved labels use lining figures. */
+.section-heading, .player-sheet-section h3, .shelf-title, .ornament, .status-step-dot, .field label { font-variant-numeric: lining-nums; }
+
+/* Page title with a fleuron rule beneath: ──── ❦ ──── */
+.fleuron-rule {
+  display: grid; grid-template-columns: 1fr 32px 1fr; align-items: center; gap: var(--space-2);
+  color: var(--gold); margin: var(--space-2) 0 var(--space-4);
+}
+.fleuron-rule::before, .fleuron-rule::after { content: ''; height: 1px; background: currentColor; }
+.fleuron-rule > i {
+  display: block; height: 16px; background: currentColor;
+  -webkit-mask: var(--fleuron-mask) center / contain no-repeat; mask: var(--fleuron-mask) center / contain no-repeat;
+}
+
+/* Section heading in Roman capitals, hairline running to a lozenge: TIẾP TỤC NGHE ────────◆ */
+.section-heading, .player-sheet-section h3 {
+  display: flex; align-items: center; gap: var(--space-3);
+  font-family: var(--font-display); font-weight: 600; font-size: 17px; line-height: 1.35;
+  text-transform: uppercase; letter-spacing: .14em; color: var(--ink);
+  margin: 0 0 var(--space-3);
+}
+.player-sheet-section h3 { font-size: 15px; letter-spacing: .12em; color: var(--gold-ink); }
+.section-heading::after, .player-sheet-section h3::after {
+  content: ''; flex: 1; height: 9px; min-width: var(--space-6); background: var(--gold);
+  -webkit-mask: var(--lozenge-mask) right center / 9px 9px no-repeat, linear-gradient(#000, #000) left center / calc(100% - 12px) 1px no-repeat;
+  mask: var(--lozenge-mask) right center / 9px 9px no-repeat, linear-gradient(#000, #000) left center / calc(100% - 12px) 1px no-repeat;
+}
+
+/* Shelf: brass name plate above a double shelf rule */
+.shelf-title {
+  display: inline-flex; align-items: baseline; gap: var(--space-2);
+  padding: 3px var(--space-3); margin: 0 0 var(--space-3);
+  font-family: var(--font-display); font-weight: 600; font-size: 15px; line-height: 1.35;
+  text-transform: uppercase; letter-spacing: .12em; color: var(--gold-ink);
+  background: var(--surface);
+  border: 1px solid var(--gold); outline: 1px solid var(--gold); outline-offset: 2px;
+  border-radius: 2px;
+}
+.shelf-title .shelf-count { letter-spacing: 0; text-transform: none; color: var(--ink-muted); }
+.shelf-row { border-bottom: 3px double var(--gold); }
+
+/* Framed surface: double gold rule with fixed-size scrolled corners */
+.ornate {
+  position: relative;
+  border: 1px solid var(--gold); outline: 1px solid var(--gold); outline-offset: -6px;
+  padding: var(--space-6);
+}
+.ornate-corner { position: absolute; width: 30px; height: 30px; color: var(--gold); pointer-events: none; }
+.ornate-corner--tl { top: 1px; left: 1px; }
+.ornate-corner--tr { top: 1px; right: 1px; transform: scaleX(-1); }
+.ornate-corner--bl { bottom: 1px; left: 1px; transform: scaleY(-1); }
+.ornate-corner--br { bottom: 1px; right: 1px; transform: scale(-1, -1); }
+.card.ornate { border-radius: 2px; }
+
+/* Page headers sit on a fleuron rule; the rule's own margin sets the gap to the content. */
+.header-rule { max-width: 768px; margin: var(--space-2) auto 0; padding: 0 20px; }
+
+/* Auth frontispiece */
+.auth-frontispiece { text-align: center; margin-bottom: var(--space-8); background: var(--surface); }
+.auth-frontispiece .auth-logo { margin: var(--space-2) 0 0; font-size: 44px; }
+.auth-frontispiece .auth-tagline { margin: 0; }
+.auth-frontispiece .fleuron-rule { margin: var(--space-2) var(--space-6) var(--space-3); }
+
+/* Capture button with a gilt ring */
+.bottom-nav .nav-capture .nav-capture-circle {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--gold), var(--elevation-sheet);
+}
+
+/* Reader: illuminated initial on the book's opening paragraph only */
+.reader-line--dropcap::first-letter {
+  float: left; font-family: var(--font-display); font-weight: 600; color: var(--primary);
+  font-size: 3.4em; line-height: .82; padding: .08em .1em 0 0;
+}

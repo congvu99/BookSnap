@@ -98,9 +98,8 @@ async def test_chunk_tick_respects_ordering_invariant(alice, app):
 
     chunks = await ctx.chunks.list_for_book(book.id)
     assert len(chunks) == 1
-    # the chunker reflows sentences for TTS (single spaces, no literal blank lines);
-    # what matters is both pages' text landed in seq order.
-    assert chunks[0].text == "Nội dung trang một. Nội dung trang hai."
+    # Page one does not continue onto page two, so they stay separate paragraphs, in seq order.
+    assert chunks[0].text == "Nội dung trang một.\nNội dung trang hai."
     pages = await ctx.pages.list_for_book(book.id)
     assert all(p.chunked for p in pages)
 
@@ -271,7 +270,7 @@ async def test_missing_seq_blocks_until_uploaded_or_discarded(alice, app):
     assert r.status_code == 200 and r.json()["status"] == "discarded"
     await worker.chunk_tick()
     texts = [c.text for c in await ctx.chunks.list_for_book(book.id)]
-    assert " ".join(texts).replace("\n\n", " ") == "Trang hai. Trang ba."
+    assert texts == ["Trang hai.\nTrang ba."]
     detail = (await alice.get(f"/api/books/{book.id}")).json()
     assert detail["pages"]["missing_seqs"] == [] and detail["pages"]["blocked_at_seq"] is None
 

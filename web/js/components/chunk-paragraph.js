@@ -1,9 +1,12 @@
-// One reading paragraph: tap to play from here, aria-current when active, inline status for
-// pending/processing/waiting_quota/failed chunks, long-press or menu button to edit text.
+// One reading chunk: tap to play from here, aria-current when active, inline status for
+// pending/processing/waiting_quota/failed chunks, long-press or the edit button to edit text.
 import { html, useRef } from '../../vendor/preact-htm.module.js';
 import { Icon } from '../icons.js';
 
 const LONG_PRESS_MS = 500;
+// A short line with no sentence ender, followed by more text, is a heading ("Chương một: Mùa nước nổi").
+const HEADING_MAX_CHARS = 80;
+const ENDS_SENTENCE = /[.!?…:;]["'”’»)\]]*$/;
 
 function formatHHmm(iso) {
   if (!iso) return '';
@@ -36,29 +39,49 @@ export function ChunkParagraph({ chunk, isActive, onPlayFrom, onRetry, onEdit })
     statusNode = html`<span class="reader-paragraph-meta"><${Icon} name="clock" size=${14} /> Đang chuyển giọng…</span>`;
   }
 
+  // Paragraph breaks from the page survive in chunk text as newlines: one <p> each, so headings
+  // stand on their own line. The text itself is what screen readers read; playing and
+  // editing are separate buttons (the play one is shown only on keyboard focus).
+  const lines = chunk.text.split('\n').filter((line) => line.trim());
+  const isHeading = (line, i) => i < lines.length - 1 && line.length <= HEADING_MAX_CHARS && !ENDS_SENTENCE.test(line);
+  const dropCapAt = chunk.seq === 0 && !pending ? lines.findIndex((line, i) => !isHeading(line, i)) : -1;
+  const lineClass = (line, i) =>
+    `reader-line${isHeading(line, i) ? ' reader-line--heading' : ''}${i === dropCapAt ? ' reader-line--dropcap' : ''}`;
+  const actions = html`
+    ${chunk.status === 'done' &&
+    html`<button
+      class="icon-btn reader-play-btn"
+      aria-label=${`Phát từ đoạn ${chunk.seq + 1}`}
+      onClick=${(e) => { e.stopPropagation(); onPlayFrom(chunk.seq); }}
+    >
+      <${Icon} name="play" size=${16} />
+    </button>`}
+    <button
+      class="icon-btn reader-edit-btn"
+      aria-label=${`Sửa đoạn ${chunk.seq + 1}`}
+      onClick=${(e) => { e.stopPropagation(); onEdit(chunk); }}
+    >
+      <${Icon} name="edit" size=${16} />
+    </button>
+  `;
+
   return html`
-    <p
-      class="reader-paragraph ${pending ? 'reader-paragraph--' + chunk.status : ''}"
+    <div
+      class="reader-paragraph${pending ? ' reader-paragraph--' + chunk.status : ''}"
       data-seq=${chunk.seq}
       aria-current=${isActive ? 'true' : undefined}
       onClick=${onClick}
       onPointerDown=${onPointerDown}
       onPointerUp=${cancelPress}
       onPointerLeave=${cancelPress}
-      tabIndex="0"
-      role="button"
-      aria-label=${`Phát từ đoạn ${chunk.seq + 1}`}
     >
       ${statusNode}
-      <span>${chunk.text}</span>
-      <button
-        class="icon-btn"
-        style=${{ width: '32px', height: '32px', verticalAlign: 'middle' }}
-        aria-label="Sửa đoạn"
-        onClick=${(e) => { e.stopPropagation(); onEdit(chunk); }}
-      >
-        <${Icon} name="edit" size=${16} />
-      </button>
-    </p>
+      ${lines.map((line, i) => html`<p
+        class=${lineClass(line, i)}
+        key=${i}
+        role=${isHeading(line, i) ? 'heading' : undefined}
+        aria-level=${isHeading(line, i) ? '2' : undefined}
+      >${line}${i === lines.length - 1 && actions}</p>`)}
+    </div>
   `;
 }

@@ -12,7 +12,10 @@ TINY_JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64 + b"\xff\xd9"
 
 
 @pytest.fixture
-def settings(tmp_path: Path) -> Settings:
+def settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
+    # Tests run on code defaults, never on whatever the developer's shell exports.
+    for name in Settings.model_fields:
+        monkeypatch.delenv(name.upper(), raising=False)
     return Settings(_env_file=None, data_dir=tmp_path / "data", invite_code=INVITE, auth_rate_limit_per_minute=1000, worker_enabled=False)
 
 

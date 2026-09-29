@@ -41,7 +41,7 @@ from pathlib import Path
 
 from app.app_context import AppContext
 from app.db import now_iso
-from app.pipeline import chunker_worker, cleanup_worker
+from app.pipeline import chunker_worker, cleanup_worker, text_chunker
 from app.pipeline.ocr_provider import OcrError, OcrProvider, PageText
 from app.pipeline.tts_provider import TtsError, TtsProvider
 from app.pipeline.tts_router import TtsRouter, content_hash
@@ -269,7 +269,7 @@ class Worker:
 
         await self.tts_rpm[chunk.provider].throttle()
         try:
-            result = await self.router.synthesize(chunk.provider, chunk.text, chunk.voice)
+            result = await self.router.synthesize(chunk.provider, text_chunker.spoken_text(chunk.text), chunk.voice)
         except TtsError as exc:
             if exc.quota:
                 not_before = now_iso(timedelta(seconds=exc.retry_after)) if exc.retry_after else now_iso(timedelta(hours=1))
