@@ -17,11 +17,20 @@
   --success: #3F6B4A;
   --danger: #A1332B;
 
-  /* Book cover: one bound-set look in both themes (web/js/components/book-cover.js). */
-  --cover-bg: #6B2424;
-  --cover-bg-deep: #4A1818;
-  --cover-ornament: #C9A45C;
-  --cover-ink: #F6ECD6;
+  /* Record sleeves: five leather colours, picked per book by web/js/sleeve-palette.js.
+     Same in both themes; every ink/bg pair is ≥4.5:1. */
+  --sleeve-wine-bg: #6B2424; --sleeve-wine-deep: #451616; --sleeve-wine-ornament: #C9A45C; --sleeve-wine-ink: #F6ECD6;
+  --sleeve-moss-bg: #3F4A33; --sleeve-moss-deep: #262E1F; --sleeve-moss-ornament: #CDB57C; --sleeve-moss-ink: #F1E7CE;
+  --sleeve-slate-bg: #34494D; --sleeve-slate-deep: #1F2E32; --sleeve-slate-ornament: #C8AE7A; --sleeve-slate-ink: #EEE7D6;
+  --sleeve-amber-bg: #8C5F2C; --sleeve-amber-deep: #5A3A18; --sleeve-amber-ornament: #F0D598; --sleeve-amber-ink: #FFF4DC;
+  --sleeve-parchment-bg: #C9B388; --sleeve-parchment-deep: #A48C60; --sleeve-parchment-ornament: #5E3F1E; --sleeve-parchment-ink: #33230F;
+
+  /* Vinyl + brass tonearm */
+  --vinyl: #111111;
+  --vinyl-rim: #3A3A3A;
+  --brass-hi: #EBD29A;
+  --brass: #C29A58;
+  --brass-lo: #8D6831;
 
   --font-display: 'Cormorant Garamond', serif;
   --font-read: 'Literata', serif;
@@ -64,6 +73,7 @@
   --highlight: #3D3424;
   --success: #8DBB98;
   --danger: #E58A80;
+  --vinyl-rim: #5A5248;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -82,5 +92,6 @@
     --highlight: #3D3424;
     --success: #8DBB98;
     --danger: #E58A80;
+    --vinyl-rim: #5A5248;
   }
 }

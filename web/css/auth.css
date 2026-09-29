@@ -1,0 +1,50 @@
+/* Sign-in / sign-up, laid out for one-handed iPhone use: art on top, form and button in the thumb zone.
+   Focusing a field collapses the hero so fields + submit stay above the iOS keyboard. */
+.signin { display: flex; flex-direction: column; min-height: 100dvh; padding: max(env(safe-area-inset-top), 12px) max(20px, env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); max-width: 480px; margin: 0 auto; }
+
+.signin-hero { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 250px; padding-top: 12px; transition: min-height 260ms ease-out; }
+.signin-art { position: relative; width: 236px; height: 150px; transform-origin: 50% 40%; transition: transform 260ms ease-out; }
+.signin-art .sleeve { position: absolute; left: 0; top: 0; width: 150px; z-index: 1; }
+.signin-art .disc { position: absolute; left: 10px; top: 4px; width: 142px; transform: translateX(58%); }
+@media (prefers-reduced-motion: no-preference) { .signin-art .disc { animation: signin-disc-out 900ms cubic-bezier(.45, .05, .3, 1) 250ms both; } }
+@keyframes signin-disc-out { from { transform: translateX(0); } }
+
+.signin-brand { text-align: center; margin-top: 18px; transition: opacity 200ms, margin 260ms; }
+.signin-brand h1 { font-size: 40px; line-height: 1.05; color: var(--primary); margin: 0; }
+.signin-brand .fleuron-rule { width: 190px; margin: 8px auto; }
+.signin-brand p { font-size: 15px; color: var(--ink-muted); max-width: 26ch; margin: 0 auto; text-wrap: balance; }
+
+.signin:focus-within .signin-hero { flex: 0 0 auto; min-height: 0; }
+.signin:focus-within .signin-art { transform: scale(.52); margin: -36px 0 -36px; }
+.signin:focus-within .signin-brand { margin-top: -6px; }
+.signin:focus-within .signin-brand p, .signin:focus-within .signin-brand .fleuron-rule { display: none; }
+.signin:focus-within .signin-brand h1 { font-size: 28px; }
+@media (prefers-reduced-motion: reduce) { .signin-hero, .signin-art, .signin-brand { transition: none; } }
+
+.signin-segmented { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 3px; margin: 22px 0 14px; background: var(--surface-sunken); border: 1px solid var(--gold-soft); border-radius: var(--radius-md); }
+.signin-segmented::before { content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: var(--radius-sm); background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--gold-soft), inset 0 0 0 3px var(--surface), inset 0 0 0 4px var(--gold-faint), var(--elevation-card); transition: transform 220ms cubic-bezier(.3, .7, .3, 1); }
+.signin-segmented[data-value='register']::before { transform: translateX(100%); }
+.signin-segmented button { position: relative; min-height: 44px; border: 0; background: none; font: 600 15px var(--font-ui); color: var(--ink-muted); cursor: pointer; }
+.signin-segmented button[aria-selected='true'] { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .signin-segmented::before { transition: none; } }
+
+.signin-banner { margin-bottom: 12px; }
+
+.signin-group { background: var(--surface); border: 1px solid var(--gold-soft); border-radius: var(--radius-md); box-shadow: inset 0 0 0 3px var(--surface), inset 0 0 0 4px var(--gold-faint), var(--elevation-card); overflow: hidden; }
+.signin-row { position: relative; display: flex; align-items: center; padding: 10px 6px 4px 16px; }
+.signin-row + .signin-row { border-top: 1px solid var(--gold-faint); }
+.signin-row:focus-within { box-shadow: inset 3px 0 0 var(--primary); }
+.signin-row label { position: absolute; top: 9px; left: 16px; margin: 0; font: 600 14px/1.2 var(--font-display); letter-spacing: .1em; font-variant-numeric: lining-nums; text-transform: uppercase; color: var(--gold-ink); pointer-events: none; }
+.signin-row input { flex: 1; min-width: 0; min-height: 52px; padding: 20px 0 0; border: 0; background: none; box-shadow: none; border-radius: 0; font-size: 17px; color: var(--ink); outline: none; }
+.signin-row input::placeholder { color: color-mix(in srgb, var(--ink-muted) 60%, transparent); }
+.signin-row .icon-btn { flex: none; color: var(--ink-muted); }
+.signin-row[data-error] { box-shadow: inset 3px 0 0 var(--danger); }
+.signin-row[data-error] label { color: var(--danger); }
+
+.signin-error { display: flex; align-items: center; gap: 6px; margin: 8px 4px 0; font-size: 14px; color: var(--danger); }
+.signin-error .icon { flex: none; display: inline-flex; }
+
+.signin-submit { min-height: 52px; width: 100%; margin-top: 16px; font-size: 17px; }
+.signin-submit[disabled] { opacity: .75; }
+.signin-foot { margin: 14px 0 0; text-align: center; font-size: 13px; color: var(--ink-muted); }

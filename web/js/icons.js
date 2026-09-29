@@ -31,7 +31,11 @@ const PATHS = {
   moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   timer: '<path d="M10 2h4"/><path d="M12 14 15 11"/><circle cx="12" cy="14" r="8"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  'chevrons-up-down': '<path d="m7 9 5-5 5 5M7 15l5 5 5-5"/>',
   'type-size': '<path d="M4 7V5h13v2"/><path d="M9 5v14M9 19H7m2 0h2"/><path d="M17 12v-2h5v2"/><path d="M19.5 10v9"/>',
+  disc: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M6.5 12a5.5 5.5 0 0 1 5.5-5.5"/>',
+  bookmark: '<path d="M6 3h12v18l-6-4.5L6 21z"/>',
 };
 
 /**

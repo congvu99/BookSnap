@@ -1,0 +1,50 @@
+/* Bookmarks view: bookmarked passages grouped by book (docs/mockups/vinyl-library-preview.html, screen-marks). */
+.bookmarks-header { max-width: 768px; margin: 0 auto; padding: var(--space-4) 20px 0; }
+.bookmarks-eyebrow { margin: 0; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold-ink); }
+.bookmarks-title { margin: 2px 0 0; font-size: 36px; line-height: 1.1; }
+
+.bookmark-group { margin-top: var(--space-4); }
+.bookmark-book { display: flex; align-items: center; gap: var(--space-3); margin-bottom: 10px; }
+.bookmark-book .bookmark-sleeve { width: 44px; flex: none; }
+.bookmark-book h2 { margin: 0; font-size: 20px; line-height: 1.2; }
+.bookmark-book small { font-size: 12px; color: var(--ink-muted); }
+
+.bookmark-card {
+  background: var(--surface); border: 1px solid var(--gold-soft); border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 3px var(--surface), inset 0 0 0 4px var(--gold-faint), var(--elevation-card);
+  padding: var(--space-3) var(--space-3) 10px var(--space-4); margin-bottom: 10px;
+}
+.bookmark-label {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-family: var(--font-display); font-weight: 600; font-size: 14px; line-height: 1.3;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--gold-ink); font-variant-numeric: lining-nums;
+}
+.bookmark-label time { margin-left: auto; font: 400 12px var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--ink-muted); }
+.bookmark-lozenge {
+  width: 7px; height: 7px; flex: none; background: currentColor;
+  -webkit-mask: var(--lozenge-mask) center / contain no-repeat; mask: var(--lozenge-mask) center / contain no-repeat;
+}
+.bookmark-excerpt {
+  font-family: var(--font-read); font-size: 15px; line-height: 1.6; margin: 6px 0 var(--space-2);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.bookmark-actions { display: flex; align-items: center; justify-content: space-between; }
+.bookmark-actions .btn { font-size: 14px; padding: 8px 14px; }
+.bookmark-actions .icon-btn { color: var(--ink-muted); }
+
+/* Bookmark toggles in the reader (per paragraph) and the listen screen (current chunk). */
+.reader-bookmark-btn { width: 44px; height: 44px; margin: -6px -6px -6px 0; vertical-align: middle; color: var(--ink-muted); }
+.reader-bookmark-btn[aria-pressed='true'], .np-bookmark[aria-pressed='true'] { color: var(--primary); }
+.reader-bookmark-btn[aria-pressed='true'] svg, .np-bookmark[aria-pressed='true'] svg { fill: currentColor; }
+.np-bookmark[aria-pressed='true'] { background: var(--surface); border-color: var(--primary); box-shadow: none; }
+
+.reader-toast[hidden] { display: none; }
+.reader-toast {
+  position: fixed; left: 20px; right: 20px; bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 40;
+  max-width: 420px; margin: 0 auto; padding: var(--space-3); text-align: center; font-size: 14px;
+  border-radius: var(--radius-md); background: var(--ink); color: var(--bg);
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 3px var(--gold), var(--elevation-sheet);
+}
+
+/* Listen mode keeps reader errors visible (voice/topic/delete/download failures, offline). */
+.np-banners { display: grid; gap: var(--space-2); padding: var(--space-2) 20px 0; }

@@ -1,4 +1,4 @@
-// Bottom nav: Thư viện · Chụp (primary, center) · Đang nghe. Hidden in reader/camera (app.js decides).
+// Bottom nav: Thư viện · Đánh dấu · Chụp (primary) · Đang nghe. Hidden in reader/camera (app.js decides).
 import { html, useEffect, useState } from '../../vendor/preact-htm.module.js';
 import { Icon } from '../icons.js';
 import { booksApi } from '../api-client.js';
@@ -22,7 +22,9 @@ export function BottomNav({ currentRoute }) {
 
   const isLibrary = currentRoute.startsWith('#/library') || currentRoute === '#/' || currentRoute === '';
   const isCapture = currentRoute.startsWith('#/capture');
-  const isContinue = continueBookId != null && currentRoute === `#/read/${continueBookId}`;
+  const isBookmarks = currentRoute.startsWith('#/bookmarks');
+  const routePath = currentRoute.split('?')[0];
+  const isContinue = continueBookId != null && (routePath === `#/listen/${continueBookId}` || routePath === `#/read/${continueBookId}`);
 
   return html`
     <nav class="bottom-nav" aria-label="Điều hướng chính">
@@ -30,15 +32,19 @@ export function BottomNav({ currentRoute }) {
         <${Icon} name="library" />
         <span>Thư viện</span>
       </a>
+      <a href="#/bookmarks" aria-current=${isBookmarks ? 'page' : undefined}>
+        <${Icon} name="bookmark" />
+        <span>Đánh dấu</span>
+      </a>
       <a href="#/capture" class="nav-capture" aria-current=${isCapture ? 'page' : undefined} aria-label="Chụp trang sách">
         <span class="nav-capture-circle"><${Icon} name="camera" /></span>
       </a>
       <a
-        href=${continueBookId ? `#/read/${continueBookId}` : '#/library'}
+        href=${continueBookId ? `#/listen/${continueBookId}` : '#/library'}
         aria-current=${isContinue ? 'page' : undefined}
         aria-label="Đang nghe"
       >
-        <${Icon} name="headphones" />
+        <${Icon} name="disc" />
         <span>Đang nghe</span>
       </a>
     </nav>

@@ -30,3 +30,6 @@ export function Fleuron({ transform = '' }) {
 }
 
 export const MIRRORED_CORNERS = ['', 'translate(200 0) scale(-1 1)', 'translate(0 300) scale(1 -1)', 'translate(200 300) scale(-1 -1)'];
+
+/** Same four corners for the square 200×200 record sleeve. */
+export const SQUARE_MIRRORED_CORNERS = ['', 'translate(200 0) scale(-1 1)', 'translate(0 200) scale(1 -1)', 'translate(200 200) scale(-1 -1)'];

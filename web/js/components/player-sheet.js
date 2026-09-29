@@ -4,7 +4,7 @@ import { Icon } from '../icons.js';
 import { setTheme } from '../store.js';
 import { TopicInput } from './topic-input.js';
 
-const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
+export const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
 const SLEEP_OPTIONS = [
   { label: 'Tắt', value: null },
   { label: '10 phút', value: 10 },

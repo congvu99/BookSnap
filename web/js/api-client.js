@@ -107,6 +107,16 @@ export const topicsApi = {
   list: () => apiFetch('/api/topics'),
 };
 
+// ---- Bookmarks (per user; PUT/DELETE are idempotent) ----
+export const bookmarksApi = {
+  /** [{book_id, book_title, chunk_seq, excerpt, created_at}] newest first. */
+  list: () => apiFetch('/api/bookmarks'),
+  /** Bookmarked chunk seqs of one book: number[]. */
+  forBook: (bookId) => apiFetch(`/api/books/${bookId}/bookmarks`),
+  add: (bookId, seq) => apiFetch(`/api/books/${bookId}/bookmarks/${seq}`, { method: 'PUT' }),
+  remove: (bookId, seq) => apiFetch(`/api/books/${bookId}/bookmarks/${seq}`, { method: 'DELETE' }),
+};
+
 // ---- Voices ----
 export const voicesApi = {
   list: () => apiFetch('/api/voices'),

@@ -1,4 +1,5 @@
-// Hash router + app shell. Routes: #/auth #/library #/capture #/capture/:bookId #/book/:id #/read/:id
+// Hash router + app shell. Routes: #/auth #/library #/bookmarks #/capture #/capture/:bookId #/book/:id
+// #/read/:id #/listen/:id (both take an optional ?seq= to start at a chunk)
 import { html, render, useEffect, useState } from '../vendor/preact-htm.module.js';
 import { ApiError, authApi, onUnauthorized } from './api-client.js';
 import { authStore, cacheUser, clearCachedUser, readCachedUser } from './store.js';
@@ -9,18 +10,31 @@ import { LibraryView } from './views/library-view.js';
 import { CaptureView } from './views/capture-view.js';
 import { BookStatusView } from './views/book-status-view.js';
 import { ReaderView } from './views/reader-view.js';
+import { BookmarksView } from './views/bookmarks-view.js';
 
 /** Parse the current location hash into a {name, params} route. */
 function parseRoute(hash) {
-  const path = (hash || '#/library').replace(/^#/, '');
+  const [path, queryString = ''] = (hash || '#/library').replace(/^#/, '').split('?');
+  const query = new URLSearchParams(queryString);
   const segments = path.split('/').filter(Boolean);
   if (segments[0] === 'auth') return { name: 'auth' };
   if (segments[0] === 'capture') return { name: 'capture', bookId: segments[1] };
   if (segments[0] === 'book' && segments[1]) return { name: 'book', bookId: segments[1] };
-  if (segments[0] === 'read' && segments[1]) return { name: 'read', bookId: segments[1] };
+  if (segments[0] === 'bookmarks') return { name: 'bookmarks' };
+  // listen and read are two modes of the same ReaderView, so switching never remounts the player.
+  if ((segments[0] === 'read' || segments[0] === 'listen') && segments[1]) {
+    return { name: 'read', bookId: segments[1], mode: segments[0], query };
+  }
   return { name: 'library' };
 }
 
+/** ?seq=n (a bookmark's "Nghe từ đây") → chunk seq to start at, or null. */
+function seqParam(query) {
+  const seq = Number(query.get('seq'));
+  return query.has('seq') && Number.isInteger(seq) && seq >= 0 ? seq : null;
+}
+
+// 'read' covers both #/read and #/listen (see parseRoute).
 const NO_NAV_ROUTES = new Set(['auth', 'capture', 'read']);
 
 function App() {
@@ -99,7 +113,10 @@ function App() {
       view = html`<${BookStatusView} bookId=${route.bookId} key=${route.bookId} />`;
       break;
     case 'read':
-      view = html`<${ReaderView} bookId=${route.bookId} key=${route.bookId} />`;
+      view = html`<${ReaderView} bookId=${route.bookId} mode=${route.mode} startSeq=${seqParam(route.query)} key=${route.bookId} />`;
+      break;
+    case 'bookmarks':
+      view = html`<${BookmarksView} />`;
       break;
     default:
       view = html`<${LibraryView} />`;

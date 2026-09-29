@@ -1,52 +1,19 @@
-// Thư viện chung: "Tiếp tục nghe" (của user hiện tại) + lưới toàn bộ sách (§6.2, step 4).
-import { html, useEffect, useState } from '../../vendor/preact-htm.module.js';
+// Thư viện chung as "record crates": hero "Nghe tiếp", accent-insensitive search, topic pull-down
+// menu and one crate per topic. Layout reference: docs/mockups/vinyl-library-preview.html.
+import { html, useEffect, useMemo, useState } from '../../vendor/preact-htm.module.js';
 import { booksApi, authApi } from '../api-client.js';
 import { authStore, clearCachedUser, clearUserProgress } from '../store.js';
 import { listOfflineBooks } from '../offline-book-cache.js';
-import { BookCover } from '../components/book-cover.js';
+import { matchesQuery } from '../text-fold.js';
+import { LibraryHeroCard } from '../components/library-hero-card.js';
+import { LibraryCrate } from '../components/library-crate.js';
+import { LibraryAccountMenu } from '../components/library-account-menu.js';
+import { TopicFilterMenu } from '../components/topic-filter-menu.js';
 import { Icon } from '../icons.js';
 
-const STATE_LABEL = {
-  empty: 'Chưa có trang',
-  processing: 'Đang xử lý',
-  waiting_quota: 'Chờ quota',
-  failed: 'Có lỗi',
-  ready: 'Sẵn sàng',
-};
-
-function progressPercent(book) {
-  if (!book.duration_ms || !book.progress) return 0;
-  // Approximate: we don't have per-chunk offsets here, so show chunk-based fraction.
-  if (!book.chunks.total) return 0;
-  return Math.min(100, Math.round((book.progress.chunk_seq / Math.max(1, book.chunks.total)) * 100));
-}
-
-function BookCard({ book, offline = false }) {
-  // Offline, the status view cannot load; the reader falls back to the saved offline copy.
-  return html`
-    <a class="book-card" href=${offline ? `#/read/${book.id}` : `#/book/${book.id}`}>
-      <${BookCover} title=${book.title} />
-      <div class="book-card-meta">
-        <div class="book-card-title">${book.title}</div>
-        <div class="book-card-by">Chụp bởi ${book.created_by_name}</div>
-        ${book.progress &&
-        html`
-          <div class="book-progress-track">
-            <div class="book-progress-fill" style=${{ width: `${progressPercent(book)}%` }}></div>
-          </div>
-        `}
-        <div class="book-state book-state--${book.state}">
-          ${book.state === 'ready' && html`<${Icon} name="check" size=${14} />`}
-          ${book.state === 'failed' && html`<${Icon} name="alert-circle" size=${14} />`}
-          ${(book.state === 'processing' || book.state === 'waiting_quota') && html`<${Icon} name="clock" size=${14} />`}
-          <span>${STATE_LABEL[book.state] || book.state}</span>
-        </div>
-      </div>
-    </a>
-  `;
-}
-
 const UNSORTED_LABEL = 'Chưa phân loại';
+const ALL = 'all';
+const UNSORTED_KEY = 'unsorted';
 
 /**
  * One shelf per topic, sorted by Vietnamese collation; books without a topic go last.
@@ -65,23 +32,16 @@ export function groupIntoShelves(books) {
   return shelves.has('') ? [...named, shelves.get('')] : named;
 }
 
-function Shelf({ shelf, offline }) {
-  const headingId = `shelf-${shelf.key || 'unsorted'}`;
-  return html`
-    <section class="shelf" aria-labelledby=${headingId}>
-      <h2 class="shelf-title" id=${headingId}>${shelf.name} <span class="shelf-count">${shelf.books.length}</span></h2>
-      <div class="shelf-row">
-        ${shelf.books.map((b) => html`<div class="shelf-item" key=${b.id}><${BookCard} book=${b} offline=${offline} /></div>`)}
-      </div>
-    </section>
-  `;
-}
+/** Menu option key for a shelf ('' topic id -> UNSORTED_KEY). */
+const shelfKey = (shelf) => shelf.key || UNSORTED_KEY;
 
 export function LibraryView() {
   const [books, setBooks] = useState(/** @type {any[]|null} */ (null));
   const [continuing, setContinuing] = useState(/** @type {any[]} */ ([]));
   const [error, setError] = useState(/** @type {string|null} */ (null));
   const [isOffline, setIsOffline] = useState(false);
+  const [query, setQuery] = useState('');
+  const [topic, setTopic] = useState(ALL);
   const user = authStore.get().user;
 
   async function load() {
@@ -92,7 +52,7 @@ export function LibraryView() {
       setContinuing(cont);
       setIsOffline(false);
     } catch (err) {
-      // C4: offline — show whatever books were saved for offline reading instead of a dead end.
+      // Offline: show whatever books were saved for offline reading instead of a dead end.
       const offline = listOfflineBooks();
       if (offline.length > 0) {
         setBooks(offline.map((o) => o.book));
@@ -120,36 +80,47 @@ export function LibraryView() {
     window.location.hash = '#/auth';
   }
 
+  // Search narrows books first; topic options keep every topic but show counts for the search result.
+  const { options, shelves, visibleCount, activeTopic } = useMemo(() => {
+    const all = books || [];
+    const searched = all.filter((b) => matchesQuery(b.title, query));
+    const searchedCounts = new Map(groupIntoShelves(searched).map((s) => [shelfKey(s), s.books.length]));
+    const opts = [
+      { key: ALL, label: 'Mọi chủ đề', count: searched.length },
+      ...groupIntoShelves(all).map((s) => ({ key: shelfKey(s), label: s.name, count: searchedCounts.get(shelfKey(s)) || 0 })),
+    ];
+    // A topic that vanished from the list must not leave the filter stuck on nothing.
+    const active = opts.some((o) => o.key === topic) ? topic : ALL;
+    const shown = groupIntoShelves(searched).filter((s) => active === ALL || shelfKey(s) === active);
+    return { options: opts, activeTopic: active, shelves: shown, visibleCount: shown.reduce((n, s) => n + s.books.length, 0) };
+  }, [books, query, topic]);
+
+  const hero = !isOffline && continuing.length > 0 ? continuing[0] : null;
+  const hasBooks = books !== null && books.length > 0;
+
+  function clearFilters() {
+    setQuery('');
+    setTopic(ALL);
+  }
+
   return html`
     <div>
-      <header class="library-header">
-        <h1 style=${{ margin: 0, fontSize: '28px' }}>Thư viện</h1>
-        <div class="library-user">
-          <span>${user ? user.display_name : ''}</span>
-          <button class="icon-btn" aria-label="Đăng xuất" onClick=${logout}><${Icon} name="log-out" /></button>
+      <header class="lib-header">
+        <div>
+          <p class="eyebrow">BookSnap · Thư phòng gia đình</p>
+          <h1>Thư viện</h1>
         </div>
+        <${LibraryAccountMenu} name=${user ? user.display_name : ''} onLogout=${logout} />
       </header>
-      <div class="fleuron-rule header-rule" aria-hidden="true"><i></i></div>
 
       <div class="container">
         ${error && html`<div class="banner banner-error" role="alert">${error}</div>`}
         ${isOffline &&
         html`<div class="banner banner-info"><${Icon} name="clock" size=${14} /> Đang ngoại tuyến — chỉ hiện sách đã tải để nghe offline</div>`}
 
-        ${continuing.length > 0 &&
-        html`
-          <section class="continue-section">
-            <h2 class="section-heading">Tiếp tục nghe</h2>
-            <div class="continue-scroll">
-              ${continuing.map((b) => html`<div class="continue-card" key=${b.id}><${BookCard} book=${b} offline=${isOffline} /></div>`)}
-            </div>
-          </section>
-        `}
+        ${hero && html`<${LibraryHeroCard} book=${hero} />`}
 
-        ${books === null &&
-        html`<div class="book-grid">
-          ${[1, 2, 3, 4].map((i) => html`<div class="skeleton" style=${{ aspectRatio: '2/3' }} key=${i}></div>`)}
-        </div>`}
+        ${books === null && !error && html`<div class="crate-skeleton skeleton" aria-hidden="true"></div>`}
         ${books !== null && books.length === 0 &&
         html`
           <div class="empty-state">
@@ -159,8 +130,27 @@ export function LibraryView() {
             <a class="btn btn-primary" href="#/capture">Chụp trang sách đầu tiên</a>
           </div>
         `}
-        ${books !== null && books.length > 0 &&
-        groupIntoShelves(books).map((shelf) => html`<${Shelf} key=${shelf.key || 'unsorted'} shelf=${shelf} offline=${isOffline} />`)}
+
+        ${hasBooks &&
+        html`
+          <div class="search">
+            <${Icon} name="search" size=${18} />
+            <input type="search" placeholder="Tìm tên sách…" aria-label="Tìm tên sách" value=${query} onInput=${(e) => setQuery(e.currentTarget.value)} />
+          </div>
+          <div class="lib-toolbar">
+            <p class="lib-summary" aria-live="polite">${visibleCount} đĩa · ${shelves.length} thùng</p>
+            <${TopicFilterMenu} options=${options} value=${activeTopic} onChange=${setTopic} />
+          </div>
+          ${shelves.map((shelf) => html`<${LibraryCrate} key=${shelfKey(shelf)} shelf=${shelf} offline=${isOffline} />`)}
+          ${visibleCount === 0 &&
+          html`
+            <div class="lib-empty">
+              <p>${query.trim() ? html`Không có sách nào khớp “${query.trim()}”.` : 'Không có sách nào trong chủ đề này.'}</p>
+              <button class="btn btn-secondary" onClick=${clearFilters}>Xoá tìm kiếm và bộ lọc</button>
+            </div>
+          `}
+          <div class="fleuron-rule lib-end" aria-hidden="true"><i></i></div>
+        `}
       </div>
     </div>
   `;

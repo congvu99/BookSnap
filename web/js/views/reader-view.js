@@ -11,6 +11,8 @@ import { ChunkParagraph } from '../components/chunk-paragraph.js';
 import { ChunkEditor } from '../components/chunk-editor.js';
 import { MiniPlayer } from '../components/mini-player.js';
 import { PlayerSheet } from '../components/player-sheet.js';
+import { NowPlayingPanel } from '../components/now-playing-panel.js';
+import { useBookBookmarks } from '../use-book-bookmarks.js';
 import { Icon } from '../icons.js';
 
 const CHUNK_POLL_MS = 4000;
@@ -22,8 +24,15 @@ function loadNum(key, fallback) {
   return Number.isFinite(v) && v > 0 ? v : fallback;
 }
 
-/** @param {{ bookId: string }} props */
-export function ReaderView({ bookId }) {
+/**
+ * One instance serves both #/read/:id (mode 'read') and #/listen/:id (mode 'listen'); only the
+ * markup differs, so the AudioPlaylist, progress and timers survive a mode switch.
+ * startSeq (from ?seq=, a bookmark's "Nghe từ đây") overrides the saved position once, on open.
+ * @param {{ bookId: string, mode?: 'read'|'listen', startSeq?: number|null }} props
+ */
+export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
+  const isListen = mode === 'listen';
+  const bookmarks = useBookBookmarks(bookId);
   const user = authStore.get().user;
   const [book, setBook] = useState(/** @type {any|null} */ (null));
   const [chunks, setChunks] = useState(/** @type {any[]} */ ([]));
@@ -63,7 +72,7 @@ export function ReaderView({ bookId }) {
         setChunks(cs);
         setIsOffline(false);
         playlistRef.current.setChunks(cs);
-        const restored = await progressRef.current.load();
+        const restored = startAt(await progressRef.current.load(), cs);
         if (cancelled) return;
         playlistRef.current.loadAt(restored.chunk_seq, restored.offset_ms, false);
         const downloaded = await isBookDownloaded(cs);
@@ -83,13 +92,22 @@ export function ReaderView({ bookId }) {
           setIsOffline(true);
           setDownloadState({ status: 'done', done: offlineCopy.chunks.length, total: offlineCopy.chunks.length });
           playlistRef.current.setChunks(offlineCopy.chunks);
-          const restored = await progressRef.current.load();
+          const restored = startAt(await progressRef.current.load(), offlineCopy.chunks);
           if (!cancelled) playlistRef.current.loadAt(restored.chunk_seq, restored.offset_ms, false);
         } else {
           setError(err.message || 'Không tải được sách');
         }
       }
     }
+    /** Apply ?seq= once (clamped to a chunk that still exists), then drop it from the URL so a
+     *  reload resumes from saved progress. */
+    function startAt(restored, list) {
+      if (startSeq == null || cancelled) return restored;
+      history.replaceState(null, '', window.location.hash.split('?')[0]);
+      const target = list.find((c) => c.seq >= startSeq) || list[list.length - 1];
+      return target ? { chunk_seq: target.seq, offset_ms: 0 } : restored;
+    }
+
     init();
     schedulePoll();
 
@@ -162,15 +180,17 @@ export function ReaderView({ bookId }) {
 
   // Auto-scroll to active paragraph (suppressed 8s after manual scroll).
   useEffect(() => {
-    if (autoScrollSuppressed || playerState.currentSeq == null) return;
+    if (isListen || autoScrollSuppressed || playerState.currentSeq == null) return;
     const el = paraRefs.current.get(playerState.currentSeq);
     if (!el) return;
     programmaticScroll.current = true;
     el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion ? 'auto' : 'smooth' });
     setTimeout(() => (programmaticScroll.current = false), 400);
-  }, [playerState.currentSeq, autoScrollSuppressed]);
+  }, [playerState.currentSeq, autoScrollSuppressed, isListen]);
 
   useEffect(() => {
+    if (isListen) return undefined; // no reading text to follow in listen mode
+    setAutoScrollSuppressed(false);
     function onScroll() {
       if (programmaticScroll.current) return;
       setAutoScrollSuppressed(true);
@@ -182,7 +202,7 @@ export function ReaderView({ bookId }) {
       window.removeEventListener('scroll', onScroll);
       clearTimeout(suppressTimer.current);
     };
-  }, []);
+  }, [isListen]);
 
   const totalDurationMs = useMemo(() => chunks.reduce((sum, c) => sum + (c.duration_ms || 0), 0), [chunks]);
   const currentAbsoluteMs = useMemo(() => {
@@ -281,17 +301,58 @@ export function ReaderView({ bookId }) {
         ? 'Đang chuyển giọng'
         : null;
 
+  const chunkIndex = Math.max(0, chunks.findIndex((c) => c.seq === playerState.currentSeq));
+  const excerpt = chunks.length ? (chunks[chunkIndex].text || '').replace(/\s+/g, ' ').trim() : '';
+  const currentSeq = chunks.length ? chunks[chunkIndex].seq : null;
+  const seekBack = () => playlistRef.current.seekRelative(-15);
+  const seekForward = () => playlistRef.current.seekRelative(15);
+
   return html`
-    <div class="reader-view">
-      <div class="reader-topbar">
+    <div class="reader-view ${isListen ? 'reader-view--listen' : ''}">
+      ${isListen && (error || isOffline) &&
+      html`<div class="np-banners">
+        ${error && html`<div class="banner banner-error" role="alert">${error}</div>`}
+        ${isOffline && html`<div class="banner banner-info"><${Icon} name="clock" size=${14} /> Đang ngoại tuyến — phát từ bản đã tải</div>`}
+      </div>`}
+      ${isListen
+        ? html`<${NowPlayingPanel}
+            book=${book}
+            playing=${playerState.playing}
+            ready=${playerState.ready}
+            statusLabel=${statusLabel}
+            chunkIndex=${chunkIndex}
+            chunkCount=${chunks.length}
+            excerpt=${excerpt}
+            currentAbsoluteMs=${currentAbsoluteMs}
+            totalDurationMs=${totalDurationMs}
+            rate=${playerState.rate}
+            onTogglePlay=${() => playlistRef.current.togglePlay()}
+            onSeekBack=${seekBack}
+            onSeekForward=${seekForward}
+            onSeekAbsolute=${seekAbsolute}
+            onSetRate=${(r) => playlistRef.current.setRate(r)}
+            onOpenSheet=${() => setSheetOpen(true)}
+            readHref=${`#/read/${bookId}`}
+            bookmarkSlot=${currentSeq != null &&
+            html`<button
+              class="chip np-bookmark"
+              aria-pressed=${String(bookmarks.seqs.has(currentSeq))}
+              aria-label=${bookmarks.seqs.has(currentSeq) ? `Bỏ đánh dấu đoạn ${currentSeq + 1}` : `Đánh dấu đoạn ${currentSeq + 1}`}
+              onClick=${() => bookmarks.toggle(currentSeq)}
+            ><${Icon} name="bookmark" size=${17} /></button>`}
+          />`
+        : null}
+      ${!isListen && html`<div class="reader-topbar">
         <a class="icon-btn" href="#/book/${bookId}" aria-label="Quay lại"><${Icon} name="chevron-left" /></a>
         <span class="reader-title">${book.title}</span>
+        <a class="icon-btn" href="#/listen/${bookId}" aria-label="Mở màn đĩa than"><${Icon} name="disc" /></a>
         <button class="icon-btn" aria-label="Tuỳ chọn" onClick=${() => setSheetOpen(true)}><${Icon} name="settings" /></button>
-      </div>
-      ${isOffline &&
+      </div>`}
+      ${isOffline && !isListen &&
       html`<div class="banner banner-info" style=${{ margin: '0 20px 8px' }}><${Icon} name="clock" size=${14} /> Đang ngoại tuyến — phát từ bản đã tải</div>`}
 
-      <div class="reader-content" ref=${contentRef} style=${{ '--reader-font-size': `${fontSize}px` }}>
+      ${!isListen &&
+      html`<div class="reader-content" ref=${contentRef} style=${{ '--reader-font-size': `${fontSize}px` }}>
         ${error && html`<div class="banner banner-error" role="alert">${error}</div>`}
         ${chunks.length === 0 && html`<p class="text-muted">Sách chưa có đoạn nào để đọc. Quay lại khi OCR/chuyển giọng xong.</p>`}
         ${chunks.map(
@@ -300,6 +361,8 @@ export function ReaderView({ bookId }) {
               <${ChunkParagraph}
                 chunk=${c}
                 isActive=${c.seq === playerState.currentSeq}
+                bookmarked=${bookmarks.seqs.has(c.seq)}
+                onToggleBookmark=${bookmarks.toggle}
                 onPlayFrom=${(seq) => playlistRef.current.loadAt(seq, 0, true)}
                 onRetry=${retryChunk}
                 onEdit=${setEditingChunk}
@@ -307,26 +370,28 @@ export function ReaderView({ bookId }) {
             </div>
           `
         )}
-      </div>
+      </div>`}
 
-      ${autoScrollSuppressed &&
+      ${!isListen && autoScrollSuppressed &&
       html`<button class="scroll-resume-btn" onClick=${() => setAutoScrollSuppressed(false)}>
         <${Icon} name="chevron-down" size=${16} /> Về đoạn đang đọc
       </button>`}
 
-      <${MiniPlayer}
-        bookTitle=${book.title}
+      ${!isListen &&
+      html`<${MiniPlayer}
+        book=${book}
+        listenHref=${`#/listen/${bookId}`}
         playing=${playerState.playing}
         ready=${playerState.ready}
         statusLabel=${statusLabel}
         currentAbsoluteMs=${currentAbsoluteMs}
         totalDurationMs=${totalDurationMs}
         onTogglePlay=${() => playlistRef.current.togglePlay()}
-        onSeekBack=${() => playlistRef.current.seekRelative(-15)}
-        onSeekForward=${() => playlistRef.current.seekRelative(15)}
+        onSeekBack=${seekBack}
+        onSeekForward=${seekForward}
         onSeekAbsolute=${seekAbsolute}
         onExpand=${() => setSheetOpen(true)}
-      />
+      />`}
 
       ${sheetOpen &&
       html`<${PlayerSheet}
@@ -348,6 +413,8 @@ export function ReaderView({ bookId }) {
         exportUrl=${booksApi.exportUrl(bookId)}
         onClose=${() => setSheetOpen(false)}
       />`}
+
+      <div class="reader-toast" role="status" aria-live="polite" hidden=${!bookmarks.message}>${bookmarks.message || ''}</div>
 
       ${editingChunk &&
       html`<${ChunkEditor} chunk=${editingChunk} onClose=${() => setEditingChunk(null)} onSaved=${onChunkSaved} />`}

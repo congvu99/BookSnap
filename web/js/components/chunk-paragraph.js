@@ -14,8 +14,11 @@ function formatHHmm(iso) {
   return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
-/** @param {{chunk: object, isActive: boolean, onPlayFrom: (seq:number)=>void, onRetry:(id:string)=>void, onEdit:(chunk:object)=>void}} props */
-export function ChunkParagraph({ chunk, isActive, onPlayFrom, onRetry, onEdit }) {
+/**
+ * @param {{chunk: object, isActive: boolean, bookmarked?: boolean, onPlayFrom: (seq:number)=>void, onRetry:(id:string)=>void,
+ *   onEdit:(chunk:object)=>void, onToggleBookmark?: (seq:number)=>void}} props
+ */
+export function ChunkParagraph({ chunk, isActive, bookmarked = false, onPlayFrom, onRetry, onEdit, onToggleBookmark }) {
   const pressTimer = useRef(/** @type {number|undefined} */ (undefined));
   const pending = chunk.status !== 'done';
 
@@ -63,6 +66,15 @@ export function ChunkParagraph({ chunk, isActive, onPlayFrom, onRetry, onEdit })
     >
       <${Icon} name="edit" size=${16} />
     </button>
+    ${onToggleBookmark &&
+    html`<button
+      class="icon-btn reader-bookmark-btn"
+      aria-label=${bookmarked ? `Bỏ đánh dấu đoạn ${chunk.seq + 1}` : `Đánh dấu đoạn ${chunk.seq + 1}`}
+      aria-pressed=${String(bookmarked)}
+      onClick=${(e) => { e.stopPropagation(); onToggleBookmark(chunk.seq); }}
+    >
+      <${Icon} name="bookmark" size=${16} />
+    </button>`}
   `;
 
   return html`

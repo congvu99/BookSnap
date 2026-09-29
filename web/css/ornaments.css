@@ -8,7 +8,7 @@
 }
 
 /* Cormorant's old-style figures read as "ı" beside capitals; engraved labels use lining figures. */
-.section-heading, .player-sheet-section h3, .shelf-title, .ornament, .status-step-dot, .field label { font-variant-numeric: lining-nums; }
+.section-heading, .player-sheet-section h3, .ornament, .status-step-dot, .field label { font-variant-numeric: lining-nums; }
 
 /* Page title with a fleuron rule beneath: ──── ❦ ──── */
 .fleuron-rule {
@@ -35,19 +35,6 @@
   mask: var(--lozenge-mask) right center / 9px 9px no-repeat, linear-gradient(#000, #000) left center / calc(100% - 12px) 1px no-repeat;
 }
 
-/* Shelf: brass name plate above a double shelf rule */
-.shelf-title {
-  display: inline-flex; align-items: baseline; gap: var(--space-2);
-  padding: 3px var(--space-3); margin: 0 0 var(--space-3);
-  font-family: var(--font-display); font-weight: 600; font-size: 15px; line-height: 1.35;
-  text-transform: uppercase; letter-spacing: .12em; color: var(--gold-ink);
-  background: var(--surface);
-  border: 1px solid var(--gold); outline: 1px solid var(--gold); outline-offset: 2px;
-  border-radius: 2px;
-}
-.shelf-title .shelf-count { letter-spacing: 0; text-transform: none; color: var(--ink-muted); }
-.shelf-row { border-bottom: 3px double var(--gold); }
-
 /* Framed surface: double gold rule with fixed-size scrolled corners */
 .ornate {
   position: relative;
@@ -63,12 +50,6 @@
 
 /* Page headers sit on a fleuron rule; the rule's own margin sets the gap to the content. */
 .header-rule { max-width: 768px; margin: var(--space-2) auto 0; padding: 0 20px; }
-
-/* Auth frontispiece */
-.auth-frontispiece { text-align: center; margin-bottom: var(--space-8); background: var(--surface); }
-.auth-frontispiece .auth-logo { margin: var(--space-2) 0 0; font-size: 44px; }
-.auth-frontispiece .auth-tagline { margin: 0; }
-.auth-frontispiece .fleuron-rule { margin: var(--space-2) var(--space-6) var(--space-3); }
 
 /* Capture button with a gilt ring */
 .bottom-nav .nav-capture .nav-capture-circle {

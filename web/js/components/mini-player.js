@@ -1,8 +1,10 @@
 // Mini player dính đáy: play/pause 56px, ±15s, thanh tiến độ toàn sách, thời gian tabular (§6.3).
 import { html } from '../../vendor/preact-htm.module.js';
 import { Icon } from '../icons.js';
+import { RecordSleeve } from './record-sleeve.js';
+import { VinylDisc } from './vinyl-disc.js';
 
-function formatTime(ms) {
+export function formatTime(ms) {
   const totalSec = Math.max(0, Math.round(ms / 1000));
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
@@ -14,14 +16,15 @@ function formatTime(ms) {
 
 /**
  * @param {{
- *   bookTitle: string, playing: boolean, ready: boolean, statusLabel?: string,
+ *   book: {id: string, title: string}, listenHref: string, playing: boolean, ready: boolean, statusLabel?: string,
  *   currentAbsoluteMs: number, totalDurationMs: number,
  *   onTogglePlay: () => void, onSeekBack: () => void, onSeekForward: () => void,
  *   onSeekAbsolute: (ms:number) => void, onExpand: () => void,
  * }} props
  */
 export function MiniPlayer({
-  bookTitle,
+  book,
+  listenHref,
   playing,
   ready,
   statusLabel,
@@ -53,10 +56,16 @@ export function MiniPlayer({
         <span>${formatTime(totalDurationMs)}</span>
       </div>
       <div class="mini-player-row">
-        <div class="mini-player-meta" onClick=${onExpand} style=${{ cursor: 'pointer' }}>
-          <div class="mini-player-book">${bookTitle}</div>
-          ${statusLabel && html`<div class="mini-player-status"><${Icon} name="clock" size=${12} /> ${statusLabel}</div>`}
-        </div>
+        <a class="mini-player-meta" href=${listenHref} aria-label=${`Mở màn đĩa than: ${book.title}`}>
+          <span class="mini-art" aria-hidden="true">
+            <${RecordSleeve} book=${book} />
+            <${VinylDisc} book=${book} spinning=${playing} />
+          </span>
+          <span class="mini-player-text">
+            <span class="mini-player-book">${book.title}</span>
+            ${statusLabel && html`<span class="mini-player-status"><${Icon} name="clock" size=${12} /> ${statusLabel}</span>`}
+          </span>
+        </a>
         <div class="mini-player-controls">
           <button class="icon-btn" aria-label="Lùi 15 giây" onClick=${onSeekBack}><${Icon} name="rotate-ccw" /></button>
           <button class="mini-player-play" aria-label=${playing ? 'Tạm dừng' : 'Phát'} onClick=${onTogglePlay} disabled=${!ready}>

@@ -1,9 +1,22 @@
-// Đăng nhập / Đăng ký (§Implementation step 3). Errors render under the named field (err.field).
+// Sign-in / sign-up, laid out for one-handed iPhone use: brand art on top, form in the thumb zone.
+// Errors render under the named field (err.field); anything else uses the banner.
 import { html, useState } from '../../vendor/preact-htm.module.js';
 import { authApi, ApiError } from '../api-client.js';
 import { authStore, cacheUser } from '../store.js';
 import { Icon } from '../icons.js';
-import { OrnateFrame } from '../components/ornate-frame.js';
+import { RecordSleeve } from '../components/record-sleeve.js';
+import { VinylDisc } from '../components/vinyl-disc.js';
+
+// Limits mirror app/auth/auth_routes.py (USERNAME_RE, PASSWORD_MIN/MAX, DISPLAY_NAME_MAX).
+const USERNAME_MIN = 3;
+const USERNAME_MAX = 32;
+const PASSWORD_MIN = 6;
+const PASSWORD_MAX = 128;
+const DISPLAY_NAME_MAX = 40;
+
+// The id only picks the leather colour (hashes to the 'wine' palette).
+const BRAND_BOOK = { id: 'brand', title: 'BookSnap' };
+const ERROR_ID = 'signin-error';
 
 const FIELD_LABEL = {
   username: 'Tên đăng nhập',
@@ -11,6 +24,31 @@ const FIELD_LABEL = {
   password: 'Mật khẩu',
   invite_code: 'Mã mời',
 };
+
+const FOOT_HINT = {
+  login: 'Quên mật khẩu? Nhờ người quản lý thư viện đặt lại.',
+  register: 'Mã mời do người quản lý thư viện gia đình cung cấp.',
+};
+
+/** One labelled row; `extra` is rendered after the input (eye toggle). */
+function Row({ name, id, value, onValue, invalid, extra, ...inputProps }) {
+  return html`
+    <div class="signin-row" data-error=${invalid ? '' : null}>
+      <label for=${id}>${FIELD_LABEL[name]}</label>
+      <input
+        id=${id}
+        name=${name}
+        required
+        value=${value}
+        onInput=${(e) => onValue(name, e.currentTarget.value)}
+        aria-invalid=${invalid ? 'true' : null}
+        aria-describedby=${invalid ? ERROR_ID : null}
+        ...${inputProps}
+      />
+      ${extra}
+    </div>
+  `;
+}
 
 /** @param {{ onAuthed: () => void }} props */
 export function AuthView({ onAuthed }) {
@@ -21,25 +59,38 @@ export function AuthView({ onAuthed }) {
   const [fieldErrors, setFieldErrors] = useState(/** @type {Record<string,string>} */ ({}));
   const [values, setValues] = useState({ username: '', display_name: '', password: '', invite_code: '' });
 
+  const isLogin = tab === 'login';
+  const errorField = Object.keys(fieldErrors)[0];
+  const errorMessage = errorField ? fieldErrors[errorField] : null;
+
   function set(key, val) {
     setValues((v) => ({ ...v, [key]: val }));
   }
 
+  function switchTab(next) {
+    if (next === tab) return;
+    setTab(next);
+    setFormError(null);
+    setFieldErrors({});
+  }
+
   async function submit(ev) {
     ev.preventDefault();
+    if (busy) return;
     setFormError(null);
     setFieldErrors({});
     setBusy(true);
+    // Drop the keyboard so the hero expands back while the record spins.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     try {
-      const user =
-        tab === 'login'
-          ? await authApi.login({ username: values.username.trim(), password: values.password })
-          : await authApi.register({
-              username: values.username.trim(),
-              display_name: values.display_name.trim(),
-              password: values.password,
-              invite_code: values.invite_code.trim(),
-            });
+      const user = isLogin
+        ? await authApi.login({ username: values.username.trim(), password: values.password })
+        : await authApi.register({
+            username: values.username.trim(),
+            display_name: values.display_name.trim(),
+            password: values.password,
+            invite_code: values.invite_code.trim(),
+          });
       cacheUser(user);
       authStore.set({ user, ready: true, offline: false });
       onAuthed();
@@ -55,100 +106,96 @@ export function AuthView({ onAuthed }) {
     }
   }
 
-  return html`
-    <div class="auth-view">
-      <${OrnateFrame} className="auth-frontispiece">
-        <div class="auth-logo">BookSnap</div>
-        <div class="fleuron-rule" aria-hidden="true"><i></i></div>
-        <p class="auth-tagline text-muted">Chụp trang sách, nghe lại bằng giọng đọc tiếng Việt</p>
-      <//>
+  const eyeButton = html`
+    <button
+      type="button"
+      class="icon-btn"
+      aria-label=${showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+      aria-pressed=${String(showPassword)}
+      onClick=${() => setShowPassword((s) => !s)}
+    >
+      <${Icon} name=${showPassword ? 'eye-off' : 'eye'} size=${22} />
+    </button>
+  `;
 
-      <div class="auth-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          class="auth-tab"
-          aria-selected=${String(tab === 'login')}
-          onClick=${() => setTab('login')}
-        >
-          Đăng nhập
-        </button>
-        <button
-          type="button"
-          role="tab"
-          class="auth-tab"
-          aria-selected=${String(tab === 'register')}
-          onClick=${() => setTab('register')}
-        >
-          Đăng ký
-        </button>
+  const row = (name) => ({ name, value: values[name], onValue: set, invalid: errorField === name });
+
+  return html`
+    <div class=${`signin ${busy ? 'is-busy' : ''}`}>
+      <div class="signin-hero">
+        <div class="signin-art" aria-hidden="true">
+          <${VinylDisc} book=${BRAND_BOOK} spinning=${busy} />
+          <${RecordSleeve} book=${BRAND_BOOK} />
+        </div>
+        <div class="signin-brand">
+          <h1>BookSnap</h1>
+          <div class="fleuron-rule" aria-hidden="true"><i></i></div>
+          <p>Chụp trang sách, nghe lại bằng giọng đọc tiếng Việt</p>
+        </div>
       </div>
 
-      ${formError && html`<div class="banner banner-error" role="alert">${formError}</div>`}
+      <div class="signin-segmented" data-value=${tab} role="tablist" aria-label="Chọn đăng nhập hoặc đăng ký">
+        <button type="button" role="tab" aria-selected=${String(isLogin)} onClick=${() => switchTab('login')}>Đăng nhập</button>
+        <button type="button" role="tab" aria-selected=${String(!isLogin)} onClick=${() => switchTab('register')}>Đăng ký</button>
+      </div>
 
-      <form onSubmit=${submit}>
-        <div class="field">
-          <label for="f-username">${FIELD_LABEL.username}</label>
-          <input
-            id="f-username"
+      ${formError && html`<div class="banner banner-error signin-banner" role="alert">${formError}</div>`}
+
+      <form onSubmit=${submit} novalidate>
+        <div class="signin-group">
+          <${Row}
+            ...${row('username')}
+            id="signin-username"
+            placeholder="vd. lananh"
             autocomplete="username"
-            required
-            value=${values.username}
-            onInput=${(e) => set('username', e.currentTarget.value)}
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="next"
+            minlength=${USERNAME_MIN}
+            maxlength=${USERNAME_MAX}
           />
-          ${fieldErrors.username && html`<div class="field-error">${fieldErrors.username}</div>`}
+          ${!isLogin &&
+          html`<${Row}
+            ...${row('display_name')}
+            id="signin-display-name"
+            placeholder="vd. Lan Anh"
+            autocomplete="name"
+            autocapitalize="words"
+            enterkeyhint="next"
+            maxlength=${DISPLAY_NAME_MAX}
+          />`}
+          <${Row}
+            ...${row('password')}
+            id="signin-password"
+            type=${showPassword ? 'text' : 'password'}
+            autocomplete=${isLogin ? 'current-password' : 'new-password'}
+            passwordrules=${isLogin ? null : `minlength: ${PASSWORD_MIN}; maxlength: ${PASSWORD_MAX};`}
+            minlength=${isLogin ? null : PASSWORD_MIN}
+            maxlength=${PASSWORD_MAX}
+            enterkeyhint=${isLogin ? 'go' : 'next'}
+            extra=${eyeButton}
+          />
+          ${!isLogin &&
+          html`<${Row}
+            ...${row('invite_code')}
+            id="signin-invite"
+            placeholder="Hỏi người quản lý thư viện"
+            autocomplete="off"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="go"
+          />`}
         </div>
 
-        ${tab === 'register' &&
-        html`
-          <div class="field">
-            <label for="f-display-name">${FIELD_LABEL.display_name}</label>
-            <input
-              id="f-display-name"
-              autocomplete="name"
-              required
-              value=${values.display_name}
-              onInput=${(e) => set('display_name', e.currentTarget.value)}
-            />
-            ${fieldErrors.display_name && html`<div class="field-error">${fieldErrors.display_name}</div>`}
-          </div>
-        `}
+        ${errorMessage &&
+        html`<p class="signin-error" id=${ERROR_ID} role="alert"><${Icon} name="alert-circle" size=${16} /><span>${errorMessage}</span></p>`}
 
-        <div class="field">
-          <label for="f-password">${FIELD_LABEL.password}</label>
-          <div class="field-password-toggle">
-            <input
-              id="f-password"
-              type=${showPassword ? 'text' : 'password'}
-              autocomplete=${tab === 'login' ? 'current-password' : 'new-password'}
-              required
-              value=${values.password}
-              onInput=${(e) => set('password', e.currentTarget.value)}
-            />
-            <button
-              type="button"
-              class="icon-btn"
-              aria-label=${showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-              onClick=${() => setShowPassword((s) => !s)}
-            >
-              <${Icon} name=${showPassword ? 'eye-off' : 'eye'} />
-            </button>
-          </div>
-          ${fieldErrors.password && html`<div class="field-error">${fieldErrors.password}</div>`}
-        </div>
-
-        ${tab === 'register' &&
-        html`
-          <div class="field">
-            <label for="f-invite">${FIELD_LABEL.invite_code}</label>
-            <input id="f-invite" required value=${values.invite_code} onInput=${(e) => set('invite_code', e.currentTarget.value)} />
-            ${fieldErrors.invite_code && html`<div class="field-error">${fieldErrors.invite_code}</div>`}
-          </div>
-        `}
-
-        <button type="submit" class="btn btn-primary btn-block" disabled=${busy}>
-          ${busy ? 'Đang xử lý…' : tab === 'login' ? 'Đăng nhập' : 'Đăng ký'}
+        <button type="submit" class="btn btn-primary signin-submit" disabled=${busy}>
+          ${busy ? 'Đang mở thư viện…' : isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}
         </button>
+        <p class="signin-foot">${FOOT_HINT[tab]}</p>
       </form>
     </div>
   `;

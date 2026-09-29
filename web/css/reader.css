@@ -63,17 +63,22 @@
   border: none; background: var(--primary); clip-path: var(--lozenge);
 }
 .mini-player-progress::-moz-range-thumb { width: 16px; height: 16px; border: none; border-radius: 0; background: var(--primary); clip-path: var(--lozenge); }
-.mini-player-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-2); }
+.mini-player-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); }
 .mini-player-times { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink-muted); display: flex; justify-content: space-between; }
-.mini-player-controls { display: flex; align-items: center; gap: var(--space-2); }
+.mini-player-controls { display: flex; align-items: center; gap: 2px; }
 .mini-player-play {
   width: 56px; height: 56px; border-radius: 50%; background: var(--primary); color: var(--on-primary);
   display: flex; align-items: center; justify-content: center; border: none; cursor: pointer;
   box-shadow: 0 0 0 2px var(--surface-sunken), 0 0 0 3.5px var(--gold);
 }
-.mini-player-meta { flex: 1; overflow: hidden; }
-.mini-player-book { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-player-meta { flex: 1; min-width: 0; min-height: 52px; display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.mini-player-text { min-width: 0; display: block; }
+.mini-player-book { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; font-weight: 600; line-height: 1.25; }
 .mini-player-status { font-size: 12px; color: var(--ink-muted); display: flex; align-items: center; gap: 4px; }
+/* 48px sleeve with a small record peeking out to its right. */
+.mini-art { position: relative; width: 70px; height: 48px; flex: none; }
+.mini-art .sleeve { position: absolute; width: 48px; left: 0; top: 0; z-index: 1; }
+.mini-art .disc { position: absolute; width: 44px; left: 24px; top: 2px; }
 
 .player-sheet-backdrop {
   position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 25;
