@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import audio_routes, books_routes, export_routes, pages_routes, topics_routes, voices_routes
+from app.api import audio_routes, bookmarks_routes, books_routes, export_routes, pages_routes, topics_routes, voices_routes
 from app.api_errors import install_error_handlers
 from app.app_context import AppContext
 from app.auth import auth_routes
@@ -78,6 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(audio_routes.router)
     app.include_router(voices_routes.router)
     app.include_router(export_routes.router)
+    app.include_router(bookmarks_routes.router)
     app.include_router(topics_routes.router)
 
     @app.get("/health", include_in_schema=False)

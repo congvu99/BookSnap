@@ -10,6 +10,7 @@ from app.auth.session_service import SessionService
 from app.config import Settings
 from app.db import Database
 from app.repositories.book_repository import BookRepository
+from app.repositories.bookmark_repository import BookmarkRepository
 from app.repositories.chunk_repository import ChunkRepository
 from app.repositories.page_repository import PageRepository
 from app.repositories.progress_repository import ProgressRepository
@@ -38,6 +39,7 @@ class AppContext:
     chunks: ChunkRepository
     progress: ProgressRepository
     topics: TopicRepository
+    bookmarks: BookmarkRepository
     auth_limiter: RateLimiter
     session_service: SessionService
     worker: WorkerWaker = field(default_factory=_NoopWaker)
@@ -56,6 +58,7 @@ class AppContext:
             chunks=ChunkRepository(db),
             progress=ProgressRepository(db),
             topics=TopicRepository(db),
+            bookmarks=BookmarkRepository(db),
             auth_limiter=RateLimiter(settings.auth_rate_limit_per_minute, 60.0),
             session_service=SessionService(sessions, users, settings),
         )

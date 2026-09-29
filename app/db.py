@@ -102,6 +102,17 @@ MIGRATIONS: list[str] = [
     ALTER TABLE books ADD COLUMN topic_id TEXT REFERENCES topics(id);
     CREATE INDEX idx_books_topic ON books(topic_id);
     """,
+    # Per-user bookmarks keyed by chunk seq (like progress): the unsealed tail chunk is replaced
+    # when pages are added, but its seq survives, so a bookmark never dangles on a chunk id.
+    """
+    CREATE TABLE bookmarks (
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+        chunk_seq INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY(user_id, book_id, chunk_seq)
+    );
+    """,
 ]
 
 
