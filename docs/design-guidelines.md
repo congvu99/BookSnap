@@ -111,8 +111,30 @@ Reader/Camera là màn full-screen, có nút quay lại rõ ràng; bottom nav �
 - Lỗi field: vạch đỏ + nhãn đỏ + dòng lỗi dưới group (`role=alert`); lỗi form chung giữ banner. Chuyển tab xoá lỗi nhưng giữ giá trị.
 - Busy: đĩa xoay, nút disabled "Đang mở thư viện…", input blur (bàn phím hạ).
 
-### 6.4 Trạng thái xử lý
-Timeline dọc cho mỗi lần upload: Tải ảnh → Nhận dạng chữ → Chuyển giọng → Sẵn sàng. Skeleton cho trang đang OCR; không spinner chặn toàn màn hình.
+### 6.4 Chọn giọng (Voice Picker)
+Giao diện chọn giọng khi thêm nội dung:
+- **Layout:** 2 cột trên mobile, 3+ cột tablet
+- **Chip style:** viền vàng, chữ con, góc gần vuông
+- **States:** bình thường, chọn, "Chưa cấu hình" (provider chưa setup key)
+- **Preview:** nút ▶ (play icon) bên cạnh mỗi giọng → phát sample text (6 call/user/min limit)
+  - Nếu đang download: loading spinner
+  - Nếu lỗi: tắt preview, icon ⚠, tooltip "Không phát được"
+- **Dismiss:** quay lại, giọng đã chọn lưu ở step confirm
+
+### 6.4.1 Trạng thái xử lý (Processing Progress)
+Timeline dọc cho mỗi lần upload: Tải ảnh → Nhận dạng chữ → Chuyển giọng → Sẵn sàng.
+- **Thanh tiến độ:** vàng 2px, phần done tô primary
+- **Pulse animation:** nháy nhẹ cho "queued" / "processing" (tắt ở `prefers-reduced-motion`)
+- **ETA:** "Chờ ~3 phút", reset khi phía sau có activity
+- **Toast info:** "Trang 3 đã tải lên" (không modal chặn)
+- **Toast error:** "Trang 5 lỗi: ..." + nút thử lại
+
+### 6.4.2 Status Toast
+Thông báo trạng thái nhỏ, không đè lên nội dung:
+- **Info (upload success):** nền xanh lá, icon ✓, tự tắt 2s
+- **Error (upload fail, quota, provider down):** nền đỏ, icon ✕, user dismiss hoặc timeout 4s
+- **Vị trí:** dưới topbar reader, cách bottom nav 8px
+- **Animation:** slide-in 200ms ease-out, slide-out 150ms
 
 ### 6.5 Hoa văn cổ điển Tây Âu (xuyên suốt app)
 Hình khối dùng chung ở `web/js/components/ornament-shapes.js` (góc lượn, fleuron) và mask `--lozenge-mask`/`--fleuron-mask` trong `web/css/ornaments.css` — không vẽ hoa văn mới rời rạc. Style của từng control nằm ngay trong file CSS gốc của nó (app/library/reader/camera.css), không đè lớp riêng.

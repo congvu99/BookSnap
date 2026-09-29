@@ -66,14 +66,16 @@ BookSnap/
 │   │
 │   ├── css/                             No CSS framework, design tokens only
 │   │   ├── tokens.css                   [~50 LOC] Colors (wine-red, ivory, gold), fonts (Playfair Display)
-│   │   ├── app.css                      [~80 LOC] Global layout, form inputs, buttons
-│   │   ├── library.css                  [~60 LOC] Crates, shelves, hero cards
-│   │   ├── vinyl.css                    [new] Record sleeve colors (5 palettes), vinyl disc, tonearm
-│   │   ├── now-playing.css              [new] Listen mode NowPlayingPanel + disc animation
-│   │   ├── bookmarks.css                [new] Bookmarks view styling
-│   │   ├── auth.css                     [new] iOS-optimized signin/signup form
-│   │   ├── camera.css                   [~50 LOC] Camera frame, shutter, progress
-│   │   └── reader.css                   [~60 LOC] Reader layout, timeline, mini-player
+│   │   ├── app.css                      [~100 LOC] Global layout, form inputs, buttons, ornaments
+│   │   ├── library.css                  [~80 LOC] Crates, shelves, hero cards, topic menu
+│   │   ├── vinyl.css                    [~100 LOC] Record sleeve colors (5 palettes), vinyl disc, tonearm
+│   │   ├── now-playing.css              [~80 LOC] Listen mode NowPlayingPanel + disc animation
+│   │   ├── bookmarks.css                [~40 LOC] Bookmarks view styling
+│   │   ├── auth.css                     [~60 LOC] iOS-optimized signin/signup form
+│   │   ├── voice-picker.css             [~60 LOC] Voice choice chips (2 cols mobile), preview button
+│   │   ├── processing-progress.css      [~50 LOC] Progress bar with pulse, phaseOf status indicator
+│   │   ├── camera.css                   [~70 LOC] Camera frame, shutter, progress, page number
+│   │   └── reader.css                   [~70 LOC] Reader layout, timeline, mini-player, status toast
 │   │
 │   ├── vendor/
 │   │   └── preact-htm.module.js         [vendored, MIT] Single JS module: Preact + htm
@@ -104,20 +106,26 @@ BookSnap/
 │       ├── views/                       Route components (Preact)
 │       │   ├── auth-view.js             [~90 LOC] iOS-optimized signin (hero + segmented + form), invite validation
 │       │   ├── library-view.js          [~120 LOC] Crates by topic, hero "Continue", iOS topic menu, search
-│       │   ├── bookmarks-view.js        [new] Per-user bookmarks list (newest first)
-│       │   ├── capture-view.js          [~240 LOC] Book chooser → camera → shutter + thumbnail strip
-│       │   ├── book-status-view.js      [~90 LOC] Timeline (pages, chunks), retry, discard buttons
+│       │   ├── bookmarks-view.js        [~80 LOC] Per-user bookmarks list (newest first)
+│       │   ├── capture-view.js          [~200 LOC] Multipanel: choose book → confirm voice → camera
+│       │   ├── capture-choose-step.js   [~100 LOC] Panel: book selector, new/existing book choice
+│       │   ├── capture-confirm-step.js  [~150 LOC] Panel: voice picker with preview (▶), confirm to camera
+│       │   ├── book-status-view.js      [~120 LOC] Timeline (pages, chunks), retry, discard buttons, progress
 │       │   └── reader-view.js           [~395 LOC] Reader (text + highlight) + listen mode (disc+tonearm), progress sync
 │       │
 │       └── components/                  Reusable UI components
-│           ├── record-sleeve.js         [new] Square record sleeve (1:1) with 5 leather colors
-│           ├── vinyl-disc.js            [new] Vinyl disc animation (33⅓ rpm when playing)
-│           ├── tonearm.js               [new] Brass tonearm (angle by % progress, lift on pause)
-│           ├── now-playing-panel.js     [new] Listen mode: full-screen sleeve/disc + controls
-│           ├── library-crate.js         [new] Crate section (topic tab + grid of sleeves)
-│           ├── library-hero-card.js     [new] Hero "Continue" card (sleeve + disc + button)
-│           ├── library-account-menu.js  [new] Account menu (logout, language)
-│           ├── topic-filter-menu.js     [new] iOS segmented "Mọi chủ đề ⌃⌄" pull-down
+│           ├── record-sleeve.js         [~70 LOC] Square record sleeve (1:1) with 5 leather colors
+│           ├── vinyl-disc.js            [~60 LOC] Vinyl disc animation (33⅓ rpm when playing)
+│           ├── tonearm.js               [~50 LOC] Brass tonearm (angle by % progress, lift on pause)
+│           ├── now-playing-panel.js     [~120 LOC] Listen mode: full-screen sleeve/disc + controls
+│           ├── library-crate.js         [~90 LOC] Crate section (topic tab + grid of sleeves)
+│           ├── library-hero-card.js     [~80 LOC] Hero "Continue" card (sleeve + disc + button)
+│           ├── library-account-menu.js  [~50 LOC] Account menu (logout, language)
+│           ├── topic-filter-menu.js     [~60 LOC] iOS segmented "Mọi chủ đề ⌃⌄" pull-down
+│           ├── voice-picker.js          [~150 LOC] Voice choice UI: chips (2 cols mobile), ▶ preview, disabled state
+│           ├── status-toast.js          [~40 LOC] Info/error toast (page upload, seal result)
+│           ├── capture-thumb-strip.js   [~80 LOC] Page thumbnail row with status (upload, error)
+│           ├── book-page-status-list.js [~70 LOC] Page timeline in book status view
 │           ├── bottom-nav.js            [~52 LOC] Tab bar (library, bookmarks, capture, listen; 4 items)
 │           ├── progress-timeline.js     [~70 LOC] Page/chunk status timeline
 │           ├── mini-player.js           [~90 LOC] Inline player with sleeve icon + disc (48px)
@@ -125,17 +133,19 @@ BookSnap/
 │           ├── chunk-paragraph.js       [~50 LOC] Text render + edit button (long-press)
 │           └── chunk-editor.js          [~50 LOC] Edit dialog for chunk text
 │
-├── tests/                               Test suite (88–99 tests, no network)
+├── tests/                               Test suite (Python: pytest, Web: node --test)
 │   ├── conftest.py                      [~30 LOC] Fixtures: settings, db, app, fake providers
 │   ├── test_auth.py                     [~60 LOC] Register, login, logout, rate limit
-│   ├── test_books_api.py                [~252 LOC] CRUD books, voice change, multi-user progress
+│   ├── test_books_api.py                [~252 LOC] CRUD books, voice change, multi-user progress, seal-tail
 │   ├── test_pages_api.py                [~80 LOC] Upload, retry, discard, seq conflict
 │   ├── test_chunks_api.py               [~60 LOC] List chunks, audio streaming (Range)
 │   ├── test_text_chunker.py             [~50 LOC] Pure chunker: split text, boundaries
 │   ├── test_tts_router.py               [~50 LOC] Router: backoff, quota, RPM limit
 │   ├── test_worker_resume.py            [~248 LOC] Resume on-flight rows (pages, chunks)
 │   ├── test_export_and_storage_health.py [~50 LOC] Export ZIP, health check
-│   └── test_pipeline_end_to_end.py      [~60 LOC] Full flow: upload → OCR → chunk → TTS (fake)
+│   ├── test_pipeline_end_to_end.py      [~60 LOC] Full flow: upload → OCR → chunk → TTS (fake)
+│   ├── test_service_worker_assets.py    [~40 LOC] Verify SW SHELL_ASSETS list matches files
+│   └── web/*.test.mjs                   [~200 LOC] Node tests: voice-labels, upload-notices, processing-progress, use-visible-polling (node --test, Node ≥22.7)
 │
 ├── scripts/
 │   └── voice_poc.py                     [~80 LOC] CLI: PoC voice selection (OCR 1 image, synthesize 4 Gemini + 2 Azure voices)
@@ -163,15 +173,15 @@ BookSnap/
 
 | Metric | Value |
 |--------|-------|
-| Python LOC | ~2,400 |
-| JavaScript LOC | ~2,900 |
-| Test LOC | ~1,100 |
-| Tests | 88–99 (0 network calls) |
-| API endpoints | 20+ |
-| DB tables | 6 (users, sessions, books, pages, chunks, progress) |
-| DB migrations | 2 (append-only) |
-| Python modules | 35+ |
-| JS modules | 30+ |
+| Python LOC | ~2,700 |
+| JavaScript LOC | ~3,400 |
+| Test LOC | ~1,500 |
+| Tests | 99+ Python (pytest) + ~200 JS (node --test) |
+| API endpoints | 22 (including voice preview, seal-tail, PUT /voice) |
+| DB tables | 7 (users, sessions, books, pages, chunks, progress, bookmarks) |
+| DB migrations | 2 (append-only, PRAGMA user_version) |
+| Python modules | 37+ |
+| JS modules | 35+ |
 | External deps (production) | 10 (fastapi, aiosqlite, google-genai, httpx, lameenc, etc.) |
 | External deps (dev) | 5 (pytest, playwright, etc.) |
 

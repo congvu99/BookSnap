@@ -427,7 +427,10 @@ pytest --tb=short -x            # Stop on first failure, short traceback
 ```
 
 **JavaScript:**
-- No test runner in MVP (Playwright smoke tests manual via code-reviewer)
+- Pure logic modules (no Preact imports): tested with `node --test "tests/web/**/*.test.mjs"` (Node ≥22.7)
+  - Examples: `voice-labels.test.mjs`, `upload-notices.test.mjs`, `processing-progress.test.mjs`, `use-visible-polling.test.mjs`
+  - No package.json needed; tests run with built-in test runner
+- Preact components: manual browser testing (no test runner in MVP)
 - `node --check` syntax validation on all .js files
 - Browser console: no errors on clean load
 

@@ -1,6 +1,6 @@
 # Project Roadmap — MVP & Next Steps
 
-**Last updated:** 2026-09-29 | **Status:** MVP implemented, code review complete, 3 blockers for first deploy
+**Last updated:** 2026-09-29 | **Status:** MVP phase 1–7 complete, phase 8 (docs) in progress, ready for device QA
 
 ## MVP Status
 
@@ -18,18 +18,20 @@
 - [x] Audio file storage: hash-based cache (`{seq:05d}-{hash[:8]}.mp3`)
 - [x] Worker lifecycle: resume on restart, graceful shutdown
 
-**Frontend (Phase 3–6):**
+**Frontend (Phase 1–7):**
 - [x] PWA (no build step, Preact + htm vendored)
-- [x] Camera: `getUserMedia` + canvas JPEG (no device library)
-- [x] Library: **vinyl redesign** — record crates by topic, 5-color sleeves (hash by book.id), hero "Continue", sticky tabs, iOS topic menu, search
+- [x] Camera: `getUserMedia` + canvas JPEG (no device library), page count "Trang N", upload notices
+- [x] Library: **vinyl redesign** — record crates by topic, 5-color sleeves (hash by book.id), hero "Continue", sticky tabs, iOS topic menu, search, live polling (5s/60s)
 - [x] Listen mode: dedicated `#/listen/:id` (sleeve + disc + tonearm), 33⅓ rpm spin, tonearm angle by progress, pause → lift + slide
 - [x] Bookmarks: per-user marks by chunk_seq, full-stack (DB + API + UI)
-- [x] Capture: sequential upload queue, seq conflict handling
-- [x] Reader: text display, tap-to-jump, sync highlight
+- [x] Capture flow: **multipanel** choose book → confirm voice (preview chips + ▶ play) → camera
+- [x] Reader: text display, tap-to-jump, sync highlight, `prefers-reduced-motion` respected
 - [x] Audio player: dual-audio preload, seek, playback rate; mini-player with disc icon
 - [x] Auth: iOS-optimized signin (hero + segmented + form, correct autocomplete attrs, 17px fonts)
-- [x] Offline: SW cache-first shell (bumped to v11), network-first API, Range requests for partial audio
-- [x] Progress: local 5s + server 15s debounce, prefer-newer merge
+- [x] Offline: SW cache-first shell (bumped), network-first API, Range requests for partial audio
+- [x] Progress: local 5s + server 15s debounce, prefer-newer merge, status timeline with phaseOf logic
+- [x] Voice preview: 6 call/user/min, single-flight cache, failure TTL 60s, error masking
+- [x] Status view: progress bar with pulse, page thumbnails, "Xong rồi, đọc luôn" (any member)
 
 **Deploy (Phase 5 partial):**
 - [x] `railway.json`: startCommand, healthcheck, 1 replica
@@ -73,12 +75,12 @@
 
 | Item | Status | Effort | Notes |
 |------|--------|--------|-------|
-| **H1 residual:** No timeout on hung Gemini calls | Fixed partial | 15 min | Add `http_options=httpx.Timeout(30)` to `genai.Client`. Test suite doesn't expose (fake provider). Low impact family scale but affects production availability. |
-| **H2 residual:** Claim-token race if content hash collision | Fixed partial | 20 min | If voice change reuses same voice (unlikely), or text edit to same text: stale + live TTS both write to same file. File named per token would fix. Low priority MVP (rare collision). |
-| **N2:** Removing queued thumbnail blocks book | Fixed partial | 30 min | Client-side: renumber following items when queue item removed. Complex; affects only edge case (deleting bad photo during capture). Can defer to post-MVP. |
-| **N4:** `POST /discard` seq unbounded (allows -1) | Quick fix | 5 min | Add `Path(ge=0, le=MAX_PAGE_SEQ)` to endpoint. Prevents `seq=-1` trick that permanently marks book failed. |
-| **M1:** Voice not validated (SSML injection via Azure) | Medium fix | 20 min | Validate voice against `voices_routes.GEMINI_VOICES`/`AZURE_VOICES`. Use `quoteattr` for SSML. |
-| **M2:** Gemini 429 without header → 1h pause (should parse body) | Medium fix | 25 min | Parse `error.details` for `RetryInfo.retryDelay`. Fall back to 60s for RPM-type 429s. Low impact if quota generous. |
+| **H1 residual:** No timeout on hung Gemini calls | Not fixed | 15 min | Add `http_options=httpx.Timeout(30)` to `genai.Client`. Test suite doesn't expose (fake provider). Low impact family scale but affects production availability. |
+| **H2 residual:** Claim-token race if content hash collision | Not fixed | 20 min | If voice change reuses same voice (unlikely), or text edit to same text: stale + live TTS both write to same file. File named per token would fix. Low priority MVP (rare collision). |
+| **N2:** Removing queued thumbnail blocks book | Not fixed | 30 min | Client-side: renumber following items when queue item removed. Complex; affects only edge case (deleting bad photo during capture). Can defer to post-MVP. |
+| **N4:** `POST /discard` seq unbounded (allows -1) | Not fixed | 5 min | Add `Path(ge=0, le=MAX_PAGE_SEQ)` to endpoint. Prevents `seq=-1` trick that permanently marks book failed. |
+| **M1:** Voice not validated (SSML injection via Azure) | **FIXED** | — | Validate voice against `tts_voices.GEMINI_VOICES`/`AZURE_VOICES` in `_checked_voice`. Azure SSML uses `xml.sax.saxutils.quoteattr(voice)` for attribute escaping. |
+| **M2:** Gemini 429 without header → 1h pause (should parse body) | Not fixed | 25 min | Parse `error.details` for `RetryInfo.retryDelay`. Fall back to 60s for RPM-type 429s. Low impact if quota generous. |
 
 **Recommended pre-deploy sequence:**
 1. Fix N1 (migration) — **blocking**
@@ -150,11 +152,12 @@
    GEMINI_API_KEY=<AI Studio key>
    GEMINI_OCR_MODEL=gemini-2.5-flash
    GEMINI_TTS_MODEL=gemini-2.5-flash-preview-tts
-   GEMINI_TTS_VOICE=Kore
+   GEMINI_TTS_VOICE=Charon
    TTS_DEFAULT_PROVIDER=gemini
    COOKIE_SECURE=true
    DATA_DIR=/data
    ```
+   ⚠️ **Note:** If Railway env already has `GEMINI_TTS_VOICE=Kore` (old setting), books will use Kore until next voice change. **Ask user before updating** since this affects existing deployments.
 
 4. **Push to `main`** (or merge PR)
    - Railway auto-detects Python, installs requirements.txt
@@ -231,10 +234,10 @@
 
 | Date | Version | Status | Notes |
 |------|---------|--------|-------|
-| 2026-09-29 | MVP 1.0 | Code complete, 1 blocker | Phase 1–4 done. Phase 5 awaiting N1 fix + PoC + device test. |
+| 2026-09-29 | MVP 1.0 | Phase 1–7 complete, phase 8 docs in progress | All backend + frontend features done. Voice preview, tail seal, PUT /voice, status views, capture flow, live polling, voice labels. M1 (Azure SSML) fixed. Default voice Charon (Gate 0 PoC done). Docs updated. Pending: device QA (iOS/Android), Railway env check for `GEMINI_TTS_VOICE`. |
 
 ---
 
-**Next immediate action:** Fix N1 migration, run voice PoC, commit, request device testing.
+**Next immediate action:** Verify Railway env `GEMINI_TTS_VOICE=Charon` (ask user if currently set to `Kore`), run device QA on iOS Safari + Android Chrome.
 
 **Owner:** Development team. Roadmap reviews weekly (or post-deploy weekly for 1 month).
