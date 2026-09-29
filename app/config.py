@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # Daily/monthly quotas shown on the account screen; 0 = unknown (only usage is shown).
     gemini_ocr_rpd: int = 0
     gemini_tts_model: str = "gemini-2.5-flash-preview-tts"
-    gemini_tts_voice: str = "Kore"
+    gemini_tts_voice: str = "Charon"
     gemini_tts_style: str = "Đọc bằng giọng kể chuyện ấm áp, chậm rãi, truyền cảm:"
     gemini_tts_rpm: int = 10
     gemini_tts_rpd: int = 0

@@ -19,7 +19,7 @@ function parseRoute(hash) {
   const query = new URLSearchParams(queryString);
   const segments = path.split('/').filter(Boolean);
   if (segments[0] === 'auth') return { name: 'auth' };
-  if (segments[0] === 'capture') return { name: 'capture', bookId: segments[1] };
+  if (segments[0] === 'capture') return { name: 'capture', bookId: segments[1], query };
   if (segments[0] === 'book' && segments[1]) return { name: 'book', bookId: segments[1] };
   if (segments[0] === 'bookmarks') return { name: 'bookmarks' };
   if (segments[0] === 'account') return { name: 'account' };
@@ -111,7 +111,7 @@ function App() {
       view = html`<${AuthView} onAuthed=${() => (window.location.hash = '#/library')} />`;
       break;
     case 'capture':
-      view = html`<${CaptureView} bookId=${route.bookId} key=${route.bookId || 'new'} />`;
+      view = html`<${CaptureView} bookId=${route.bookId} skipConfirm=${route.query.get('start') === '1'} key=${route.bookId || 'new'} />`;
       break;
     case 'book':
       view = html`<${BookStatusView} bookId=${route.bookId} key=${route.bookId} />`;

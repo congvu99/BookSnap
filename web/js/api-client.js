@@ -89,6 +89,10 @@ export const booksApi = {
   create: (body) => apiFetch('/api/books', { method: 'POST', body }),
   get: (id) => apiFetch(`/api/books/${id}`),
   patch: (id, body) => apiFetch(`/api/books/${id}`, { method: 'PATCH', body }),
+  /** Voice for audio not generated yet; existing audio keeps its voice. */
+  setVoice: (id, body) => apiFetch(`/api/books/${id}/voice`, { method: 'PUT', body }),
+  /** Skip the tail grace period so the last chunk is voiced now. */
+  sealTail: (id) => apiFetch(`/api/books/${id}/seal-tail`, { method: 'POST' }),
   remove: (id) => apiFetch(`/api/books/${id}`, { method: 'DELETE' }),
   chunks: (id) => apiFetch(`/api/books/${id}/chunks`),
   getProgress: (id) => apiFetch(`/api/books/${id}/progress`),
@@ -135,5 +139,15 @@ export const bookmarksApi = {
 
 // ---- Voices ----
 export const voicesApi = {
+  /** {default_provider, providers:{[p]:{default, voices[], configured, preview_urls:{[voice]:url}}}} */
   list: () => apiFetch('/api/voices'),
+  /** After an <audio> error: re-request the preview to learn the API error code (null if it now plays). */
+  previewErrorCode: async (url) => {
+    try {
+      await apiFetch(url);
+      return null;
+    } catch (err) {
+      return err.code || 'unknown_error';
+    }
+  },
 };

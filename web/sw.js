@@ -3,7 +3,7 @@
 // Range requests with 206 + Content-Range for Safari's <audio> to seek while offline.
 // v2: fixes C3 (206 responses can never be cache.put'd — see handleChunkAudio) and ships the
 // H3/M3/M4 client-side fixes; bumped so already-installed clients pick up the new sw.js bytes.
-const SHELL_CACHE = 'booksnap-shell-v15';
+const SHELL_CACHE = 'booksnap-shell-v17';
 const AUDIO_CACHE = 'booksnap-audio-v1';
 
 const SHELL_ASSETS = [
@@ -18,9 +18,11 @@ const SHELL_ASSETS = [
   '/css/library.css',
   '/css/now-playing.css',
   '/css/ornaments.css',
+  '/css/processing-progress.css',
   '/css/reader.css',
   '/css/tokens.css',
   '/css/vinyl.css',
+  '/css/voice-picker.css',
   '/vendor/preact-htm.module.js',
   '/js/api-client.js',
   '/js/app.js',
@@ -31,14 +33,20 @@ const SHELL_ASSETS = [
   '/js/offline-audio-cache.js',
   '/js/offline-book-cache.js',
   '/js/playback-progress.js',
+  '/js/processing-progress.js',
   '/js/sign-out.js',
   '/js/sleeve-palette.js',
   '/js/store.js',
   '/js/text-fold.js',
+  '/js/upload-notices.js',
   '/js/upload-queue.js',
   '/js/use-book-bookmarks.js',
+  '/js/use-visible-polling.js',
+  '/js/voice-labels.js',
   '/js/components/account-profile-forms.js',
+  '/js/components/book-page-status-list.js',
   '/js/components/bottom-nav.js',
+  '/js/components/capture-thumb-strip.js',
   '/js/components/chunk-editor.js',
   '/js/components/chunk-paragraph.js',
   '/js/components/library-account-menu.js',
@@ -51,15 +59,19 @@ const SHELL_ASSETS = [
   '/js/components/player-sheet.js',
   '/js/components/progress-timeline.js',
   '/js/components/record-sleeve.js',
+  '/js/components/status-toast.js',
   '/js/components/tonearm.js',
   '/js/components/usage-meter-list.js',
   '/js/components/topic-filter-menu.js',
   '/js/components/topic-input.js',
   '/js/components/vinyl-disc.js',
+  '/js/components/voice-picker.js',
   '/js/views/account-view.js',
   '/js/views/auth-view.js',
   '/js/views/book-status-view.js',
   '/js/views/bookmarks-view.js',
+  '/js/views/capture-choose-step.js',
+  '/js/views/capture-confirm-step.js',
   '/js/views/capture-view.js',
   '/js/views/library-view.js',
   '/js/views/reader-view.js',

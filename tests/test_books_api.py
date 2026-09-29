@@ -48,7 +48,9 @@ async def test_create_list_get_book_with_defaults(alice, app):
     assert (await alice.get(f"/api/books/{book['id']}")).json()["title"] == "Dế Mèn phiêu lưu ký"
 
 
-async def test_create_book_with_azure_uses_azure_default_voice(alice, app):
+async def test_create_book_with_azure_uses_azure_default_voice(alice, app, monkeypatch):
+    # Choosing a non-default provider requires its key (else every chunk would fail in the worker).
+    monkeypatch.setattr(ctx_of(app).settings, "azure_speech_key", "test-key")
     book = await create_book(alice, tts_provider="azure")
     assert book["tts_voice"] == ctx_of(app).settings.azure_tts_voice
 

@@ -1,10 +1,11 @@
 ---
 phase: 5
-title: "Frontend capture page notifications"
-status: pending
+title: Frontend capture page notifications
+status: completed
 priority: P2
-dependencies: [4]
-effort: "S"
+dependencies:
+  - 4
+effort: S
 ---
 
 # Phase 5: Báo số trang khi chụp và upload

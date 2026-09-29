@@ -1,1 +1,2 @@
 - [Vietnamese diacritic clipping](project_vietnamese-diacritic-clipping.md) — font/line-height changes: measure stacked-accent yMax vs clip threshold in overflow:hidden title boxes
+- [Chunk counter semantics](project_chunk-counter-semantics.md) — chunks.processing includes pending tail; use queued for phase logic

@@ -34,6 +34,10 @@ class BookSummary(Book):
     chunks_waiting_quota: int
     chunks_failed: int
     chunks_processing: int
+    # Sealed pending + processing: chunks the TTS worker still has to speak, excluding the tail.
+    chunks_queued: int
+    # Pending unsealed tail (0 or 1): held back until the book has been idle for the grace period.
+    chunks_tail_pending: int
     next_not_before: str | None
     duration_ms: int
     progress_chunk_seq: int | None
@@ -57,6 +61,8 @@ SELECT b.*, u.display_name AS created_by_name, t.name AS topic_name,
        COALESCE(cs.waiting, 0) AS chunks_waiting_quota,
        COALESCE(cs.failed, 0) AS chunks_failed,
        COALESCE(cs.processing, 0) AS chunks_processing,
+       COALESCE(cs.queued, 0) AS chunks_queued,
+       COALESCE(cs.tail_pending, 0) AS chunks_tail_pending,
        cs.next_not_before AS next_not_before,
        COALESCE(cs.duration_ms, 0) AS duration_ms,
        pr.chunk_seq AS progress_chunk_seq,
@@ -89,6 +95,8 @@ LEFT JOIN (
            SUM(status = 'waiting_quota') AS waiting,
            SUM(status = 'failed') AS failed,
            SUM(status IN ('pending', 'processing')) AS processing,
+           SUM(status = 'processing' OR (status = 'pending' AND sealed = 1)) AS queued,
+           SUM(status = 'pending' AND sealed = 0) AS tail_pending,
            MIN(CASE WHEN status = 'waiting_quota' THEN not_before END) AS next_not_before,
            SUM(CASE WHEN status = 'done' THEN duration_ms ELSE 0 END) AS duration_ms
     FROM chunks GROUP BY book_id
@@ -136,6 +144,16 @@ class BookRepository:
 
     async def update_title(self, book_id: str, title: str) -> None:
         await self.db.execute("UPDATE books SET title=?, updated_at=? WHERE id=?", (title, now_iso(), book_id))
+
+    async def set_voice(self, book_id: str, tts_provider: str, tts_voice: str) -> None:
+        """Switch the voice for audio not generated yet; `done` chunks keep theirs.
+
+        The worker copies the book's voice onto a chunk when it claims it, so every chunk still
+        without audio (new pages, and older pending/failed ones) picks up the new voice.
+        `updated_at` is left alone on purpose: it marks pipeline activity, and bumping it would
+        restart the tail grace period.
+        """
+        await self.db.execute("UPDATE books SET tts_provider=?, tts_voice=? WHERE id=?", (tts_provider, tts_voice, book_id))
 
     async def change_voice(self, book_id: str, tts_provider: str, tts_voice: str) -> None:
         """Switch the book's voice and queue every chunk for regeneration in one transaction.

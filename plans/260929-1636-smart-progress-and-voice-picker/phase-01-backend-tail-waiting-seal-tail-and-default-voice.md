@@ -1,10 +1,10 @@
 ---
 phase: 1
-title: "Backend tail waiting seal tail and default voice"
-status: pending
+title: Backend tail waiting seal tail and default voice
+status: completed
 priority: P1
 dependencies: []
-effort: "M"
+effort: M
 ---
 
 # Phase 1: Gate PoC giọng, trạng thái chờ đoạn cuối, seal-tail, giọng mặc định Charon

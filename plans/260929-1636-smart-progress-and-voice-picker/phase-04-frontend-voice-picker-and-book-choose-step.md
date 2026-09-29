@@ -1,10 +1,12 @@
 ---
 phase: 4
-title: "Frontend voice picker and book choose step"
-status: pending
+title: Frontend voice picker and book choose step
+status: completed
 priority: P2
-dependencies: [2, 3]
-effort: "M"
+dependencies:
+  - 2
+  - 3
+effort: M
 ---
 
 # Phase 4: Voice picker, bước xác nhận trước khi chụp, bỏ đổi giọng trong cài đặt

@@ -52,6 +52,7 @@ cd D:\project\BookSnap
 ### Test & mockup
 
 - Test: `.venv\Scripts\python -m pytest -q` (không gọi mạng; provider OCR/TTS được giả lập).
+- Test JS thuần (helper không import Preact): `node --test "tests/web/**/*.test.mjs"` (Node ≥22.7, không cần package.json).
 - Mockup giao diện (không cần server): mở trực tiếp [docs/mockups/vinyl-library-preview.html](docs/mockups/vinyl-library-preview.html) trong trình duyệt; thêm `?screen=listen&playing=1` hoặc `?screen=auth` để vào thẳng một màn.
 
 ## Biến môi trường
@@ -63,7 +64,7 @@ cd D:\project\BookSnap
 | `COOKIE_SECURE` | `true` | |
 | `GEMINI_API_KEY` | | OCR + TTS Gemini |
 | `GEMINI_OCR_MODEL` / `GEMINI_TTS_MODEL` | `gemini-2.5-flash` / `gemini-2.5-flash-preview-tts` | Đổi khi model preview đổi tên |
-| `GEMINI_TTS_VOICE`, `GEMINI_TTS_STYLE` | `Kore`, giọng kể chuyện | Giọng mặc định cho sách mới |
+| `GEMINI_TTS_VOICE`, `GEMINI_TTS_STYLE` | `Charon` (nam, trầm), giọng kể chuyện | Giọng mặc định cho sách mới; sách cũ giữ giọng đã gán. Đổi giọng (chỉ cho đoạn chưa có audio) ở bước chụp thêm trang |
 | `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `AZURE_TTS_VOICE` | `southeastasia`, `vi-VN-HoaiMyNeural` | Tuỳ chọn |
 | `TTS_DEFAULT_PROVIDER` | `gemini` | Provider gán cho sách mới (không tự fallback) |
 | `OCR_CONCURRENCY`, `TTS_CONCURRENCY` | `2`, `2` | |
@@ -87,7 +88,7 @@ app/
   pipeline/          worker OCR → chunker → TTS, retry/quota, dọn ảnh tạm
   cli.py             python -m app.cli reset-password <username>
 web/                 PWA: camera, thư viện, reader + player, service worker
-scripts/voice_poc.py PoC chọn giọng (cần API key thật)
+scripts/voice_poc.py Nghe thử giọng: `--text "..." --voices Charon,Orus --style "..."` (cần API key thật)
 tests/
 ```
 

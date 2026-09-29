@@ -27,11 +27,10 @@ from app.config import get_settings  # noqa: E402
 from app.pipeline.ocr_gemini import GeminiOcrProvider  # noqa: E402
 from app.pipeline.tts_azure import AzureTtsProvider  # noqa: E402
 from app.pipeline.tts_gemini import GeminiTtsProvider  # noqa: E402
+from app.tts_voices import AZURE_VOICES, GEMINI_VOICES  # noqa: E402
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "poc-output"
 SAMPLE_CHARS = 600
-GEMINI_VOICES = ["Charon", "Orus", "Kore", "Aoede", "Leda", "Zephyr"]
-AZURE_VOICES = ["vi-VN-HoaiMyNeural", "vi-VN-NamMinhNeural"]
 
 
 def _guess_mime(path: Path) -> str:

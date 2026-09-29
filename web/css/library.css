@@ -73,6 +73,8 @@ a.menu-item { text-decoration: none; }
 .rec-by { font-size: 12px; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rec-progress { height: 3px; margin-top: 6px; background: var(--border); border-radius: 1px; overflow: hidden; }
 .rec-progress span { display: block; height: 100%; background: var(--primary); }
+.rec-build-progress { height: 3px; margin-top: 6px; background: var(--border); border-radius: 1px; overflow: hidden; }
+.rec-build-progress span { display: block; height: 100%; background: var(--gold); }
 .rec-state { display: inline-flex; align-items: flex-start; gap: 4px; margin-top: 4px; font-size: 12px; color: var(--ink-muted); }
 .rec-state .icon { display: flex; margin-top: 2px; }
 .rec-state--ready { color: var(--success); }

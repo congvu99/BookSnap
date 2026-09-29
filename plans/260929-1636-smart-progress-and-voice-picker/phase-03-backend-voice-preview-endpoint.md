@@ -1,10 +1,11 @@
 ---
 phase: 3
-title: "Backend voice preview endpoint"
-status: pending
+title: Backend voice preview endpoint
+status: completed
 priority: P2
-dependencies: [2]
-effort: "M"
+dependencies:
+  - 2
+effort: M
 ---
 
 # Phase 3: Endpoint nghe thử giọng

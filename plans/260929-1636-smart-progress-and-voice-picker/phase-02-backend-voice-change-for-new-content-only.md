@@ -1,10 +1,11 @@
 ---
 phase: 2
-title: "Backend voice change for new content only"
-status: pending
+title: Backend voice change for new content only
+status: completed
 priority: P2
-dependencies: [1]
-effort: "S"
+dependencies:
+  - 1
+effort: S
 ---
 
 # Phase 2: Đổi giọng cho nội dung chưa có audio, validate giọng, chặn chèn SSML
@@ -22,6 +23,7 @@ Thêm endpoint riêng `PUT /api/books/{id}/voice` để đổi giọng mà khôn
 - **Validate** trên `create_book`, `PUT voice` và nhánh voice của PATCH: <!-- Red Team: whitelist + configured -->
   - Voice ngoài whitelist → **400** `unknown_voice` (field `tts_voice`), cùng kiểu lỗi với phần còn lại của API (`books_routes.py:46`, `api_errors.py:37`).
   - Provider chưa cấu hình (key rỗng) → **409** `provider_unavailable`.
+  - **Khi implement:** chỉ áp dụng khi chọn provider **khác** `tts_default_provider`. Nếu áp cho cả provider mặc định thì 2 test worker cũ gãy (môi trường test không có key Gemini), và một deploy thiếu key sẽ không tạo được sách nào. Thiếu key ở provider mặc định vốn đã hiện trên màn usage. PATCH chỉ kiểm whitelist, không kiểm configured, để giữ nguyên hành vi cũ.
   - Chỉ validate **input mới**, không validate dữ liệu đã lưu trong DB.
 - `/api/voices`: mỗi provider có thêm `configured: bool` (additive).
 - **Chặn chèn SSML:** `_build_ssml` ([tts_azure.py:22](../../app/pipeline/tts_azure.py)) đang chèn `voice` thẳng vào attribute `name`. Sửa bằng `xml.sax.saxutils.quoteattr`. Cách này bảo vệ cả các row voice đã lưu từ trước. <!-- Red Team: SSML injection -->

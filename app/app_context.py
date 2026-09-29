@@ -18,6 +18,7 @@ from app.repositories.provider_usage_repository import ProviderUsageRepository
 from app.repositories.session_repository import SessionRepository
 from app.repositories.topic_repository import TopicRepository
 from app.repositories.user_repository import UserRepository
+from app.voice_preview import VoicePreviewService
 
 
 class WorkerWaker(Protocol):
@@ -44,12 +45,14 @@ class AppContext:
     usage: ProviderUsageRepository
     auth_limiter: RateLimiter
     session_service: SessionService
+    voice_preview: VoicePreviewService
     worker: WorkerWaker = field(default_factory=_NoopWaker)
 
     @classmethod
     def build(cls, settings: Settings, db: Database) -> "AppContext":
         users = UserRepository(db)
         sessions = SessionRepository(db)
+        usage = ProviderUsageRepository(db)
         return cls(
             settings=settings,
             db=db,
@@ -61,9 +64,10 @@ class AppContext:
             progress=ProgressRepository(db),
             topics=TopicRepository(db),
             bookmarks=BookmarkRepository(db),
-            usage=ProviderUsageRepository(db),
+            usage=usage,
             auth_limiter=RateLimiter(settings.auth_rate_limit_per_minute, 60.0),
             session_service=SessionService(sessions, users, settings),
+            voice_preview=VoicePreviewService(settings, usage),
         )
 
 

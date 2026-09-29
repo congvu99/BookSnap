@@ -7,7 +7,8 @@ CHUNK_STATUSES = ("pending", "processing", "waiting_quota", "done", "failed")
 
 
 class TailBusyError(Exception):
-    """The unsealed tail chunk was claimed by the TTS worker between our read and our write.
+    """The unsealed tail chunk changed between our read and our write: claimed by the TTS
+    worker, sealed by a user (seal-tail), or sealed by a manual text edit.
 
     The chunker should simply skip this tick for this book and try again later.
     """
@@ -67,6 +68,14 @@ class ChunkRepository:
             Chunk, await self.db.fetchone("SELECT * FROM chunks WHERE book_id=? AND sealed=0 AND status='pending' ORDER BY seq DESC LIMIT 1", (book_id,))
         )
 
+    async def seal_tail(self, book_id: str) -> int:
+        """User shortcut past the grace period: the tail becomes final, so TTS may claim it now
+        and later pages start a new chunk. Returns the number of chunks sealed (0 or 1)."""
+        return await self.db.execute(
+            "UPDATE chunks SET sealed=1, updated_at=? WHERE book_id=? AND status='pending' AND sealed=0",
+            (now_iso(), book_id),
+        )
+
     async def next_free_seq(self, book_id: str) -> int:
         row = await self.db.fetchone("SELECT MAX(seq) AS m FROM chunks WHERE book_id=?", (book_id,))
         m = row["m"] if row else None
@@ -83,7 +92,8 @@ class ChunkRepository:
         now = now_iso()
         async with self.db.transaction() as conn:
             if tail is not None:
-                async with conn.execute("DELETE FROM chunks WHERE id=? AND status='pending'", (tail.id,)) as cur:
+                # sealed=0: a user may have sealed or hand-edited the tail since the chunker read it.
+                async with conn.execute("DELETE FROM chunks WHERE id=? AND status='pending' AND sealed=0", (tail.id,)) as cur:
                     if cur.rowcount != 1:
                         raise TailBusyError()
             for i, text in enumerate(pieces):

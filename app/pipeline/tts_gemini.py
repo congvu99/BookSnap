@@ -26,6 +26,14 @@ class GeminiTtsProvider:
         self._style_prompt = style_prompt
         self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=GEMINI_TIMEOUT_MS)) if api_key else None
 
+    @property
+    def model(self) -> str:
+        return self._model
+
+    @property
+    def style(self) -> str:
+        return self._style_prompt
+
     async def synthesize(self, text: str, voice: str) -> SynthResult:
         if self._client is None:
             raise TtsError("Chưa cấu hình gemini", retryable=False)

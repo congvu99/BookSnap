@@ -120,8 +120,11 @@ User:      Press "Retry" on page 2 → pages.status='ocr_processing' → chunks 
   ```
 - Voice change / text edit / retry reset the chunk to `pending` even while it is `processing`; the in-flight run then fails the claim-token check in `mark_*` and deletes its own file unless another row references it
 - Claiming seals the chunk, so pages added later start a new chunk instead of rewriting spoken text
+- `replace_tail` (chunker): guard `DELETE FROM chunks WHERE id=? AND sealed=0` — protects against user seal or hand edits to the tail
 
-**Result:** Last chunk of a book synthesizes after grace period, but never early.
+**Result:** Last chunk of a book synthesizes after grace period, but never early. User hand-edited text in tail is never overwritten by chunker.
+
+**User-initiated seal (`POST /api/books/{id}/seal-tail`):** Open to every member; skips grace, tail marked sealed immediately, TTS claims it on next tick.
 
 ### 4. Quota Management (No Fallback)
 
@@ -301,8 +304,10 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 | **Books** ||||
 | POST | `/books` | ✓ | 201 | `book_detail`; body `{title, topic?, tts_provider?, tts_voice?}` |
 | GET | `/books` | ✓ | 200 | `[book_out]` (thư viện chung, tiến độ của user hiện tại) |
-| GET | `/books/{id}` | ✓ | 200 | `book_detail` = `book_out` + `page_list` + `pages.missing_seqs` |
-| PATCH | `/books/{id}` | ✓ người tạo | 200 | `book_detail`; `title?`, `topic?` (null/"" = bỏ, bỏ trống field = giữ), `tts_provider?`, `tts_voice?` (đổi giọng → mọi chunk về `pending`) |
+| GET | `/books/{id}` | ✓ | 200 | `book_detail` = `book_out` + `page_list` + `pages.missing_seqs` + `chunks.tail_wait_seconds` |
+| PATCH | `/books/{id}` | ✓ người tạo | 200 | `book_detail`; legacy: `title?`, `topic?`, `tts_provider?`, `tts_voice?` (đổi giọng → mọi chunk về `pending`) |
+| PUT | `/books/{id}/voice` | ✓ người tạo | 200 | `book_detail`; body `{tts_provider, tts_voice}` (đổi giọng cho đoạn chưa có audio; không reset grace) |
+| POST | `/books/{id}/seal-tail` | ✓ mọi thành viên | 204 | Bỏ qua khoảng chờ; tail chunk được đề cử TTS ngay |
 | DELETE | `/books/{id}` | ✓ người tạo | 204 | xoá DB + audio + ảnh tạm |
 | GET | `/books/{id}/export` | ✓ | 200 | ZIP stream (MP3 theo seq + `text.json`) |
 | GET/PUT | `/books/{id}/progress` | ✓ | 200 | `{chunk_seq, offset_ms, updated_at}` của user hiện tại |
@@ -323,7 +328,8 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 | POST | `/chunks/{id}/retry` | ✓ | 200 | `chunk_out`; từ `failed`/`waiting_quota` |
 | GET | `/chunks/{id}/audio` | ✓ | 200/206 | MP3, hỗ trợ `Range` |
 | **Voices** ||||
-| GET | `/voices` | ✓ | 200 | `{default_provider, providers: {gemini: {default, voices}, azure: {…}}}` |
+| GET | `/voices` | ✓ | 200 | `{default_provider, providers: {gemini: {default, voices, configured, preview_urls}, azure: {…}}}` |
+| GET | `/voices/{provider}/{voice}/preview` | ✓ | 200/401/404/409/429/503 | MP3 của câu cố định (cache 1 năm, `?v=` versioned) |
 | **Health** ||||
 | GET | `/health` | — | 200/503 | `{status, db, data_dir}` |
 
@@ -340,7 +346,33 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 }
 ```
 
-**Error codes:** `invalid_request` (400), `username_invalid` / `display_name_invalid` / `password_invalid` / `title_invalid` / `topic_invalid` / `text_invalid` (400), `current_password_invalid` / `password_unchanged` (400), `unauthorized` / `invalid_credentials` (401), `forbidden` / `invite_invalid` (403), `not_found` (404), `page_seq_taken` / `username_taken` / `page_not_discardable` / `page_not_retryable` / `chunk_not_retryable` (409), `image_too_large` / `request_too_large` (413), `image_type_invalid` (415), `rate_limited` (429, có `Retry-After`).
+**Error codes:** `invalid_request` (400), `username_invalid` / `display_name_invalid` / `password_invalid` / `title_invalid` / `topic_invalid` / `text_invalid` (400), `current_password_invalid` / `password_unchanged` (400), `unauthorized` / `invalid_credentials` (401), `forbidden` / `invite_invalid` (403), `not_found` (404), `page_seq_taken` / `username_taken` / `page_not_discardable` / `page_not_retryable` / `chunk_not_retryable` (409), `unknown_voice` (400 khi tên giọng lạ), `provider_unavailable` (409 khi provider không cấu hình API key), `image_too_large` / `request_too_large` (413), `image_type_invalid` (415), `rate_limited` (429, có `Retry-After`).
+
+### Voice Preview Details
+
+**GET `/api/voices/{provider}/{voice}/preview`:**
+- Sample text cố định (server constant): "Xin chào, tôi sẽ đọc cuốn sách này cho bạn nghe. Mời bạn thư giãn và lắng nghe từng trang sách."
+- Single-flight: cùng voice / provider, request đồng thời chỉ tạo 1 lần call TTS (chia sẻ kết quả hoặc lỗi)
+- Cache disk: `DATA_DIR/voice-previews/{cache_key:16}.mp3`, key từ provider + voice + model + style + text
+- Immutable URL: `/api/voices/{provider}/{voice}/preview?v={cache_key}` → `Cache-Control: max-age=31536000, immutable`
+- Failure cache: lỗi nhớ 60s (hoặc `Retry-After` từ quota error); timeout 30s từ client
+- Rate limit: 6 calls/user/phút (tính cả timeout) → 429 `rate_limited`
+- Error mapping (client không nhận text provider):
+  - 409 `provider_unavailable`: giọng hợp lệ nhưng provider chưa cấu hình key
+  - 429 `rate_limited`: user gọi quá nhanh; `Retry-After` header
+  - 503 `tts_quota`: hết quota; `Retry-After` header
+  - 503 `tts_timeout`: server chậm > 30s
+  - 502 `tts_failed`: provider lỗi khác
+
+**Book JSON fields (`chunks` object):**
+- `done`: số đoạn đã có audio
+- `failed`: số đoạn lỗi (user phải thử lại hoặc bỏ qua)
+- `waiting_quota`: số đoạn chờ quota reset
+- `processing`: số đoạn đang synthesize
+- `queued`: số đoạn sẵn sàng claim (sealed hoặc tail quá grace)
+- `tail_waiting`: true nếu chỉ tail chưa seal, không có queued/processing, không có page OCR đang chạy
+- `next_not_before`: timestamp sớm nhất mà chunk nào được unblock (quota reset)
+- `tail_wait_seconds` (GET `/books/{id}` only): giây còn chờ để tail được synthesize; null nếu không `tail_waiting`
 
 ## Web Routes (Hash-based SPA)
 
@@ -424,6 +456,17 @@ ocr_processing
 - H4: Pre-auth multipart parsing unbounded (Starlette limits files to 1 MB non-file parts; file parts unlimited). **Mitigation:** RequestSizeLimitMiddleware fast-path on Content-Length.
 - L11: Rate limit by last X-Forwarded-For entry (trusts Railway header append).
 - M1: Voice not validated → SSML injection risk (Azure). **Fix:** validate voice against list.
+
+## Pipeline Invariants & Safety
+
+### Azure SSML Voice Attribute Escaping
+
+Voice names (from `tts_voice`) are inserted into Azure SSML `<voice xml:lang="vi-VN" name={voice}>{text}</voice>`. Always escape using `xml.sax.saxutils.quoteattr(voice)` to prevent SSML injection. Example:
+```python
+escaped = xml.sax.saxutils.escape(text)  # Text content
+voice_attr = xml.sax.saxutils.quoteattr(voice)  # Attribute value
+ssml = f'<voice name={voice_attr}>{escaped}</voice>'
+```
 
 ## Deployment Topology (Railway)
 

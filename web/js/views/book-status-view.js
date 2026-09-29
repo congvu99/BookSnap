@@ -1,11 +1,18 @@
-// Trạng thái xử lý 1 sách: timeline + danh sách trang lỗi có thể thử lại (§Implementation step 7).
-// Polls every 3s while there is work in progress, stops once nothing is pending.
+// Trạng thái xử lý 1 sách: thanh % tổng, dòng trạng thái theo pha, đếm ngược đoạn cuối, timeline,
+// danh sách trang và các trang lỗi có thể thử lại / bỏ qua.
+// Polls every 3s while work is pending (60s when only waiting for quota), paused on hidden tabs.
 import { html, useEffect, useRef, useState } from '../../vendor/preact-htm.module.js';
 import { booksApi, pagesApi } from '../api-client.js';
 import { ProgressTimeline } from '../components/progress-timeline.js';
+import { BookPageStatusList } from '../components/book-page-status-list.js';
+import { StatusToast } from '../components/status-toast.js';
+import { useVisiblePolling } from '../use-visible-polling.js';
+import { overallPercent, phaseOf, isBusyPhase, createEta, statusLine } from '../processing-progress.js';
 import { Icon } from '../icons.js';
 
 const POLL_MS = 3000;
+const QUOTA_POLL_MS = 60000;
+const TOAST_MS = 4000;
 
 /** @param {{ bookId: string }} props */
 export function BookStatusView({ bookId }) {
@@ -13,32 +20,77 @@ export function BookStatusView({ bookId }) {
   const [error, setError] = useState(/** @type {string|null} */ (null));
   const [retrying, setRetrying] = useState(/** @type {Set<string>} */ (new Set()));
   const [discarding, setDiscarding] = useState(/** @type {Set<number>} */ (new Set()));
-  const timerRef = useRef(/** @type {number|undefined} */ (undefined));
+  const [sealing, setSealing] = useState(false);
+  const [toast, setToast] = useState(/** @type {string|null} */ (null));
+  const [now, setNow] = useState(Date.now());
+  // Per-visit memory: bar never shrinks, ETA anchored at first load, countdown anchored at receipt.
+  const percentRef = useRef(0);
+  const etaRef = useRef(createEta());
+  const receivedAtRef = useRef(Date.now());
+  const sawBusyRef = useRef(false);
 
-  async function load() {
+  async function load(isStale = () => false) {
     try {
       const b = await booksApi.get(bookId);
-      setBook(b);
-      setError(null);
-      const hasWork = b.pages.processing > 0 || b.chunks.processing > 0 || b.chunks.waiting_quota > 0 || b.state === 'processing';
-      if (hasWork) {
-        timerRef.current = window.setTimeout(load, POLL_MS);
+      if (isStale()) return;
+      const at = Date.now();
+      receivedAtRef.current = at;
+      etaRef.current.observe(b.chunks.done, b.chunks.total, at);
+      const phase = phaseOf(b);
+      if (isBusyPhase(phase)) sawBusyRef.current = true;
+      else if (sawBusyRef.current && phase === 'ready') {
+        sawBusyRef.current = false;
+        setToast('Sách đã sẵn sàng');
       }
+      setBook(b);
+      setNow(at);
+      setError(null);
     } catch (err) {
-      setError(err.message || 'Không tải được sách');
+      if (!isStale()) setError(err.message || 'Không tải được sách');
     }
   }
 
+  const phase = book ? phaseOf(book) : 'ready';
+  const reload = useVisiblePolling(load, phase === 'quota' || phase === 'failed' ? QUOTA_POLL_MS : POLL_MS, book !== null && isBusyPhase(phase));
+
   useEffect(() => {
-    load();
-    return () => window.clearTimeout(timerRef.current);
+    percentRef.current = 0;
+    etaRef.current = createEta();
+    sawBusyRef.current = false;
+    setBook(null);
+    reload();
   }, [bookId]);
+
+  // Countdown ticks every second, independent of polling.
+  useEffect(() => {
+    if (phase !== 'tail_wait') return undefined;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [phase]);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const id = window.setTimeout(() => setToast(null), TOAST_MS);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
+  async function sealNow() {
+    setSealing(true);
+    try {
+      await booksApi.sealTail(bookId);
+      await reload();
+    } catch (err) {
+      setError(err.message || 'Không chốt được đoạn cuối');
+    } finally {
+      setSealing(false);
+    }
+  }
 
   async function retryPage(pageId) {
     setRetrying((s) => new Set(s).add(pageId));
     try {
       await pagesApi.retry(pageId);
-      await load();
+      await reload();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -59,7 +111,7 @@ export function BookStatusView({ bookId }) {
     setDiscarding((s) => new Set(s).add(seq));
     try {
       await pagesApi.discard(bookId, seq);
-      await load();
+      await reload();
     } catch (err) {
       setError(err.message || 'Không bỏ được trang này');
     } finally {
@@ -88,6 +140,16 @@ export function BookStatusView({ bookId }) {
     return html`<div class="container"><div class="skeleton" style=${{ height: '200px' }}></div></div>`;
   }
 
+  percentRef.current = overallPercent(book, percentRef.current);
+  const percent = percentRef.current;
+  const etaMs = etaRef.current.remainingMs(now);
+  const tws = book.chunks.tail_wait_seconds;
+  const countdown = tws == null ? null : Math.max(0, tws - Math.floor((now - receivedAtRef.current) / 1000));
+  const line = statusLine(book, { etaMs, countdownSeconds: countdown });
+  const canListen = book.state === 'ready' || book.chunks.done > 0;
+  const listenMinutes = Math.max(1, Math.round((book.duration_ms || 0) / 60000));
+  const listenLabel =
+    phase === 'ready' ? 'Đọc / Nghe' : book.duration_ms ? `Nghe ngay · ${listenMinutes} phút đã sẵn sàng` : 'Nghe ngay';
   const failedPages = book.page_list.filter((p) => p.status === 'failed');
   // These two fields are new (added alongside the discard endpoint); default them defensively in
   // case this book status view loads against an older backend that hasn't shipped them yet.
@@ -108,6 +170,22 @@ export function BookStatusView({ bookId }) {
       <div class="container">
         ${error && html`<div class="banner banner-error" role="alert">${error}</div>`}
         <p class="text-muted">Chụp bởi ${book.created_by_name}</p>
+
+        <div class="build-progress">
+          <div class="build-progress-track" role="progressbar" aria-label="Tiến độ xử lý" aria-valuemin="0" aria-valuemax="100" aria-valuenow=${percent}>
+            <i style=${{ width: `${percent}%` }}></i>
+          </div>
+          <div class="build-progress-line ${phase === 'failed' ? 'build-progress-line--failed' : ''}">
+            <span aria-live=${phase === 'tail_wait' ? 'off' : 'polite'}>${line}</span>
+            <strong>${percent}%</strong>
+          </div>
+          ${phase === 'tail_wait' &&
+          html`<div class="build-progress-actions">
+            <button class="btn btn-secondary" disabled=${sealing} onClick=${sealNow}>
+              ${sealing && html`<span class="spinner" aria-hidden="true"></span> `}Xong rồi, đọc luôn
+            </button>
+          </div>`}
+        </div>
 
         <${ProgressTimeline} book=${book} />
 
@@ -148,12 +226,15 @@ export function BookStatusView({ bookId }) {
           </ul>
         `}
 
+        <${BookPageStatusList} pages=${book.page_list} />
+
         <div style=${{ display: 'flex', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
           <a class="btn btn-secondary" href="#/capture/${bookId}">Thêm trang</a>
-          ${(book.state === 'ready' || book.chunks.done > 0) && html`<a class="btn btn-primary" href="#/read/${bookId}">Đọc / Nghe</a>`}
+          ${canListen && html`<a class="btn btn-primary" href="#/listen/${bookId}">${listenLabel}</a>`}
           ${book.can_manage && html`<a class="btn btn-ghost" href=${booksApi.exportUrl(bookId)}>Tải bản sao</a>`}
         </div>
       </div>
+      <${StatusToast} message=${toast} />
     </div>
   `;
 }

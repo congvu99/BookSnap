@@ -1,14 +1,21 @@
 ---
-title: "Tiến trình xử lý thông minh + chọn/nghe thử giọng + giọng nam mặc định"
-description: "Màn tiến trình có %/ETA/đếm ngược chờ trang + nút đọc luôn, thư viện tự cập nhật, báo số trang khi chụp, chọn + nghe thử giọng lúc thêm nội dung, mặc định Charon."
-status: pending
+title: Tiến trình xử lý thông minh + chọn/nghe thử giọng + giọng nam mặc định
+description: >-
+  Màn tiến trình có %/ETA/đếm ngược chờ trang + nút đọc luôn, thư viện tự cập
+  nhật, báo số trang khi chụp, chọn + nghe thử giọng lúc thêm nội dung, mặc định
+  Charon.
+status: in-progress
 priority: P2
-branch: "main"
-tags: [frontend, api, tts, ux]
+branch: main
+tags:
+  - frontend
+  - api
+  - tts
+  - ux
 blockedBy: []
 blocks: []
-created: "2026-09-29T09:43:38.569Z"
-createdBy: "ck:plan"
+created: '2026-09-29T09:43:38.569Z'
+createdBy: 'ck:plan'
 source: skill
 mode: tdd
 ---
@@ -33,14 +40,14 @@ Nguồn: [brainstorm report](../reports/brainstorm-260929-1636-smart-progress-an
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | [Backend tail waiting seal tail and default voice](./phase-01-backend-tail-waiting-seal-tail-and-default-voice.md) | Pending |
-| 2 | [Backend voice change for new content only](./phase-02-backend-voice-change-for-new-content-only.md) | Pending |
-| 3 | [Backend voice preview endpoint](./phase-03-backend-voice-preview-endpoint.md) | Pending |
-| 4 | [Frontend voice picker and book choose step](./phase-04-frontend-voice-picker-and-book-choose-step.md) | Pending |
-| 5 | [Frontend capture page notifications](./phase-05-frontend-capture-page-notifications.md) | Pending |
-| 6 | [Frontend processing progress view](./phase-06-frontend-processing-progress-view.md) | Pending |
-| 7 | [Frontend library live progress](./phase-07-frontend-library-live-progress.md) | Pending |
-| 8 | [Docs env service worker and voice PoC](./phase-08-docs-env-service-worker-and-voice-poc.md) | Pending |
+| 1 | [Backend tail waiting seal tail and default voice](./phase-01-backend-tail-waiting-seal-tail-and-default-voice.md) | Completed |
+| 2 | [Backend voice change for new content only](./phase-02-backend-voice-change-for-new-content-only.md) | Completed |
+| 3 | [Backend voice preview endpoint](./phase-03-backend-voice-preview-endpoint.md) | Completed |
+| 4 | [Frontend voice picker and book choose step](./phase-04-frontend-voice-picker-and-book-choose-step.md) | Completed |
+| 5 | [Frontend capture page notifications](./phase-05-frontend-capture-page-notifications.md) | Completed |
+| 6 | [Frontend processing progress view](./phase-06-frontend-processing-progress-view.md) | Completed |
+| 7 | [Frontend library live progress](./phase-07-frontend-library-live-progress.md) | Completed |
+| 8 | [Docs env service worker and voice PoC](./phase-08-docs-env-service-worker-and-voice-poc.md) | In Progress |
 
 Thứ tự:
 1. Phase 1 bắt đầu bằng **Gate 0: PoC giọng**. Chưa chốt giọng thì không làm tiếp.
@@ -86,14 +93,14 @@ Tổng 38 phát hiện. Sau khi gộp trùng còn 15; nhận 14 (1 mục do user
 
 | # | Mức | Phát hiện | Quyết định | Phase |
 |---|---|---|---|---|
-| 1 | High | `tail_waiting` báo chờ khi còn đoạn khác đang synth (`book_repository.py:91`, `chunk_repository.py:122-131`) | Nhận: thêm `chunks.queued`; `phaseOf` tính từ các bộ đếm | 1, 6 |
-| 2 | High | "Thêm trang" bỏ qua picker (`book-status-view.js:152`, `capture-view.js:12`); đổi giọng trước khi camera chạy | Nhận: bước `confirm`; chỉ đổi giọng sau `cam.start()` | 4 |
-| 3 | High | Rollback: `regenerate:false` bị server cũ bỏ qua → requeue cả sách (`books_routes.py:31-35`) | Nhận: endpoint `PUT /voice` | 2, 4 |
-| 4 | High | Lời hứa "trang cũ giữ giọng cũ" sai: giọng gán lúc claim (`chunk_repository.py:114-116`) | Nhận: đổi lời thành "đoạn đã có audio" | 2, 4 |
-| 5 | High | Preview đốt quota: không cache lỗi, lock chờ 180s, limiter chung chặn UI (`worker.py:65-72`) | Nhận: single-flight + cache lỗi + rate limit theo user + timeout; bỏ refactor lifespan | 3 |
-| 6 | Med | `Retry-After` float → 500; lộ text provider (`tts_gemini.py:84`, `api_errors.py:30`) | Nhận | 3 |
-| 7 | Med | Chèn SSML ở Azure (`tts_azure.py:22`); provider chưa cấu hình vẫn được nhận | Nhận: `quoteattr`, 400/409, cờ `configured` | 2, 4 |
-| 8 | Med | Đổi giọng bump `updated_at` → reset grace (`book_repository.py:149`) | Nhận | 2 |
+| 1 | High | `tail_waiting` báo chờ khi còn đoạn khác đang synth (`book_repository.py:91`, `chunk_repository.py:122-131`) | Nhận: thêm `chunks.queued`; `phaseOf` tính từ các bộ đếm | Completed |
+| 2 | High | "Thêm trang" bỏ qua picker (`book-status-view.js:152`, `capture-view.js:12`); đổi giọng trước khi camera chạy | Nhận: bước `confirm`; chỉ đổi giọng sau `cam.start()` | Completed |
+| 3 | High | Rollback: `regenerate:false` bị server cũ bỏ qua → requeue cả sách (`books_routes.py:31-35`) | Nhận: endpoint `PUT /voice` | Completed |
+| 4 | High | Lời hứa "trang cũ giữ giọng cũ" sai: giọng gán lúc claim (`chunk_repository.py:114-116`) | Nhận: đổi lời thành "đoạn đã có audio" | Completed |
+| 5 | High | Preview đốt quota: không cache lỗi, lock chờ 180s, limiter chung chặn UI (`worker.py:65-72`) | Nhận: single-flight + cache lỗi + rate limit theo user + timeout; bỏ refactor lifespan | Completed |
+| 6 | Med | `Retry-After` float → 500; lộ text provider (`tts_gemini.py:84`, `api_errors.py:30`) | Nhận | Completed |
+| 7 | Med | Chèn SSML ở Azure (`tts_azure.py:22`); provider chưa cấu hình vẫn được nhận | Nhận: `quoteattr`, 400/409, cờ `configured` | Completed |
+| 8 | Med | Đổi giọng bump `updated_at` → reset grace (`book_repository.py:149`) | Nhận | In Progress |
 | 9 | Med | URL preview không version + `max-age` 24h → nghe bản cũ | Nhận: `preview_url?v=` | 3, 4 |
 | 10 | Med | Nghe thử bằng blob: mất user-gesture iOS, revoke URL mâu thuẫn, 503 offline báo sai (`sw.js:131-139`) | Nhận: `audio.src` + `play()` trong tap, map lỗi theo code | 4 |
 | 11 | Med | Race sửa text đang **mất dữ liệu** hôm nay (`chunk_repository.py:46-52,85`) | Nhận: guard `sealed=0` + test | 1 |

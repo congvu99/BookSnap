@@ -1,10 +1,12 @@
 ---
 phase: 6
-title: "Frontend processing progress view"
-status: pending
+title: Frontend processing progress view
+status: completed
 priority: P1
-dependencies: [1, 5]
-effort: "M"
+dependencies:
+  - 1
+  - 5
+effort: M
 ---
 
 # Phase 6: Màn tiến trình xử lý

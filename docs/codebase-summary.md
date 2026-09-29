@@ -25,13 +25,13 @@ BookSnap/
 │   │   └── current_user.py              [~15 LOC] CurrentUser dependency, Ctx alias
 │   │
 │   ├── api/                             HTTP routes & serializers
-│   │   ├── books_routes.py              [~70 LOC] POST/GET/PATCH/DELETE /books
+│   │   ├── books_routes.py              [~100 LOC] POST/GET/PATCH/PUT/DELETE /books, seal-tail, voice change
 │   │   ├── pages_routes.py              [98 LOC] POST /pages (upload JPEG/PNG/WebP), retry, discard
 │   │   ├── bookmarks_routes.py          [~46 LOC] GET/PUT/DELETE /bookmarks, per-user bookmarks
 │   │   ├── audio_routes.py              [~45 LOC] GET /chunks/{id}/audio (Range request via Starlette)
-│   │   ├── voices_routes.py             [25 LOC] GET /voices (Gemini + Azure voice list)
+│   │   ├── voices_routes.py             [68 LOC] GET /voices (list + configured), GET /voices/{provider}/{voice}/preview
 │   │   ├── export_routes.py             [104 LOC] GET /books/{id}/export (ZIP stream: MP3 + text.json)
-│   │   └── serializers.py               [91 LOC] book_out, page_out, chunk_out (contract shapes)
+│   │   └── serializers.py               [113 LOC] book_out, page_out, chunk_out (contract shapes), tail_waiting, tail_wait_seconds
 │   │
 │   ├── repositories/                    Data access layer (pure SQL)
 │   │   ├── book_repository.py           [~90 LOC] CRUD books, get_summary (denormalized counts)
@@ -43,6 +43,9 @@ BookSnap/
 │   │   ├── progress_repository.py       [~20 LOC] Upsert progress (per user_id + book_id)
 │   │   └── row_mapping.py               [~25 LOC] new_id() (UUID), dataclass constructors from rows
 │   │
+│   ├── tts_voices.py                    [25 LOC] GEMINI_VOICES, AZURE_VOICES, allowed_voices, provider_configured
+│   ├── voice_preview.py                 [188 LOC] Preview service: single-flight, cache, rate limit, failure TTL
+│   │
 │   └── pipeline/                        Worker (OCR → chunk → TTS)
 │       ├── worker.py                    [312 LOC] Main event loop, OCR/TTS/chunk/cleanup loops, claim logic
 │       ├── chunker_worker.py            [77 LOC] Fold pages into chunks (ordering invariant, tail sealing)
@@ -51,7 +54,7 @@ BookSnap/
 │       ├── ocr_gemini.py                [~60 LOC] Gemini OCR via response_schema (pydantic)
 │       ├── tts_provider.py              [~40 LOC] Protocol: SynthResult, TtsError, TtsProvider
 │       ├── tts_gemini.py                [~80 LOC] Gemini TTS, PCM→audio_encoding, quota/retry classification
-│       ├── tts_azure.py                 [~65 LOC] Azure Speech REST (SSML), audio/24khz MP3
+│       ├── tts_azure.py                 [~75 LOC] Azure Speech REST (SSML + quoteattr), audio/24khz MP3
 │       ├── tts_router.py                [~80 LOC] Provider dispatch + backoff retry (2s/8s/30s)
 │       ├── text_chunker.py              [~50 LOC] Pure: split text into 1000–1500 char chunks
 │       └── audio_encoding.py            [~30 LOC] PCM16→MP3 via lameenc wheel, duration calc
@@ -84,7 +87,7 @@ BookSnap/
 │       ├── api-client.js                [~80 LOC] Fetch wrapper, 401 logout, error parsing
 │       ├── store.js                     [~60 LOC] AuthStore + ThemeStore (pub-sub, localStorage)
 │       ├── icons.js                     [~70 LOC] Inline SVG icons (Lucide-style, stroke 1.5)
-│       ├── sleeve-palette.js            [new] FNV-1a hash → 5 leather colors (wine, moss, slate, amber, parchment)
+│       ├── sleeve-palette.js            [~30 LOC] FNV-1a hash → 5 leather colors (wine, moss, slate, amber, parchment)
 │       ├── camera-capture.js            [~90 LOC] getUserMedia, canvas JPEG, torch, vibrate
 │       ├── upload-queue.js              [~120 LOC] Sequential upload, seq conflict + gap handling
 │       ├── audio-playlist.js            [~130 LOC] Dual <audio> preload, seek, playback rate
@@ -92,7 +95,11 @@ BookSnap/
 │       ├── media-session.js             [~40 LOC] Lock-screen play/pause/next/prev
 │       ├── offline-audio-cache.js       [~50 LOC] Cache API download, verify, remove
 │       ├── offline-book-cache.js        [~40 LOC] localStorage per-book manifest
-│       ├── text-fold.js                 [new] Accent-insensitive search (strip diacritics)
+│       ├── text-fold.js                 [~20 LOC] Accent-insensitive search (strip diacritics)
+│       ├── voice-labels.js              [~40 LOC] Voice name mapping (Gemini/Azure labels)
+│       ├── upload-notices.js            [~60 LOC] Pure logic for page upload notifications (page#, error)
+│       ├── processing-progress.js       [~80 LOC] Pure logic for phaseOf (queued/processing/done), ETA calc
+│       ├── use-visible-polling.js       [~40 LOC] Pure hook: pause polling when tab hidden
 │       │
 │       ├── views/                       Route components (Preact)
 │       │   ├── auth-view.js             [~90 LOC] iOS-optimized signin (hero + segmented + form), invite validation

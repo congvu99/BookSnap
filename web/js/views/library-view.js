@@ -10,11 +10,16 @@ import { LibraryHeroCard } from '../components/library-hero-card.js';
 import { LibraryCrate } from '../components/library-crate.js';
 import { LibraryAccountMenu } from '../components/library-account-menu.js';
 import { TopicFilterMenu } from '../components/topic-filter-menu.js';
+import { useVisiblePolling } from '../use-visible-polling.js';
+import { phaseOf } from '../processing-progress.js';
 import { Icon } from '../icons.js';
 
 const UNSORTED_LABEL = 'Chưa phân loại';
 const ALL = 'all';
 const UNSORTED_KEY = 'unsorted';
+const LIVE_POLL_MS = 5000;
+const QUOTA_POLL_MS = 60000;
+const LIVE_PHASES = new Set(['ocr', 'tts', 'tail_wait']);
 
 /**
  * One shelf per topic, sorted by Vietnamese collation; books without a topic go last.
@@ -68,6 +73,32 @@ export function LibraryView() {
   useEffect(() => {
     load();
   }, []);
+
+  // The first load decides offline mode; later connectivity loss only pauses polling.
+  const [online, setOnline] = useState(typeof navigator === 'undefined' || navigator.onLine !== false);
+  useEffect(() => {
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, []);
+
+  // Background refresh: only touches the data, never error / offline / search / filter state.
+  async function refresh(isStale) {
+    // Each endpoint applies on its own: a failing hero must not freeze the build progress.
+    const [list, cont] = await Promise.allSettled([booksApi.list(), booksApi.continueListening()]);
+    if (isStale()) return;
+    if (list.status === 'fulfilled') setBooks(list.value);
+    if (cont.status === 'fulfilled') setContinuing(cont.value);
+  }
+  const phases = (books || []).filter((b) => b.pages && b.chunks).map(phaseOf);
+  const anyLive = phases.some((p) => LIVE_PHASES.has(p));
+  const onlyQuota = !anyLive && phases.includes('quota');
+  useVisiblePolling(refresh, anyLive ? LIVE_POLL_MS : QUOTA_POLL_MS, !isOffline && online && (anyLive || onlyQuota));
 
   // Search narrows books first; topic options keep every topic but show counts for the search result.
   const { options, shelves, visibleCount, activeTopic } = useMemo(() => {

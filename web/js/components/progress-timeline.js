@@ -33,7 +33,7 @@ export function ProgressTimeline({ book }) {
       state:
         chunks.failed > 0
           ? 'failed'
-          : chunks.processing > 0 || chunks.waiting_quota > 0
+          : chunks.processing > 0 || chunks.queued > 0 || chunks.waiting_quota > 0
             ? 'active'
             : chunks.total > 0 && chunks.done >= chunks.total
               ? 'done'

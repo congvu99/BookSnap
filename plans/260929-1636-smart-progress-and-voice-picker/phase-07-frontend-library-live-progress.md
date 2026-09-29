@@ -1,10 +1,11 @@
 ---
 phase: 7
-title: "Frontend library live progress"
-status: pending
+title: Frontend library live progress
+status: completed
 priority: P3
-dependencies: [6]
-effort: "S"
+dependencies:
+  - 6
+effort: S
 ---
 
 # Phase 7: Thư viện tự cập nhật tiến độ

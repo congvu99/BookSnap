@@ -1,6 +1,6 @@
 // Reader + player: text (Literata), highlight đoạn đang đọc, phát liên tục, nhớ vị trí, offline.
 import { html, useEffect, useMemo, useRef, useState } from '../../vendor/preact-htm.module.js';
-import { booksApi, chunksApi, voicesApi } from '../api-client.js';
+import { booksApi, chunksApi } from '../api-client.js';
 import { authStore } from '../store.js';
 import { AudioPlaylist } from '../audio-playlist.js';
 import { PlaybackProgress } from '../playback-progress.js';
@@ -43,7 +43,6 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
   const [sleepMinutes, setSleepMinutes] = useState(/** @type {number|null} */ (null));
   const [autoScrollSuppressed, setAutoScrollSuppressed] = useState(false);
   const [downloadState, setDownloadState] = useState({ status: 'idle', done: 0, total: 0 });
-  const [voices, setVoices] = useState(null);
   const [error, setError] = useState(/** @type {string|null} */ (null));
   const [isOffline, setIsOffline] = useState(false);
 
@@ -131,7 +130,6 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
       }, CHUNK_POLL_MS);
     }
 
-    voicesApi.list().then((v) => !cancelled && setVoices(v)).catch(() => {});
 
     return () => {
       cancelled = true;
@@ -258,15 +256,6 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
     } catch (err) {
       setError(err.message || 'Không tải được để nghe offline');
       setDownloadState({ status: 'idle', done: 0, total: 0 });
-    }
-  }
-
-  async function handleChangeVoice(provider, voice) {
-    try {
-      const updated = await booksApi.patch(bookId, { tts_provider: provider, tts_voice: voice });
-      setBook(updated);
-    } catch (err) {
-      setError(err.message);
     }
   }
 
@@ -406,8 +395,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         onDownload=${handleDownload}
         canManage=${book.can_manage}
         book=${book}
-        voices=${voices}
-        onChangeVoice=${handleChangeVoice}
+        currentVoice=${(chunks[chunkIndex] && chunks[chunkIndex].voice) || book.tts_voice}
         onChangeTopic=${handleChangeTopic}
         onDelete=${handleDelete}
         exportUrl=${booksApi.exportUrl(bookId)}

@@ -1,10 +1,17 @@
 ---
 phase: 8
-title: "Docs env service worker and voice PoC"
-status: pending
+title: Docs env service worker and voice PoC
+status: in-progress
 priority: P2
-dependencies: [1, 2, 3, 4, 5, 6, 7]
-effort: "S"
+dependencies:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+effort: S
 ---
 
 # Phase 8: Docs, env, service worker, QA trên thiết bị

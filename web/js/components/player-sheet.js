@@ -3,6 +3,7 @@ import { html, useEffect, useState } from '../../vendor/preact-htm.module.js';
 import { Icon } from '../icons.js';
 import { setTheme } from '../store.js';
 import { TopicInput } from './topic-input.js';
+import { voiceLabel } from '../voice-labels.js';
 
 export const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
 const SLEEP_OPTIONS = [
@@ -19,13 +20,13 @@ const FONT_SIZES = [16, 18, 20, 22, 24];
  *   fontSize:number, onSetFontSize:(s:number)=>void,
  *   theme:string, sleepMinutes:number|null, onSetSleep:(m:number|null)=>void,
  *   downloadState:{status:string, done:number, total:number}, onDownload:()=>void,
- *   canManage:boolean, book:object, voices:object|null,
- *   onChangeVoice:(provider:string, voice:string)=>void, onChangeTopic:(name:string)=>Promise<boolean>, onDelete:()=>void, exportUrl:string,
+ *   canManage:boolean, book:object, currentVoice:string,
+ *   onChangeTopic:(name:string)=>Promise<boolean>, onDelete:()=>void, exportUrl:string,
  *   onClose:()=>void,
  * }} props
  */
 export function PlayerSheet(props) {
-  const { rate, onSetRate, fontSize, onSetFontSize, sleepMinutes, onSetSleep, downloadState, onDownload, canManage, book, voices, onChangeVoice, onChangeTopic, onDelete, exportUrl, onClose } = props;
+  const { rate, onSetRate, fontSize, onSetFontSize, sleepMinutes, onSetSleep, downloadState, onDownload, canManage, book, currentVoice, onChangeTopic, onDelete, exportUrl, onClose } = props;
   const savedTopic = book.topic ? book.topic.name : '';
   const [topicDraft, setTopicDraft] = useState(savedTopic);
   // Show the server's spelling after a save ("VĂN HỌC" → "Văn học").
@@ -40,17 +41,7 @@ export function PlayerSheet(props) {
     if (canManage) commitTopic(topicDraft);
     onClose();
   }
-  const [confirmVoice, setConfirmVoice] = useState(/** @type {string|null} */ (null));
   const theme = props.theme;
-
-  function pickVoice(key) {
-    const [provider, voice] = key.split('::');
-    setConfirmVoice(key);
-    if (window.confirm('Đổi giọng sẽ sinh lại audio cho TOÀN BỘ sách. Tiếp tục?')) {
-      onChangeVoice(provider, voice);
-    }
-    setConfirmVoice(null);
-  }
 
   return html`
     <div class="player-sheet-backdrop" onClick=${close}></div>
@@ -101,6 +92,13 @@ export function PlayerSheet(props) {
         </button>
       </div>
 
+      <div class="player-sheet-section">
+        <div class="book-settings-row">
+          <span>Giọng đọc: ${voiceLabel(currentVoice)} <span class="text-muted">(${currentVoice})</span></span>
+        </div>
+        <p class="voice-change-note">Đổi giọng khi thêm trang mới — áp dụng cho các đoạn chưa có audio.</p>
+      </div>
+
       ${canManage &&
       html`
         <div class="player-sheet-section">
@@ -111,17 +109,6 @@ export function PlayerSheet(props) {
             onInput=${setTopicDraft}
             onCommit=${commitTopic}
           />
-          ${voices &&
-          html`
-            <div class="field">
-              <label for="voice-select">Giọng đọc (đổi sẽ sinh lại cả sách)</label>
-              <select id="voice-select" value=${`${book.tts_provider}::${book.tts_voice}`} onChange=${(e) => pickVoice(e.currentTarget.value)}>
-                ${Object.entries(voices.providers).flatMap(([provider, info]) =>
-                  info.voices.map((v) => html`<option value=${`${provider}::${v}`} key=${`${provider}-${v}`}>${provider} — ${v}</option>`)
-                )}
-              </select>
-            </div>
-          `}
           <div class="book-settings-row">
             <span>Tải bản sao (ZIP)</span>
             <a class="btn btn-secondary" href=${exportUrl}>Tải</a>

@@ -1,5 +1,9 @@
 """JSON shapes returned by the API. Kept in one place so the web client has a single contract."""
 
+import math
+from datetime import datetime, timedelta
+
+from app.db import parse_iso
 from app.repositories.book_repository import BookSummary
 from app.repositories.chunk_repository import Chunk
 from app.repositories.page_repository import Page
@@ -33,6 +37,21 @@ def book_state(b: BookSummary) -> str:
     return "ready"
 
 
+def tail_waiting(b: BookSummary) -> bool:
+    """Only the unsealed tail is left and it is held back by the grace period (mirrors the grace
+    branch of `ChunkRepository.claim_next_pending`): nothing else to speak, no page mid-OCR."""
+    return b.chunks_tail_pending > 0 and b.chunks_queued == 0 and b.pages_processing == 0
+
+
+def tail_wait_seconds(b: BookSummary, grace_seconds: float, now: datetime) -> int | None:
+    """Seconds until the grace period ends, computed server-side so clients never depend on
+    their own clock. 0 once it has passed (the worker picks the tail up on its next tick)."""
+    if not tail_waiting(b):
+        return None
+    ready_at = parse_iso(b.updated_at) + timedelta(seconds=grace_seconds)
+    return max(0, math.ceil((ready_at - now).total_seconds()))
+
+
 def book_out(b: BookSummary, user: User) -> dict:
     progress = None
     if b.progress_chunk_seq is not None:
@@ -64,6 +83,8 @@ def book_out(b: BookSummary, user: User) -> dict:
             "waiting_quota": b.chunks_waiting_quota,
             "failed": b.chunks_failed,
             "processing": b.chunks_processing,
+            "queued": b.chunks_queued,
+            "tail_waiting": tail_waiting(b),
             "next_not_before": b.next_not_before,
         },
         "duration_ms": b.duration_ms,

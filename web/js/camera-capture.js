@@ -12,6 +12,18 @@ export class CameraError extends Error {
   }
 }
 
+function describeCameraFailure(err) {
+  const name = err && err.name;
+  if (name === 'NotAllowedError' || name === 'SecurityError') {
+    return 'Camera đang bị chặn cho trang này. iPhone: Cài đặt → Safari → Camera → chọn "Hỏi" hoặc "Cho phép", hoặc bấm aA trên thanh địa chỉ → Cài đặt trang web → Camera. Sau đó tải lại trang.';
+  }
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'Không tìm thấy camera trên thiết bị này.';
+  if (name === 'NotReadableError' || name === 'AbortError') {
+    return 'Camera đang được ứng dụng khác dùng. Đóng ứng dụng đó rồi thử lại.';
+  }
+  return `Không mở được camera${name ? ` (${name})` : ''}.`;
+}
+
 export class CameraCapture {
   /** @param {HTMLVideoElement} videoEl */
   constructor(videoEl) {
@@ -22,7 +34,12 @@ export class CameraCapture {
 
   async start() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      throw new CameraError('Trình duyệt không hỗ trợ camera. Cần HTTPS và trình duyệt hiện đại.');
+      // mediaDevices is undefined outside secure contexts (plain http on a LAN IP, e.g. iPhone Safari).
+      throw new CameraError(
+        window.isSecureContext === false
+          ? 'Trang đang mở qua HTTP nên trình duyệt chặn camera. Hãy mở bằng địa chỉ https:// (bản deploy hoặc tunnel HTTPS).'
+          : 'Trình duyệt không hỗ trợ camera. Hãy cập nhật trình duyệt.',
+      );
     }
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
@@ -30,7 +47,8 @@ export class CameraCapture {
         audio: false,
       });
     } catch (err) {
-      throw new CameraError('Không truy cập được camera. Vui lòng cấp quyền trong cài đặt trình duyệt.', err);
+      console.warn('getUserMedia failed', err);
+      throw new CameraError(describeCameraFailure(err), err);
     }
     this.videoEl.srcObject = this.stream;
     this.videoEl.setAttribute('playsinline', '');

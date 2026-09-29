@@ -19,7 +19,7 @@ def _build_ssml(text: str, voice: str) -> str:
     escaped = xml_escape.escape(text)
     return (
         '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="vi-VN">'
-        f'<voice xml:lang="vi-VN" name="{voice}">{escaped}</voice>'
+        f'<voice xml:lang="vi-VN" name={xml_escape.quoteattr(voice)}>{escaped}</voice>'
         "</speak>"
     )
 
