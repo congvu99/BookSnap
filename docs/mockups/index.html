@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BookSnap Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Cormorant+Garamond:wght@500;600;700&display=swap&subset=vietnamese">
+<style>
+/* Layout: một cột đọc, mỗi luồng chức năng là một hàng khung điện thoại tự xuống dòng; token lấy từ docs/design-guidelines.md */
+:root {
+  --bg: #FBF7EF; --surface: #FFFDF8; --sunken: #F3ECDF; --ink: #1F1B16; --muted: #5E554A;
+  --border: #E6DCCB; --primary: #7A2E2E; --gold: #B08D57; --gold-ink: #7D6230; --frame: #2A2520;
+  --font-display: "Cormorant Garamond", "Times New Roman", serif;
+  --font-ui: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1C1915; --surface: #26221D; --sunken: #15130F; --ink: #EDE6D8; --muted: #B3A996;
+  --border: #3A342C; --primary: #D98C7F; --gold: #C9A66B; --gold-ink: #D8BC86; --frame: #0E0C0A; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #1C1915; --surface: #26221D; --sunken: #15130F; --ink: #EDE6D8; --muted: #B3A996;
+  --border: #3A342C; --primary: #D98C7F; --gold: #C9A66B; --gold-ink: #D8BC86; --frame: #0E0C0A; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font: 400 16px/1.6 var(--font-ui); padding: 0 20px; }
+.wrap { max-width: 72rem; margin: 0 auto; padding-block: 40px 64px; display: grid; gap: 56px; }
+h1, h2 { font-family: var(--font-display); font-weight: 600; text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(36px, 6vw, 52px); color: var(--primary); }
+h2 { font-size: 30px; }
+header { display: grid; gap: 12px; max-width: 44rem; }
+header p, .flow-head p { margin: 0; color: var(--muted); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+.meta span { border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; color: var(--muted); }
+
+nav { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; border-block: 1px solid var(--border); padding-block: 12px; }
+nav a { color: var(--ink); text-decoration: none; }
+nav a:hover, nav a:focus-visible { color: var(--primary); text-decoration: underline; }
+
+.flow { display: grid; gap: 20px; }
+.flow-head { display: grid; gap: 6px; max-width: 44rem; }
+.ornament { display: flex; align-items: center; gap: 12px; color: var(--gold); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; }
+.ornament::after { content: ""; flex: 1; height: 1px; background: var(--gold); opacity: .6; }
+.ornament b { color: var(--gold-ink); font-weight: 600; }
+
+.screens { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 28px 24px; }
+figure { margin: 0; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.phone { display: block; width: 100%; max-width: 280px; padding: 8px; border-radius: 30px; background: var(--frame);
+  border: 0; cursor: zoom-in; box-shadow: 0 8px 24px rgba(31,27,22,.14); }
+.phone img { display: block; width: 100%; aspect-ratio: 390 / 844; object-fit: cover; border-radius: 22px; }
+.phone:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+figcaption { display: grid; gap: 4px; max-width: 280px; }
+figcaption strong { font-size: 15px; font-weight: 600; }
+figcaption span { font-size: 14px; color: var(--muted); }
+
+.notes { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: grid; gap: 12px; max-width: 48rem; }
+.notes ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.tag { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 6px; margin-right: 6px; }
+.tag-fixed { background: var(--sunken); color: var(--ink); border: 1px solid var(--border); }
+.tag-open { background: var(--primary); color: var(--bg); }
+
+dialog { border: 0; padding: 0; background: transparent; max-width: min(430px, 94vw); }
+dialog::backdrop { background: rgba(14,12,10,.78); }
+dialog img { display: block; width: 100%; max-height: 88vh; object-fit: contain; border-radius: 24px; }
+dialog button { position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; border-radius: 50%; border: 0;
+  background: var(--surface); color: var(--ink); font-size: 22px; cursor: pointer; }
+@media (prefers-reduced-motion: no-preference) { .phone { transition: transform .2s ease-out; } .phone:hover { transform: translateY(-3px); } }
+</style>
+</head><body>
+
+<div class="wrap">
+  <header>
+    <h1>BookSnap</h1>
+    <p>Giao diện thật của bản MVP, chụp từ app đang chạy với dữ liệu mẫu: 2 tài khoản (Lan Anh, Minh) và 4 cuốn sách ở 4 trạng thái xử lý khác nhau. Chạm vào màn hình để xem cỡ lớn.</p>
+    <div class="meta"><span>Khung iPhone 390 × 844</span><span>Phong cách Thư phòng cổ điển</span><span>14 màn hình</span><span>Nội dung sách là văn mẫu</span></div>
+  </header>
+
+  <nav aria-label="Các luồng">
+    <a href="#tai-khoan">Tài khoản</a><a href="#thu-vien">Thư viện</a><a href="#chup">Chụp trang</a>
+    <a href="#xu-ly">Trạng thái xử lý</a><a href="#doc-nghe">Đọc và nghe</a><a href="#doc-dem">Chế độ đọc đêm</a><a href="#ghi-chu">Ghi chú</a>
+  </nav>
+
+  <section class="flow" id="tai-khoan">
+    <div class="flow-head"><div class="ornament"><b>Tài khoản</b></div><h2>Đăng nhập và đăng ký</h2>
+      <p>Mỗi người một tài khoản để app nhớ ai đang nghe dở cuốn nào. Đăng ký cần mã mời, không cần email.</p></div>
+    <div class="screens">
+      <figure><button class="phone" data-full="shots/01-dang-nhap.jpg"><img src="shots/01-dang-nhap.jpg" alt="Màn đăng nhập"></button>
+        <figcaption><strong>Đăng nhập</strong><span>Tên đăng nhập + mật khẩu, nút hiện/ẩn mật khẩu. Sai thông tin báo chung, không tiết lộ tài khoản có tồn tại.</span></figcaption></figure>
+      <figure><button class="phone" data-full="shots/02-dang-ky-sai-ma-moi.jpg"><img src="shots/02-dang-ky-sai-ma-moi.jpg" alt="Màn đăng ký báo sai mã mời"></button>
+        <figcaption><strong>Đăng ký, nhập sai mã mời</strong><span>Lỗi hiện ngay dưới ô bị sai. Người lạ có link cũng không tạo được tài khoản.</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="flow" id="thu-vien">
+    <div class="flow-head"><div class="ornament"><b>Thư viện</b></div><h2>Thư viện dùng chung</h2>
+      <p>Cả nhà thấy chung mọi cuốn sách; tiến độ nghe là của riêng từng người.</p></div>
+    <div class="screens">
+      <figure><button class="phone" data-full="shots/03-thu-vien.jpg"><img src="shots/03-thu-vien.jpg" alt="Thư viện"></button>
+        <figcaption><strong>Thư viện</strong><span>"Tiếp tục nghe" ở đầu là sách Lan Anh đang nghe dở, thanh đỏ là tiến độ của riêng Lan Anh. Bìa tự sinh viền vàng, ghi người chụp và trạng thái.</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="flow" id="chup">
+    <div class="flow-head"><div class="ornament"><b>Chụp trang</b></div><h2>Chụp trực tiếp bằng camera</h2>
+      <p>Ảnh chỉ nằm trong bộ nhớ trình duyệt rồi gửi thẳng lên máy chủ, không lưu vào Thư viện ảnh của điện thoại.</p></div>
+    <div class="screens">
+      <figure><button class="phone" data-full="shots/04-chup-chon-sach.jpg"><img src="shots/04-chup-chon-sach.jpg" alt="Chọn sách để chụp"></button>
+        <figcaption><strong>Chọn sách</strong><span>Tạo sách mới bằng tên, hoặc chụp thêm trang cho một cuốn đã có.</span></figcaption></figure>
+      <figure><button class="phone" data-full="shots/05-chup-trang.jpg"><img src="shots/05-chup-trang.jpg" alt="Màn chụp trang"></button>
+        <figcaption><strong>Chụp liên tiếp</strong><span>Khung vàng căn trang sách, nút chụp 72px, dải ảnh vừa chụp có nút xoá, "Xong (3)". Trang tải lên tuần tự và dừng lại nếu một trang lỗi, để thứ tự không bị đảo.</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="flow" id="xu-ly">
+    <div class="flow-head"><div class="ornament"><b>Xử lý</b></div><h2>Trạng thái xử lý của một cuốn sách</h2>
+      <p>Bốn bước: Tải ảnh, Nhận dạng chữ, Chuyển giọng, Sẵn sàng. Màn này tự làm mới khi còn việc đang chạy.</p></div>
+    <div class="screens">
+      <figure><button class="phone" data-full="shots/06-trang-thai-dang-xu-ly.jpg"><img src="shots/06-trang-thai-dang-xu-ly.jpg" alt="Sách đang xử lý"></button>
+        <figcaption><strong>Đang nhận dạng chữ</strong><span>Đã nhận dạng 2 trên 7 trang. Có thể chụp thêm trang bất cứ lúc nào.</span></figcaption></figure>
+      <figure><button class="phone" data-full="shots/07-trang-thai-trang-loi.jpg"><img src="shots/07-trang-thai-trang-loi.jpg" alt="Sách có trang lỗi"></button>
+        <figcaption><strong>Trang lỗi hoặc thiếu</strong><span>Trang 2 mờ, trang 3 chưa lên. Các trang sau chờ cho tới khi người dùng thử lại hoặc bỏ trang, nên nội dung không bị xáo trộn.</span></figcaption></figure>
+      <figure><button class="phone" data-full="shots/12-trang-thai-san-sang.jpg"><img src="shots/12-trang-thai-san-sang.jpg" alt="Sách sẵn sàng"></button>
+        <figcaption><strong>Sẵn sàng</strong><span>Nút "Đọc / Nghe", "Tải bản sao" (ZIP gồm MP3 và văn bản). Chỉ người tạo sách thấy nút xoá.</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="flow" id="doc-nghe">
+    <div class="flow-head"><div class="ornament"><b>Đọc và nghe</b></div><h2>Vừa đọc vừa nghe</h2>
+      <p>Đoạn đang đọc được tô nền vàng nhạt và tự cuộn theo. Chạm vào một đoạn để nghe từ đó.</p></div>
+    <div class="screens">
+      <figure><button class="phone" data-full="shots/08-doc-va-nghe.jpg"><img src="shots/08-doc-va-nghe.jpg" alt="Reader đang phát"></button>
+        <figcaption><strong>Đang phát</strong><span>Thanh phát dưới cùng: tiến độ cả cuốn, lùi/tiến 15 giây, phát/tạm dừng. Điều khiển được từ màn hình khoá và tai nghe.</span></figcaption></figure>
+      <figure><button class="phone" data-full="shots/09-tuy-chon-phat.jpg"><img src="shots/09-tuy-chon-phat.jpg" alt="Tuỳ chọn phát"></button>
+        <figcaption><strong>Tuỳ chọn phát</strong><span>Tốc độ 0.75–2×, hẹn giờ tắt, cỡ chữ 16–24, sáng/tối, tải để nghe offline, đổi giọng cho cả sách.</span></figcaption></figure>
+      <figure><button class="phone" data-full="shots/10-sua-doan.jpg"><img src="shots/10-sua-doan.jpg" alt="Sửa đoạn"></button>
+        <figcaption><strong>Sửa một đoạn</strong><span>Sửa chữ nhận dạng sai; lưu xong chỉ đoạn đó được đọc lại, các đoạn khác giữ nguyên.</span></figcaption></figure>
+      <figure><button class="phone" data-full="shots/11-cho-quota.jpg"><img src="shots/11-cho-quota.jpg" alt="Đoạn chờ quota"></button>
+        <figcaption><strong>Chờ quota</strong><span>Hết lượt miễn phí của dịch vụ giọng đọc: đoạn hiện giờ dự kiến chạy tiếp, không đổi sang giọng khác giữa chừng.</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="flow" id="doc-dem">
+    <div class="flow-head"><div class="ornament"><b>Đọc đêm</b></div><h2>Chế độ tối</h2>
+      <p>Theo cài đặt máy, hoặc chọn tay trong Tuỳ chọn phát.</p></div>
+    <div class="screens">
+      <figure><button class="phone" data-full="shots/13-doc-dem.jpg"><img src="shots/13-doc-dem.jpg" alt="Reader chế độ tối"></button>
+        <figcaption><strong>Đọc đêm</strong><span>Nền nâu than, chữ ngà, đoạn đang đọc tô nâu ấm thay cho vàng nhạt.</span></figcaption></figure>
+      <figure><button class="phone" data-full="shots/14-thu-vien-toi.jpg"><img src="shots/14-thu-vien-toi.jpg" alt="Thư viện chế độ tối"></button>
+        <figcaption><strong>Thư viện tối</strong><span>Cùng bố cục, viền bìa vàng sáng hơn để đủ tương phản.</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="notes" id="ghi-chu">
+    <h2>Ghi chú từ lần chụp này</h2>
+    <ul>
+      <li><span class="tag tag-fixed">Đã sửa</span>Số trang hiển thị từ 0 ("Trang 1" thực ra là trang thứ 2). Nay mọi màn đều đếm từ 1.</li>
+      <li><span class="tag tag-fixed">Đã sửa</span>Thanh tiêu đề của màn đọc trong suốt, chữ cuộn lộ ra phía sau. Nay nền đặc, có đường viền.</li>
+      <li><span class="tag tag-open">Còn mở</span>Tiêu đề chương dính vào câu đầu ("Mùa nước nổi Buổi sáng…") vì các đoạn trong cùng một phần đọc bị nối bằng dấu cách. Giọng đọc cũng sẽ đọc liền, không ngắt. Cần giữ xuống dòng giữa các đoạn khi chia phần đọc.</li>
+      <li><span class="tag tag-open">Chưa kiểm</span>Camera, màn hình khoá và nghe offline cần thử trên Android và iPhone thật. Ảnh camera ở đây là video giả của trình duyệt.</li>
+    </ul>
+  </section>
+</div>
+
+<dialog id="viewer" aria-label="Xem màn hình cỡ lớn"><button type="button" id="viewer-close" aria-label="Đóng">×</button><img id="viewer-img" alt=""></dialog>
+
+<script>
+  const viewer = document.getElementById('viewer');
+  const viewerImg = document.getElementById('viewer-img');
+  document.querySelectorAll('.phone').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      viewerImg.src = btn.dataset.full;
+      viewerImg.alt = btn.querySelector('img').alt;
+      viewer.showModal();
+    });
+  });
+  document.getElementById('viewer-close').addEventListener('click', () => viewer.close());
+  viewer.addEventListener('click', (e) => { if (e.target === viewer) viewer.close(); });
+</script>
+</body></html>
