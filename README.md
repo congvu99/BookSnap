@@ -10,16 +10,49 @@ Plan & quyết định kiến trúc: [plans/260929-1003-booksnap-mvp/plan.md](pl
 
 ## Chạy local
 
-```bash
+### Cài lần đầu
+
+```powershell
+cd D:\project\BookSnap
 py -3.12 -m venv .venv
-.venv/Scripts/python -m pip install -r requirements-dev.txt   # Linux/macOS: .venv/bin/python
-cp .env.example .env    # điền INVITE_CODE, GEMINI_API_KEY (và AZURE_* nếu dùng)
-.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
+.venv\Scripts\python -m pip install -r requirements-dev.txt
+copy .env.example .env     # rồi mở .env điền INVITE_CODE, GEMINI_API_KEY (và AZURE_* nếu dùng)
 ```
 
-Mở http://localhost:8000 → Đăng ký bằng mã mời trong `INVITE_CODE`. Safari trên `http://localhost` không nhận cookie `Secure` → đặt `COOKIE_SECURE=false` khi dev. Camera cần HTTPS khi truy cập từ điện thoại (dùng bản deploy Railway hoặc tunnel HTTPS).
+Linux/macOS: `python3.12 -m venv .venv`, `.venv/bin/python …`, `cp .env.example .env`.
 
-Test: `.venv/Scripts/python -m pytest -q` (không gọi mạng; provider OCR/TTS được giả lập).
+### Chạy lại (mỗi lần muốn dùng)
+
+```powershell
+cd D:\project\BookSnap
+.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
+```
+
+- Mở http://localhost:8000 → lần đầu bấm **Đăng ký** và nhập mã mời = giá trị `INVITE_CODE` trong `.env`; các lần sau chỉ cần **Đăng nhập**.
+- Dừng server: `Ctrl+C` trong cửa sổ đang chạy.
+- App tự đọc `.env`, tự nâng cấp DB (migration) khi khởi động. Dữ liệu (DB, audio) nằm trong `data/` — giữ nguyên giữa các lần chạy; xoá thư mục này = bắt đầu lại từ đầu.
+- Sau khi `git pull` có đổi `requirements*.txt`: chạy lại `.venv\Scripts\python -m pip install -r requirements-dev.txt`.
+- Kiểm nhanh server sống: http://localhost:8000/health → `{"status":"ok",…}`.
+
+### Sự cố thường gặp
+
+| Hiện tượng | Cách xử lý |
+|---|---|
+| Sửa code/CSS mà giao diện không đổi | Service worker giữ bản cũ (cache-first). Chrome: DevTools → Application → Storage → **Clear site data**, rồi tải lại. Khi phát hành: tăng `SHELL_CACHE` trong `web/sw.js` |
+| Đăng nhập trên Safari xong vẫn bị đá ra | Đặt `COOKIE_SECURE=false` trong `.env` (Safari không nhận cookie `Secure` trên `http://localhost`) |
+| `address already in use` / cổng 8000 bận | Đổi cổng `--port 8001`, hoặc tìm và tắt tiến trình cũ: `netstat -ano \| findstr :8000` → `taskkill /PID <pid> /F` |
+| Chưa có API key, chỉ muốn xem giao diện | Thêm `WORKER_ENABLED=false` vào `.env` (tắt pipeline OCR/TTS; thư viện, đăng nhập, player vẫn chạy) |
+| Không đăng ký được | `INVITE_CODE` trong `.env` đang trống, hoặc gõ sai mã |
+
+### Mở trên iPhone
+
+- Cùng Wi-Fi: chạy thêm `--host 0.0.0.0` (`… uvicorn app.main:app --host 0.0.0.0 --port 8000`), mở `http://<IP máy tính>:8000` trên iPhone, và đặt `COOKIE_SECURE=false`. Xem IP bằng `ipconfig` (dòng IPv4). Cách này **không dùng được camera** (Safari chỉ cho camera trên HTTPS).
+- Muốn chụp trang: dùng bản deploy Railway, hoặc tunnel HTTPS (vd. `cloudflared tunnel --url http://localhost:8000`) rồi mở link `https://…` được in ra.
+
+### Test & mockup
+
+- Test: `.venv\Scripts\python -m pytest -q` (không gọi mạng; provider OCR/TTS được giả lập).
+- Mockup giao diện (không cần server): mở trực tiếp [docs/mockups/vinyl-library-preview.html](docs/mockups/vinyl-library-preview.html) trong trình duyệt; thêm `?screen=listen&playing=1` hoặc `?screen=auth` để vào thẳng một màn.
 
 ## Biến môi trường
 
@@ -35,6 +68,9 @@ Test: `.venv/Scripts/python -m pytest -q` (không gọi mạng; provider OCR/TTS
 | `TTS_DEFAULT_PROVIDER` | `gemini` | Provider gán cho sách mới (không tự fallback) |
 | `OCR_CONCURRENCY`, `TTS_CONCURRENCY` | `2`, `2` | |
 | `GEMINI_OCR_RPM`, `GEMINI_TTS_RPM`, `AZURE_TTS_RPM` | `15`, `10`, `20` | Rate limit mềm phía client |
+| `GEMINI_OCR_RPD`, `GEMINI_TTS_RPD` | `0` | Hạn mức request/ngày (reset nửa đêm giờ Pacific) để trang Tài khoản tính "còn lại". Lấy số từ AI Studio → Rate limits. `0` = chỉ hiện đã dùng |
+| `AZURE_TTS_MONTHLY_CHARS` | `0` | Hạn mức ký tự/tháng Azure (F0: 500000) |
+| `USAGE_RETENTION_DAYS` | `62` | Giữ log lượt gọi provider bao lâu |
 
 Danh sách đầy đủ: [app/config.py](app/config.py).
 
@@ -45,7 +81,8 @@ app/
   main.py            create_app(), lifespan (DB, worker), /health, static web/
   config.py db.py    settings; SQLite + migration theo PRAGMA user_version
   auth/              đăng ký (mã mời), đăng nhập, session cookie, rate limit
-  api/               books, pages, chunks/audio, progress, voices, export ZIP
+  api/               books, pages, chunks/audio, progress, voices, export ZIP, account, usage
+  usage_quota.py     cửa sổ reset + tổng hợp hạn mức provider (đo cục bộ, xem /api/usage)
   repositories/      SQL thuần, trả dataclass
   pipeline/          worker OCR → chunker → TTS, retry/quota, dọn ảnh tạm
   cli.py             python -m app.cli reset-password <username>

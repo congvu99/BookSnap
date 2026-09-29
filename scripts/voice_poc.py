@@ -1,12 +1,13 @@
-"""Voice proof-of-concept CLI (phase 2, step 1 — user decides voice + style before build-out).
+"""Voice proof-of-concept CLI: listen to candidate voices + style before choosing a default.
 
-Takes book page images, OCRs each with Gemini, prints the combined text, then
-synthesizes the first ~600 characters with a handful of Gemini voices plus the
-two Azure Vietnamese voices, writing one MP3 per voice to scripts/poc-output/.
+Takes book page images (OCR'd with Gemini) or a literal `--text`, then synthesizes the
+first ~600 characters with the chosen Gemini voices (and the Azure voices when a key is
+set), writing one MP3 per voice to scripts/poc-output/.
 
-Requires real API keys in `.env` (GEMINI_API_KEY, AZURE_SPEECH_KEY) — this script
-is not exercised by the test suite (no network in tests) and is meant to be run
-by hand: `python scripts/voice_poc.py page1.jpg page2.jpg ...`
+Voices and style come from the command line, not `.env`, so candidates can be compared
+under the same style. Requires real API keys in `.env` — not exercised by the test suite:
+  python scripts/voice_poc.py page1.jpg page2.jpg
+  python scripts/voice_poc.py --text "..." --voices Charon,Orus,Kore --style "..." --tag tram
 """
 
 import argparse
@@ -29,7 +30,7 @@ from app.pipeline.tts_gemini import GeminiTtsProvider  # noqa: E402
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "poc-output"
 SAMPLE_CHARS = 600
-GEMINI_VOICES = ["Kore", "Aoede", "Leda", "Zephyr"]
+GEMINI_VOICES = ["Charon", "Orus", "Kore", "Aoede", "Leda", "Zephyr"]
 AZURE_VOICES = ["vi-VN-HoaiMyNeural", "vi-VN-NamMinhNeural"]
 
 
@@ -54,41 +55,58 @@ async def _ocr_all(image_paths: list[Path]) -> str:
     return "\n\n".join(texts)
 
 
-async def _synthesize_all(sample: str) -> None:
+def _out_path(provider: str, voice: str, tag: str) -> Path:
+    suffix = f"-{tag}" if tag else ""
+    return OUTPUT_DIR / f"{provider}-{voice}{suffix}.mp3"
+
+
+async def _synthesize_all(sample: str, voices: list[str], style: str, tag: str) -> None:
     settings = get_settings()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"Style: {style}", file=sys.stderr)
 
-    gemini = GeminiTtsProvider(settings.gemini_api_key, settings.gemini_tts_model, settings.gemini_tts_style)
-    for voice in GEMINI_VOICES:
+    gemini = GeminiTtsProvider(settings.gemini_api_key, settings.gemini_tts_model, style)
+    for voice in voices:
         print(f"TTS gemini/{voice} ...", file=sys.stderr)
         result = await gemini.synthesize(sample, voice)
-        out = OUTPUT_DIR / f"gemini-{voice}.mp3"
+        out = _out_path("gemini", voice, tag)
         out.write_bytes(result.mp3)
         print(f"  -> {out} ({result.duration_ms} ms)")
 
+    if not settings.azure_speech_key:
+        print("Bỏ qua Azure: chưa có AZURE_SPEECH_KEY.", file=sys.stderr)
+        return
     azure = AzureTtsProvider(settings.azure_speech_key, settings.azure_speech_region)
     for voice in AZURE_VOICES:
         print(f"TTS azure/{voice} ...", file=sys.stderr)
         result = await azure.synthesize(sample, voice)
-        out = OUTPUT_DIR / f"azure-{voice}.mp3"
+        out = _out_path("azure", voice, tag)
         out.write_bytes(result.mp3)
         print(f"  -> {out} ({result.duration_ms} ms)")
 
 
-async def _main(image_paths: list[Path]) -> None:
-    full_text = await _ocr_all(image_paths)
+async def _main(args: argparse.Namespace) -> None:
+    full_text = args.text if args.text else await _ocr_all(args.images)
     sample = full_text[:SAMPLE_CHARS]
     if not sample.strip():
         print("Không có văn bản nào để đọc thử (OCR trả về rỗng).", file=sys.stderr)
         return
-    await _synthesize_all(sample)
+    voices = [v.strip() for v in args.voices.split(",") if v.strip()]
+    style = args.style if args.style is not None else get_settings().gemini_tts_style
+    await _synthesize_all(sample, voices, style, args.tag)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="BookSnap voice PoC: OCR ảnh sách rồi đọc thử nhiều giọng TTS.")
-    parser.add_argument("images", nargs="+", type=Path, help="Đường dẫn ảnh trang sách, theo đúng thứ tự")
+    parser = argparse.ArgumentParser(description="BookSnap voice PoC: đọc thử nhiều giọng TTS từ ảnh sách hoặc đoạn văn.")
+    parser.add_argument("images", nargs="*", type=Path, help="Đường dẫn ảnh trang sách, theo đúng thứ tự")
+    parser.add_argument("--text", help="Đọc thử đoạn văn này thay vì OCR ảnh")
+    parser.add_argument("--voices", default=",".join(GEMINI_VOICES), help="Danh sách giọng Gemini, cách nhau bởi dấu phẩy")
+    parser.add_argument("--style", help="Style prompt Gemini (mặc định: GEMINI_TTS_STYLE hiện tại)")
+    parser.add_argument("--tag", default="", help="Hậu tố tên file để so sánh nhiều style")
     args = parser.parse_args()
-    asyncio.run(_main(args.images))
+    if not args.text and not args.images:
+        parser.error("cần ảnh trang sách hoặc --text")
+    asyncio.run(_main(args))
 
 
 if __name__ == "__main__":

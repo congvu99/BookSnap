@@ -36,6 +36,8 @@ const PATHS = {
   'type-size': '<path d="M4 7V5h13v2"/><path d="M9 5v14M9 19H7m2 0h2"/><path d="M17 12v-2h5v2"/><path d="M19.5 10v9"/>',
   disc: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M6.5 12a5.5 5.5 0 0 1 5.5-5.5"/>',
   bookmark: '<path d="M6 3h12v18l-6-4.5L6 21z"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  gauge: '<path d="m12 14 4-4"/><path d="M3.3 19a10 10 0 1 1 17.4 0"/>',
 };
 
 /**

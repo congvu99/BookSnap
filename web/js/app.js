@@ -1,4 +1,4 @@
-// Hash router + app shell. Routes: #/auth #/library #/bookmarks #/capture #/capture/:bookId #/book/:id
+// Hash router + app shell. Routes: #/auth #/library #/bookmarks #/account #/capture #/capture/:bookId #/book/:id
 // #/read/:id #/listen/:id (both take an optional ?seq= to start at a chunk)
 import { html, render, useEffect, useState } from '../vendor/preact-htm.module.js';
 import { ApiError, authApi, onUnauthorized } from './api-client.js';
@@ -11,6 +11,7 @@ import { CaptureView } from './views/capture-view.js';
 import { BookStatusView } from './views/book-status-view.js';
 import { ReaderView } from './views/reader-view.js';
 import { BookmarksView } from './views/bookmarks-view.js';
+import { AccountView } from './views/account-view.js';
 
 /** Parse the current location hash into a {name, params} route. */
 function parseRoute(hash) {
@@ -21,6 +22,7 @@ function parseRoute(hash) {
   if (segments[0] === 'capture') return { name: 'capture', bookId: segments[1] };
   if (segments[0] === 'book' && segments[1]) return { name: 'book', bookId: segments[1] };
   if (segments[0] === 'bookmarks') return { name: 'bookmarks' };
+  if (segments[0] === 'account') return { name: 'account' };
   // listen and read are two modes of the same ReaderView, so switching never remounts the player.
   if ((segments[0] === 'read' || segments[0] === 'listen') && segments[1]) {
     return { name: 'read', bookId: segments[1], mode: segments[0], query };
@@ -34,8 +36,10 @@ function seqParam(query) {
   return query.has('seq') && Number.isInteger(seq) && seq >= 0 ? seq : null;
 }
 
-// 'read' covers both #/read and #/listen (see parseRoute).
+// 'read' covers both #/read and #/listen (see parseRoute). Listen mode is the "Đang nghe" tab's own
+// screen and has nothing pinned to the bottom, so it keeps the nav; read mode's mini player owns that edge.
 const NO_NAV_ROUTES = new Set(['auth', 'capture', 'read']);
+const showsNav = (route) => !NO_NAV_ROUTES.has(route.name) || (route.name === 'read' && route.mode === 'listen');
 
 function App() {
   const [hash, setHash] = useState(window.location.hash);
@@ -100,7 +104,7 @@ function App() {
     return null;
   }
 
-  const showNav = !NO_NAV_ROUTES.has(route.name);
+  const showNav = showsNav(route);
   let view;
   switch (route.name) {
     case 'auth':
@@ -117,6 +121,9 @@ function App() {
       break;
     case 'bookmarks':
       view = html`<${BookmarksView} />`;
+      break;
+    case 'account':
+      view = html`<${AccountView} />`;
       break;
     default:
       view = html`<${LibraryView} />`;

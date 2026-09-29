@@ -62,7 +62,7 @@ BookSnap/
 │   ├── sw.js                            [146 LOC] Service worker (cache-first shell, network-first API)
 │   │
 │   ├── css/                             No CSS framework, design tokens only
-│   │   ├── tokens.css                   [~50 LOC] Colors (wine-red, ivory, gold), fonts (Cormorant)
+│   │   ├── tokens.css                   [~50 LOC] Colors (wine-red, ivory, gold), fonts (Playfair Display)
 │   │   ├── app.css                      [~80 LOC] Global layout, form inputs, buttons
 │   │   ├── library.css                  [~60 LOC] Crates, shelves, hero cards
 │   │   ├── vinyl.css                    [new] Record sleeve colors (5 palettes), vinyl disc, tonearm

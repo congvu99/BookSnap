@@ -1,0 +1,1 @@
+- [Vietnamese diacritic clipping](project_vietnamese-diacritic-clipping.md) — font/line-height changes: measure stacked-accent yMax vs clip threshold in overflow:hidden title boxes

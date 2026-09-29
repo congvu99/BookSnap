@@ -36,17 +36,21 @@ Quy tắc: không hardcode hex trong component; trạng thái luôn có icon + t
 
 | Vai trò | Font | Lý do |
 |---|---|---|
-| Display / tiêu đề sách | **Cormorant Garamond** 500–700 | Cổ điển, sang; có subset vietnamese |
+| Display / tiêu đề, tên sách, nút Đăng nhập/Đăng xuất | **Playfair Display** 500–700 | Cổ điển, tương phản cao; x-height lớn nên dấu chồng tiếng Việt rõ; có subset vietnamese |
 | Nội dung đọc | **Literata** 400/600 (variable) | Thiết kế cho đọc sách dài (Google Play Books); dấu tiếng Việt rõ ở cỡ nhỏ |
 | UI (nút, nhãn, nav, thời gian) | **Be Vietnam Pro** 400–600 | Sans tối ưu tiếng Việt |
 
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Cormorant+Garamond:wght@500;600;700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap&subset=vietnamese');
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Playfair+Display:wght@500;600;700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap&subset=vietnamese');
 ```
 
 Thang cỡ (px): 12 · 14 · 16 · 18 · 20 · 24 · 32 · 40.
 - Body đọc: 18px, line-height 1.7, measure 60–68 ký tự (mobile ~36–45), người dùng chỉnh 16–24px.
-- Tiêu đề Cormorant cần lớn hơn ~2px so với serif thường (x-height thấp); không dùng Cormorant chữ thường < 20px. Ngoại lệ: nhãn **in hoa giãn chữ** (tiêu đề mục 17px, biển tên kệ 15px) — chữ hoa có chiều cao thị giác lớn nên vẫn rõ.
+- Playfair Display rộng hơn và x-height cao hơn serif cổ điển (~0.52em): chữ trên bìa/nhãn đĩa đặt nhỏ hơn ~15% so với serif x-height thấp (sleeve `9.5cqw`, nhãn đĩa `7`), chừa chỗ cho dấu chồng (ẫ, ề, ự) ở dòng trên cùng.
+- Dấu chồng Playfair cao tới ~1.07em (thường) / ~1.16em (hoa): ô tiêu đề có `overflow: hidden`/`line-clamp` cần line-height ≥1.22 và/hoặc `padding-top: .1em` (hero, vỏ đĩa, mini player, menu heading); tiêu đề nhiều dòng không clamp dùng line-height ≥1.35 để dấu chữ hoa (Ấ, Ế) không chạm chân chữ dòng trên (g, y); vỏ đĩa bị giới hạn ở 1.22 (3 dòng phải vừa khung) nên chấp nhận chạm nhẹ.
+- Tên sách trên vỏ đĩa co theo độ dài và từ rộng nhất (chữ hoa tính 1.35), tối thiểu 0.5× — chỉ từ cực dài mới xuống dòng giữa từ.
+- Playfair không có `tnum`: số cần thẳng cột (thống kê tài khoản) dùng `--font-ui`. Drop cap: 3em, line-height .9.
+- Nút Đăng nhập (tab + submit) và Đăng xuất (menu avatar + trang tài khoản) dùng `--font-display`; các nút khác vẫn `--font-ui`.
 - Thời gian player: `font-variant-numeric: tabular-nums`.
 
 ## 4. Layout & spacing
@@ -62,7 +66,7 @@ Thang cỡ (px): 12 · 14 · 16 · 18 · 20 · 24 · 32 · 40.
 ## 5. Navigation
 
 Bottom nav 4 mục (icon Lucide stroke 1.5 + nhãn): **Thư viện** · **Đánh dấu** · **Chụp** (nút giữa nổi, primary) · **Đang nghe**.
-Reader/Camera là màn full-screen, có nút quay lại rõ ràng; bottom nav ẩn khi đang đọc.
+Reader/Camera là màn full-screen, có nút quay lại rõ ràng; bottom nav ẩn khi đang đọc (mini player chiếm mép dưới). Màn nghe (`#/listen`) là màn của tab **Đang nghe** nên vẫn giữ bottom nav.
 
 ## 6. Component chính
 
@@ -77,7 +81,7 @@ Reader/Camera là màn full-screen, có nút quay lại rõ ràng; bottom nav �
 ### 6.2 Thư viện & Đang nghe
 **Thư viện — thùng đĩa than:**
 - **Thùng (crate)**: mỗi chủ đề một thùng (sắp theo bảng chữ cái tiếng Việt), thùng "Chưa phân loại" cuối. Nền `--surface-sunken`, viền vàng 1px, tab thùng in hoa + icon collapsible ở đầu. **Tab thùng sticky** khi cuộn → người dùng biết chủ đề hiện tại. Bên trong mỗi thùng: hero "Nghe tiếp" (card khung `OrnateFrame` + vỏ đĩa), rồi lưới 2 cột vỏ đĩa vuông (mỗi sách một vỏ).
-- **Vỏ đĩa vuông (sleeve)**: tỉ lệ 1:1, **5 màu da** chọn cố định theo `hash(book.id) % 5`: wine, moss, slate, amber, parchment. Khung hoa văn góc lượn + 4 góc + 2 fleuron, tên sách Cormorant 600 ở giữa, co chữ theo độ dài (tối đa 3 dòng). Bìa là trang trí (`aria-hidden`), tên sách luôn hiện dạng chữ cạnh vỏ. Sách chưa `ready` không có đĩa ("Đang ép đĩa · x/y"). Chữ bìa ≥4.5:1 trên cả 5 màu.
+- **Vỏ đĩa vuông (sleeve)**: tỉ lệ 1:1, **5 màu da** chọn cố định theo `hash(book.id) % 5`: wine, moss, slate, amber, parchment. Khung hoa văn góc lượn + 4 góc + 2 fleuron, tên sách Playfair 600 ở giữa, co chữ theo độ dài (tối đa 3 dòng). Bìa là trang trí (`aria-hidden`), tên sách luôn hiện dạng chữ cạnh vỏ. Sách chưa `ready` không có đĩa ("Đang ép đĩa · x/y"). Chữ bìa ≥4.5:1 trên cả 5 màu.
 - **Hero "Nghe tiếp"**: vỏ đĩa nhớ sách user đang nghe dở (fetch `/api/me/continue`), đĩa ló ra bên phải (trạng thái ấy), nút primary "Nghe tiếp" hoặc "Tiếp tục đọc", nền giống thùng.
 - **Menu chủ đề (iOS)**: nút segmented "Mọi chủ đề ⌃⌄" ở trên hero, pull-down menu (không cuộn ngang chip), chọn → filter các thùng khác ở dưới, empty state khi chọn chủ đề không có sách.
 - **Tìm kiếm**: ô bỏ dấu (client-side, accent-insensitive; không yêu cầu server).
@@ -115,10 +119,10 @@ Hình khối dùng chung ở `web/js/components/ornament-shapes.js` (góc lượ
 
 | Vị trí | Xử lý |
 |---|---|
-| Tiêu đề trang (Thư viện, tên sách, Chụp trang sách) | Cormorant + đường kẻ `── ❦ ──` (`.fleuron-rule`, `.header-rule` dưới header) |
+| Tiêu đề trang (Thư viện, tên sách, Chụp trang sách) | Playfair + đường kẻ `── ❦ ──` (`.fleuron-rule`, `.header-rule` dưới header) |
 | Tiêu đề mục, tiêu đề trong sheet | In hoa La Mã giãn chữ + hairline chạy tới hình thoi (`.section-heading`, `.player-sheet-section h3`) |
 | Divider có nhãn (Trang lỗi) | `◆──── NHÃN ────◆` (`.ornament`) |
-| Vỏ đĩa (sleeve) | Tỉ lệ 1:1, 5 màu da, khung đôi + 4 góc lượn + 2 fleuron, tên Cormorant ở giữa (3 dòng tối đa, co chữ theo độ dài) |
+| Vỏ đĩa (sleeve) | Tỉ lệ 1:1, 5 màu da, khung đôi + 4 góc lượn + 2 fleuron, tên Playfair ở giữa (3 dòng tối đa, co chữ theo độ dài) |
 | Đĩa than (disc) | Vinyl đen `#111` + viền mặt 3D, xoay 33⅓ vòng/phút khi phát (chỉ khi `playing`), tắt khi `prefers-reduced-motion` |
 | Cần đồng thau (tonearm) | Góc 9.5° → 29.5° theo % tiến độ, chuyên động mượt; lift khi pause, reset khi tab thùng/cue; màu brass hi/mid/lo theo độ sáng |
 | Tab thùng | In hoa + icon collapse/expand, sticky khi cuộn, nền `--surface-sunken`, viền vàng 1px |
@@ -130,7 +134,7 @@ Hình khối dùng chung ở `web/js/components/ornament-shapes.js` (góc lượ
 | Nút secondary / danger | Viền `--gold-soft` (danger: `--danger`) + rule lồng trong mờ |
 | Chip | Góc vuông, viền vàng; chip chọn giống nút primary (không hình thoi) |
 | Input, select, textarea | Viền `--gold-soft`, bóng lõm nhẹ; focus = viền `--primary` + halo `--gold-faint` |
-| Nhãn field | Cormorant in hoa `--gold-ink`, số lining |
+| Nhãn field | Playfair in hoa `--gold-ink`, số lining |
 | Card | Viền `--gold-soft` + rule mờ lồng trong 3px; `OrnateFrame` (góc lượn) chỉ 1 card mỗi màn |
 | Banner | Viền màu nhạt; hình thoi đầu dòng khi banner không có icon |
 | Bottom nav, mini player, sheet, topbar reader | Vạch đôi vàng ở mép; tab đang mở có hình thoi nằm trên vạch; sheet dùng fleuron thay thanh kéo |
@@ -139,7 +143,7 @@ Hình khối dùng chung ở `web/js/components/ornament-shapes.js` (góc lượ
 | Timeline trạng thái | Mốc hình thoi trên sợi chỉ vàng chấm |
 | Khung ngắm camera | 4 góc vàng dạng thước ngắm + hairline mờ; thumbnail viền vàng |
 | Empty state, lỗi camera | Icon vàng + fleuron rule |
-| Reader | Tiêu đề chương (dòng ngắn không dấu câu cuối) Cormorant căn giữa; drop cap ở đoạn văn đầu tiên của sách (sau tiêu đề); đoạn đang đọc có vạch vàng 2px bên trái. Không hoa văn khác trong nội dung |
+| Reader | Tiêu đề chương (dòng ngắn không dấu câu cuối) Playfair căn giữa; drop cap ở đoạn văn đầu tiên của sách (sau tiêu đề); đoạn đang đọc có vạch vàng 2px bên trái. Không hoa văn khác trong nội dung |
 
 Không làm: nền damask/hoạ tiết, góc lượn quanh mọi card, divider hoa văn giữa các đoạn đọc, hình thoi trong chip (quá dày khi nhiều chip).
 

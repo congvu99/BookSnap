@@ -1,4 +1,4 @@
-// Header avatar (initial letter) that opens a small menu with the account name and "Đăng xuất".
+// Header avatar (initial letter) that opens a small menu: account name, "Thông tin cá nhân", "Đăng xuất".
 import { html, useEffect, useRef, useState } from '../../vendor/preact-htm.module.js';
 import { Icon } from '../icons.js';
 
@@ -6,12 +6,12 @@ import { Icon } from '../icons.js';
 export function LibraryAccountMenu({ name, onLogout }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef(/** @type {HTMLButtonElement|null} */ (null));
-  const logoutRef = useRef(/** @type {HTMLButtonElement|null} */ (null));
+  const firstItemRef = useRef(/** @type {HTMLAnchorElement|null} */ (null));
   const initial = (name || '?').trim().charAt(0).toUpperCase() || '?';
 
   useEffect(() => {
     if (!open) return undefined;
-    logoutRef.current?.focus({ preventScroll: true });
+    firstItemRef.current?.focus({ preventScroll: true });
     function onKey(e) {
       if (e.key !== 'Escape') return;
       setOpen(false);
@@ -29,7 +29,8 @@ export function LibraryAccountMenu({ name, onLogout }) {
       html`
         <div class="menu account-menu" role="menu" aria-label="Tài khoản">
           <div class="menu-heading" aria-hidden="true">${name}</div>
-          <button ref=${logoutRef} class="menu-item menu-item--action" role="menuitem" onClick=${onLogout}><${Icon} name="log-out" size=${18} /><span>Đăng xuất</span></button>
+          <a ref=${firstItemRef} class="menu-item menu-item--action" role="menuitem" href="#/account" onClick=${() => setOpen(false)}><${Icon} name="user" size=${18} /><span>Thông tin cá nhân</span></a>
+          <button class="menu-item menu-item--action menu-item--signout" role="menuitem" onClick=${onLogout}><${Icon} name="log-out" size=${18} /><span>Đăng xuất</span></button>
         </div>
       `}
     </div>

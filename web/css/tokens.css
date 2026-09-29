@@ -1,5 +1,5 @@
 /* Design tokens — Classic Library (docs/design-guidelines.md). Do not hardcode hex in components. */
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Cormorant+Garamond:wght@500;600;700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap&subset=vietnamese');
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Playfair+Display:wght@500;600;700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap&subset=vietnamese');
 
 :root {
   color-scheme: light;
@@ -32,7 +32,7 @@
   --brass: #C29A58;
   --brass-lo: #8D6831;
 
-  --font-display: 'Cormorant Garamond', serif;
+  --font-display: 'Playfair Display', Georgia, serif;
   --font-read: 'Literata', serif;
   --font-ui: 'Be Vietnam Pro', sans-serif;
 

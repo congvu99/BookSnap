@@ -15,12 +15,17 @@ class PageText:
 
 
 class OcrError(Exception):
-    """Raised by OcrProvider.extract; `retryable` drives the worker's backoff policy."""
+    """Raised by OcrProvider.extract; `retryable` drives the worker's backoff policy.
 
-    def __init__(self, message: str, *, retryable: bool) -> None:
+    `quota` marks a 429: still retried with backoff (an RPM burst clears in seconds), but metered
+    as a quota rejection rather than a billed request.
+    """
+
+    def __init__(self, message: str, *, retryable: bool, quota: bool = False) -> None:
         super().__init__(message)
         self.message = message
         self.retryable = retryable
+        self.quota = quota
 
 
 class OcrProvider(Protocol):

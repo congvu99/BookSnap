@@ -146,7 +146,6 @@ export function AuthView({ onAuthed }) {
           <${Row}
             ...${row('username')}
             id="signin-username"
-            placeholder="vd. lananh"
             autocomplete="username"
             autocapitalize="none"
             autocorrect="off"
@@ -159,7 +158,6 @@ export function AuthView({ onAuthed }) {
           html`<${Row}
             ...${row('display_name')}
             id="signin-display-name"
-            placeholder="vd. Lan Anh"
             autocomplete="name"
             autocapitalize="words"
             enterkeyhint="next"

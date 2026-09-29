@@ -14,6 +14,7 @@ from app.repositories.bookmark_repository import BookmarkRepository
 from app.repositories.chunk_repository import ChunkRepository
 from app.repositories.page_repository import PageRepository
 from app.repositories.progress_repository import ProgressRepository
+from app.repositories.provider_usage_repository import ProviderUsageRepository
 from app.repositories.session_repository import SessionRepository
 from app.repositories.topic_repository import TopicRepository
 from app.repositories.user_repository import UserRepository
@@ -40,6 +41,7 @@ class AppContext:
     progress: ProgressRepository
     topics: TopicRepository
     bookmarks: BookmarkRepository
+    usage: ProviderUsageRepository
     auth_limiter: RateLimiter
     session_service: SessionService
     worker: WorkerWaker = field(default_factory=_NoopWaker)
@@ -59,6 +61,7 @@ class AppContext:
             progress=ProgressRepository(db),
             topics=TopicRepository(db),
             bookmarks=BookmarkRepository(db),
+            usage=ProviderUsageRepository(db),
             auth_limiter=RateLimiter(settings.auth_rate_limit_per_minute, 60.0),
             session_service=SessionService(sessions, users, settings),
         )

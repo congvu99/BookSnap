@@ -66,6 +66,22 @@ export const authApi = {
   me: () => apiFetch('/api/me', {}, { skipAuthRedirect: true }),
 };
 
+// ---- Account (the signed-in user) ----
+export const accountApi = {
+  /** {id, username, display_name, created_at, stats:{books_created, pages_captured, books_listening, bookmarks}} */
+  profile: () => apiFetch('/api/me/profile'),
+  /** Returns the updated /api/me shape. */
+  update: (body) => apiFetch('/api/me', { method: 'PATCH', body }),
+  /** {other_sessions_revoked}; the current device stays signed in. */
+  changePassword: (body) => apiFetch('/api/me/password', { method: 'POST', body }),
+};
+
+// ---- Provider quota (shared by every account) ----
+export const usageApi = {
+  /** {as_of, services:[{service, label, unit, window, status, used, limit, remaining, resets_at, paused_until, waiting_chunks, last_quota_at}]} */
+  get: () => apiFetch('/api/usage'),
+};
+
 // ---- Books ----
 export const booksApi = {
   list: () => apiFetch('/api/books'),

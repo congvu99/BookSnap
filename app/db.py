@@ -113,6 +113,19 @@ MIGRATIONS: list[str] = [
         PRIMARY KEY(user_id, book_id, chunk_seq)
     );
     """,
+    # One row per provider call attempt, so the app can show how much of each API quota is left.
+    # No FK on book_id: usage stays counted after a book is deleted. Pruned by the cleanup worker.
+    """
+    CREATE TABLE provider_usage (
+        id INTEGER PRIMARY KEY,
+        service TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        chars INTEGER NOT NULL DEFAULT 0,
+        book_id TEXT,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX idx_provider_usage_service_time ON provider_usage(service, created_at);
+    """,
 ]
 
 

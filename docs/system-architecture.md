@@ -243,7 +243,19 @@ CREATE TABLE bookmarks (
   created_at TEXT NOT NULL,
   PRIMARY KEY(user_id, book_id, chunk_seq)
 );
+
+CREATE TABLE provider_usage (             -- v5: one row per OCR/TTS provider call attempt
+  id INTEGER PRIMARY KEY,
+  service TEXT NOT NULL,                 -- gemini_ocr | gemini_tts | azure_tts
+  outcome TEXT NOT NULL,                 -- ok | quota (429) | error
+  chars INTEGER NOT NULL DEFAULT 0,      -- characters on successful calls (Azure bills per char)
+  book_id TEXT,                          -- no FK: usage stays counted after a book is deleted
+  created_at TEXT NOT NULL
+);
+CREATE INDEX idx_provider_usage_service_time ON provider_usage(service, created_at);
 ```
+
+**Provider quota ("usage còn lại"):** Gemini/Azure không có API trả quota còn lại → worker ghi mỗi lần gọi (kể cả retry) vào `provider_usage` (best-effort, lỗi ghi không làm hỏng page/chunk); `app/usage_quota.py` cộng theo cửa sổ reset của từng provider (Gemini RPD: nửa đêm giờ Pacific; Azure: tháng UTC) và so với `GEMINI_OCR_RPD` / `GEMINI_TTS_RPD` / `AZURE_TTS_MONTHLY_CHARS` (0 = chưa đặt → chỉ hiện đã dùng). Nguồn sự thật duy nhất là 429 của provider → `status=paused` từ chunk `waiting_quota`. Lượt gọi bằng cùng key từ nơi khác không được đếm. Cleanup worker xoá dòng cũ hơn `USAGE_RETENTION_DAYS` (62).
 
 **Why `chunk_seq` not `chunk_id`:** The unsealed tail chunk is replaced when pages are added (`chunk_repository.replace_tail`), so its `id` changes; bookmarks keyed by `seq` survive the replacement.
 
@@ -281,6 +293,11 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 | POST | `/auth/logout` | — | 204 | xoá session nếu có (idempotent) |
 | GET | `/me` | ✓ | 200 | `{id, username, display_name}` |
 | GET | `/me/continue` | ✓ | 200 | `[book_out]` sách user đang nghe dở, mới nhất trước |
+| **Account** ||||
+| GET | `/me/profile` | ✓ | 200 | `{id, username, display_name, created_at, stats: {books_created, pages_captured, books_listening, bookmarks}}` |
+| PATCH | `/me` | ✓ | 200 | `{id, username, display_name}`; body `{display_name}` (1–40 ký tự) |
+| POST | `/me/password` | ✓ | 200 | `{other_sessions_revoked}`; body `{current_password, new_password}`; giữ session hiện tại, xoá mọi session khác; rate limit theo user |
+| GET | `/usage` | ✓ | 200 | `{as_of, services: [{service, label, unit, window, status, used, limit, remaining, window_start, resets_at, quota_hits, last_quota_at, paused_until, waiting_chunks}]}` — dùng chung cả nhà |
 | **Books** ||||
 | POST | `/books` | ✓ | 201 | `book_detail`; body `{title, topic?, tts_provider?, tts_voice?}` |
 | GET | `/books` | ✓ | 200 | `[book_out]` (thư viện chung, tiến độ của user hiện tại) |
@@ -323,7 +340,7 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 }
 ```
 
-**Error codes:** `invalid_request` (400), `username_invalid` / `display_name_invalid` / `password_invalid` / `title_invalid` / `topic_invalid` / `text_invalid` (400), `unauthorized` / `invalid_credentials` (401), `forbidden` / `invite_invalid` (403), `not_found` (404), `page_seq_taken` / `username_taken` / `page_not_discardable` / `page_not_retryable` / `chunk_not_retryable` (409), `image_too_large` / `request_too_large` (413), `image_type_invalid` (415), `rate_limited` (429, có `Retry-After`).
+**Error codes:** `invalid_request` (400), `username_invalid` / `display_name_invalid` / `password_invalid` / `title_invalid` / `topic_invalid` / `text_invalid` (400), `current_password_invalid` / `password_unchanged` (400), `unauthorized` / `invalid_credentials` (401), `forbidden` / `invite_invalid` (403), `not_found` (404), `page_seq_taken` / `username_taken` / `page_not_discardable` / `page_not_retryable` / `chunk_not_retryable` (409), `image_too_large` / `request_too_large` (413), `image_type_invalid` (415), `rate_limited` (429, có `Retry-After`).
 
 ## Web Routes (Hash-based SPA)
 
@@ -331,6 +348,7 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 - `#/auth` → `AuthView` (login/register, invite code)
 - `#/library` → `LibraryView` (crate library, hero "Continue")
 - `#/bookmarks` → Bookmarks view (per-user bookmarks, newest first)
+- `#/account` → `AccountView` (thông tin cá nhân, hạn mức dịch vụ, đổi tên hiển thị/mật khẩu); mở từ menu avatar ở Thư viện
 - `#/capture` / `#/capture/:bookId` → `CaptureView` (camera + upload queue)
 - `#/book/:id` → `BookStatusView` (processing timeline)
 - `#/read/:id` · `#/listen/:id` → `ReaderView` (mode="read" | "listen", same component instance; optional `?seq=N` to start at chunk N)

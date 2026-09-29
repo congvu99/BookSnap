@@ -68,6 +68,8 @@ class GeminiOcrProvider:
 def _map_error(exc: genai_errors.APIError) -> OcrError:
     code = exc.code or 0
     message = exc.message or str(exc)
-    if code == 429 or code >= 500:
+    if code == 429:
+        return OcrError(f"Hết quota OCR tạm thời ({code}): {message}", retryable=True, quota=True)
+    if code >= 500:
         return OcrError(f"Lỗi OCR tạm thời ({code}): {message}", retryable=True)
     return OcrError(f"Lỗi OCR: {message}", retryable=False)

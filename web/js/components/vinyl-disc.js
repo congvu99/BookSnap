@@ -34,9 +34,9 @@ export function labelLines(title) {
 function DetailedLabel({ title }) {
   const lines = labelLines(title);
   return html`
-    <text class="disc-label-small" x="100" y="80" text-anchor="middle" font-size="4.4" letter-spacing="1.3">BOOKSNAP</text>
-    <text class="disc-label-title" text-anchor="middle" font-size="9">
-      ${lines.map((line, i) => html`<tspan x="100" y=${lines.length === 1 ? 93 : 86 + i * 8.5}>${line}</tspan>`)}
+    <text class="disc-label-small" x="100" y="78" text-anchor="middle" font-size="4.2" letter-spacing=".8">BOOKSNAP</text>
+    <text class="disc-label-title" text-anchor="middle" font-size="7">
+      ${lines.map((line, i) => html`<tspan x="100" y=${lines.length === 1 ? 93 : 87 + i * 8}>${line}</tspan>`)}
     </text>
     <g class="disc-label-ornament"><${Fleuron} transform="translate(100 107) scale(.26)" /></g>
     <text class="disc-label-small" x="100" y="118" text-anchor="middle" font-size="4" letter-spacing=".8">MẶT A · 33⅓</text>

@@ -16,10 +16,10 @@
 .sleeve-title {
   position: absolute; inset: 31% 17%;
   display: flex; align-items: center; justify-content: center; text-align: center;
-  font-family: var(--font-display); font-weight: 600; line-height: 1.1; color: var(--cover-ink);
-  font-size: calc(var(--title-scale, 1) * 11cqw); text-wrap: balance; overflow-wrap: anywhere;
+  font-family: var(--font-display); font-weight: 600; line-height: 1.22; color: var(--cover-ink);
+  font-size: calc(var(--title-scale, 1) * 9.5cqw); text-wrap: balance; overflow-wrap: anywhere;
 }
-.sleeve-title span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.sleeve-title span { padding-top: .12em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* ——— Disc ——— */
 .disc { position: relative; aspect-ratio: 1; width: 100%; border-radius: 50%; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .3)); }

@@ -9,11 +9,14 @@ so tests run fast) before giving up.
 
 import asyncio
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 
 from app.pipeline.tts_provider import SynthResult, TtsError, TtsProvider
 
 DEFAULT_BACKOFF_SECONDS: tuple[float, ...] = (2.0, 8.0, 30.0)
+
+# Called once per provider attempt with its error (None on success), so every retry is metered.
+AttemptHook = Callable[[TtsError | None], Awaitable[None]]
 
 
 def content_hash(text: str, provider: str, voice: str) -> str:
@@ -27,7 +30,7 @@ class TtsRouter:
         self.providers = providers
         self.backoff_seconds = tuple(backoff_seconds)
 
-    async def synthesize(self, provider_name: str, text: str, voice: str) -> SynthResult:
+    async def synthesize(self, provider_name: str, text: str, voice: str, on_attempt: AttemptHook | None = None) -> SynthResult:
         provider = self.providers.get(provider_name)
         if provider is None:
             raise TtsError(f"Chưa cấu hình {provider_name}", retryable=False)
@@ -36,10 +39,16 @@ class TtsRouter:
             if delay:
                 await asyncio.sleep(delay)
             try:
-                return await provider.synthesize(text, voice)
+                result = await provider.synthesize(text, voice)
             except TtsError as exc:
+                if on_attempt is not None:
+                    await on_attempt(exc)
                 if exc.quota or not exc.retryable:
                     raise
                 last_error = exc
+            else:
+                if on_attempt is not None:
+                    await on_attempt(None)
+                return result
         assert last_error is not None
         raise last_error

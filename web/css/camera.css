@@ -84,3 +84,4 @@
 .status-step--failed .status-step-dot { --dot-rule: var(--danger); color: var(--danger); }
 .status-step-title { font-weight: 600; }
 .status-step-detail { font-size: 14px; color: var(--ink-muted); }
+.book-picker-title { font-family: var(--font-display); }

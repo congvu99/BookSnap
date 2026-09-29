@@ -168,6 +168,15 @@ class ChunkRepository:
     async def is_audio_referenced(self, audio_path: str) -> bool:
         return await self.db.fetchone("SELECT 1 FROM chunks WHERE audio_path=? LIMIT 1", (audio_path,)) is not None
 
+    async def quota_waits(self, now: str) -> dict[str, tuple[str, int]]:
+        """provider -> (earliest retry time, chunk count) for chunks still parked on a quota error."""
+        rows = await self.db.fetchall(
+            "SELECT provider, MIN(not_before) AS until, COUNT(*) AS waiting FROM chunks"
+            " WHERE status='waiting_quota' AND not_before > ? GROUP BY provider",
+            (now,),
+        )
+        return {r["provider"]: (r["until"], r["waiting"]) for r in rows}
+
     async def requeue_expired_quota(self, now: str) -> int:
         """Chunks whose `not_before` has passed go back to `pending` automatically."""
         return await self.db.execute(

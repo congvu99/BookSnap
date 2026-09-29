@@ -1,4 +1,4 @@
-// Bottom nav: Thư viện · Đánh dấu · Chụp (primary) · Đang nghe. Hidden in reader/camera (app.js decides).
+// Bottom nav: Thư viện · Đánh dấu · Chụp (primary) · Đang nghe. Hidden in read mode/camera (app.js decides).
 import { html, useEffect, useState } from '../../vendor/preact-htm.module.js';
 import { Icon } from '../icons.js';
 import { booksApi } from '../api-client.js';
@@ -24,7 +24,10 @@ export function BottomNav({ currentRoute }) {
   const isCapture = currentRoute.startsWith('#/capture');
   const isBookmarks = currentRoute.startsWith('#/bookmarks');
   const routePath = currentRoute.split('?')[0];
-  const isContinue = continueBookId != null && (routePath === `#/listen/${continueBookId}` || routePath === `#/read/${continueBookId}`);
+  // On a listen screen the tab points at that book (any book, not only the latest in progress).
+  const listeningBookId = routePath.startsWith('#/listen/') ? routePath.slice('#/listen/'.length) : null;
+  const nowPlayingId = listeningBookId || continueBookId;
+  const isContinue = listeningBookId != null || (continueBookId != null && routePath === `#/read/${continueBookId}`);
 
   return html`
     <nav class="bottom-nav" aria-label="Điều hướng chính">
@@ -40,7 +43,7 @@ export function BottomNav({ currentRoute }) {
         <span class="nav-capture-circle"><${Icon} name="camera" /></span>
       </a>
       <a
-        href=${continueBookId ? `#/listen/${continueBookId}` : '#/library'}
+        href=${nowPlayingId ? `#/listen/${nowPlayingId}` : '#/library'}
         aria-current=${isContinue ? 'page' : undefined}
         aria-label="Đang nghe"
       >

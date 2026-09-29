@@ -39,5 +39,8 @@ class SessionRepository:
     async def delete_for_user(self, user_id: str) -> int:
         return await self.db.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
 
+    async def delete_for_user_except(self, user_id: str, keep_token_hash: str) -> int:
+        return await self.db.execute("DELETE FROM sessions WHERE user_id=? AND token_hash!=?", (user_id, keep_token_hash))
+
     async def delete_expired(self) -> int:
         return await self.db.execute("DELETE FROM sessions WHERE expires_at<=?", (now_iso(),))

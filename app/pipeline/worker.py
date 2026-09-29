@@ -47,6 +47,7 @@ from app.pipeline.tts_provider import TtsError, TtsProvider
 from app.pipeline.tts_router import TtsRouter, content_hash
 from app.repositories.chunk_repository import Chunk
 from app.repositories.page_repository import Page
+from app.repositories.provider_usage_repository import UsageOutcome, UsageService
 from app.repositories.row_mapping import new_id
 
 log = logging.getLogger(__name__)
@@ -182,7 +183,7 @@ class Worker:
             return
         mime = page.image_mime or "image/jpeg"
         try:
-            page_text = await self._ocr_with_retry(image_bytes, mime)
+            page_text = await self._ocr_with_retry(image_bytes, mime, page.book_id)
         except OcrError as exc:
             await self.ctx.pages.mark_failed(page.id, exc.message)
             log.info("ocr outcome=error page_id=%s latency_ms=%d error=%s", page.id, _ms_since(started), exc.message)
@@ -197,18 +198,22 @@ class Worker:
         log.info("ocr outcome=%s page_id=%s chars=%d latency_ms=%d", "ok" if saved else "gone", page.id, len(text), _ms_since(started))
         self.wake()
 
-    async def _ocr_with_retry(self, image: bytes, mime: str) -> PageText:
+    async def _ocr_with_retry(self, image: bytes, mime: str, book_id: str) -> PageText:
         last_error: OcrError | None = None
         for delay in (0.0, *self.ocr_backoff_seconds):
             if delay:
                 await asyncio.sleep(delay)
             await self.ocr_rpm.throttle()
             try:
-                return await self.ocr.extract(image, mime)
+                page_text = await self.ocr.extract(image, mime)
             except OcrError as exc:
+                await self._meter("gemini_ocr", "quota" if exc.quota else "error", 0, book_id)
                 if not exc.retryable:
                     raise
                 last_error = exc
+            else:
+                await self._meter("gemini_ocr", "ok", len(page_text.text), book_id)
+                return page_text
         assert last_error is not None
         raise last_error
 
@@ -268,8 +273,15 @@ class Worker:
             return
 
         await self.tts_rpm[chunk.provider].throttle()
+        spoken = text_chunker.spoken_text(chunk.text)
+        service: UsageService = "azure_tts" if chunk.provider == "azure" else "gemini_tts"
+
+        async def meter_attempt(error: TtsError | None) -> None:
+            outcome: UsageOutcome = "ok" if error is None else "quota" if error.quota else "error"
+            await self._meter(service, outcome, len(spoken), chunk.book_id)
+
         try:
-            result = await self.router.synthesize(chunk.provider, text_chunker.spoken_text(chunk.text), chunk.voice)
+            result = await self.router.synthesize(chunk.provider, spoken, chunk.voice, on_attempt=meter_attempt)
         except TtsError as exc:
             if exc.quota:
                 not_before = now_iso(timedelta(seconds=exc.retry_after)) if exc.retry_after else now_iso(timedelta(hours=1))
@@ -302,6 +314,13 @@ class Worker:
             len(chunk.text),
             _ms_since(started),
         )
+
+    async def _meter(self, service: UsageService, outcome: UsageOutcome, chars: int, book_id: str) -> None:
+        """Usage metering is best-effort: a failed insert must never fail the page or chunk."""
+        try:
+            await self.ctx.usage.record(service, outcome, chars, book_id)
+        except Exception:
+            log.exception("usage_meter outcome=error service=%s", service)
 
     def _audio_path(self, book_id: str, seq: int, hash_hex: str) -> Path:
         return self.ctx.settings.library_dir / book_id / f"{seq:05d}-{hash_hex[:8]}.mp3"

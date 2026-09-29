@@ -21,15 +21,19 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_ocr_model: str = "gemini-2.5-flash"
     gemini_ocr_rpm: int = 15
+    # Daily/monthly quotas shown on the account screen; 0 = unknown (only usage is shown).
+    gemini_ocr_rpd: int = 0
     gemini_tts_model: str = "gemini-2.5-flash-preview-tts"
     gemini_tts_voice: str = "Kore"
     gemini_tts_style: str = "Đọc bằng giọng kể chuyện ấm áp, chậm rãi, truyền cảm:"
     gemini_tts_rpm: int = 10
+    gemini_tts_rpd: int = 0
 
     azure_speech_key: str = ""
     azure_speech_region: str = "southeastasia"
     azure_tts_voice: str = "vi-VN-HoaiMyNeural"
     azure_tts_rpm: int = 20
+    azure_tts_monthly_chars: int = 0
 
     tts_default_provider: TtsProviderName = "gemini"
 
@@ -39,6 +43,7 @@ class Settings(BaseSettings):
     failed_image_ttl_hours: int = 24
     tail_seal_grace_seconds: float = 90.0
     cleanup_interval_seconds: float = 3600.0
+    usage_retention_days: int = 62
 
     # Tests build the worker explicitly with fake providers, so the app's own lifespan
     # must not start a second, real one on top of it (see tests/conftest.py `settings`).

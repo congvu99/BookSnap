@@ -19,6 +19,13 @@ ORPHAN_MIN_AGE_SECONDS = 3600.0
 async def cleanup_once(ctx: AppContext) -> None:
     await _expire_failed_images(ctx)
     await _remove_orphan_tmp_files(ctx)
+    await _prune_usage_log(ctx)
+
+
+async def _prune_usage_log(ctx: AppContext) -> None:
+    removed = await ctx.usage.delete_older_than(now_iso(-timedelta(days=ctx.settings.usage_retention_days)))
+    if removed:
+        log.info("cleanup outcome=usage_pruned count=%d", removed)
 
 
 async def _expire_failed_images(ctx: AppContext) -> None:

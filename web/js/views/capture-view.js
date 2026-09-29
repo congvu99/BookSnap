@@ -169,7 +169,7 @@ export function CaptureView({ bookId }) {
               (b) => html`
                 <li key=${b.id}>
                   <button class="btn btn-secondary btn-block" style=${{ marginBottom: '8px', justifyContent: 'space-between' }} onClick=${() => chooseExisting(b.id)}>
-                    <span>${b.title}</span>
+                    <span class="book-picker-title">${b.title}</span>
                   </button>
                 </li>
               `

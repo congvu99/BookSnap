@@ -3,13 +3,14 @@
 // Range requests with 206 + Content-Range for Safari's <audio> to seek while offline.
 // v2: fixes C3 (206 responses can never be cache.put'd — see handleChunkAudio) and ships the
 // H3/M3/M4 client-side fixes; bumped so already-installed clients pick up the new sw.js bytes.
-const SHELL_CACHE = 'booksnap-shell-v11';
+const SHELL_CACHE = 'booksnap-shell-v15';
 const AUDIO_CACHE = 'booksnap-audio-v1';
 
 const SHELL_ASSETS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
+  '/css/account.css',
   '/css/app.css',
   '/css/auth.css',
   '/css/bookmarks.css',
@@ -30,11 +31,13 @@ const SHELL_ASSETS = [
   '/js/offline-audio-cache.js',
   '/js/offline-book-cache.js',
   '/js/playback-progress.js',
+  '/js/sign-out.js',
   '/js/sleeve-palette.js',
   '/js/store.js',
   '/js/text-fold.js',
   '/js/upload-queue.js',
   '/js/use-book-bookmarks.js',
+  '/js/components/account-profile-forms.js',
   '/js/components/bottom-nav.js',
   '/js/components/chunk-editor.js',
   '/js/components/chunk-paragraph.js',
@@ -49,9 +52,11 @@ const SHELL_ASSETS = [
   '/js/components/progress-timeline.js',
   '/js/components/record-sleeve.js',
   '/js/components/tonearm.js',
+  '/js/components/usage-meter-list.js',
   '/js/components/topic-filter-menu.js',
   '/js/components/topic-input.js',
   '/js/components/vinyl-disc.js',
+  '/js/views/account-view.js',
   '/js/views/auth-view.js',
   '/js/views/book-status-view.js',
   '/js/views/bookmarks-view.js',

@@ -15,6 +15,14 @@ class User:
     created_at: str
 
 
+@dataclass(frozen=True)
+class UserStats:
+    books_created: int
+    pages_captured: int
+    books_listening: int
+    bookmarks: int
+
+
 class UsernameTakenError(Exception):
     pass
 
@@ -42,3 +50,18 @@ class UserRepository:
 
     async def update_password_hash(self, user_id: str, password_hash: str) -> None:
         await self.db.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash, user_id))
+
+    async def update_display_name(self, user_id: str, display_name: str) -> None:
+        await self.db.execute("UPDATE users SET display_name=? WHERE id=?", (display_name, user_id))
+
+    async def stats(self, user_id: str) -> UserStats:
+        row = await self.db.fetchone(
+            "SELECT (SELECT COUNT(*) FROM books WHERE created_by=:u) AS books_created,"
+            " (SELECT COUNT(*) FROM pages p JOIN books b ON b.id = p.book_id"
+            "   WHERE b.created_by=:u AND p.status != 'discarded') AS pages_captured,"
+            " (SELECT COUNT(*) FROM progress WHERE user_id=:u) AS books_listening,"
+            " (SELECT COUNT(*) FROM bookmarks WHERE user_id=:u) AS bookmarks",
+            {"u": user_id},
+        )
+        assert row is not None
+        return UserStats(**dict(row))

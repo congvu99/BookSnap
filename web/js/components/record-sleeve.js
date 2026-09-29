@@ -18,10 +18,25 @@ function SleeveOrnament() {
   `;
 }
 
-/** Longer titles get a smaller type size so they stay inside the frame. */
+/** Lowercase-width glyphs of the longest word that fit one line of the title box at scale 1 (Playfair Display 600). */
+const WORD_FIT_CHARS = 11;
+/** Playfair capitals are ~1.35x as wide as its lowercase. */
+const CAPITAL_WIDTH = 1.35;
+/** Below this the title stops being legible; a single very long word may then wrap mid-word. */
+const MIN_SCALE = 0.5;
+
+function wordWidth(word) {
+  let width = 0;
+  for (const ch of word) width += ch !== ch.toLowerCase() ? CAPITAL_WIDTH : 1;
+  return width;
+}
+
+/** Longer titles get a smaller type size so they stay inside the frame; long words shrink the type instead of breaking. */
 function titleScale(title) {
   const n = title.length;
-  return n <= 8 ? 1.3 : n <= 22 ? 1 : n <= 40 ? 0.8 : 0.66;
+  const byLength = n <= 8 ? 1.3 : n <= 22 ? 1 : n <= 40 ? 0.8 : 0.66;
+  const widestWord = Math.max(1, ...title.split(/[\s\-–—]+/).map(wordWidth));
+  return Math.max(MIN_SCALE, Math.min(byLength, WORD_FIT_CHARS / widestWord));
 }
 
 /** Decorative: the title is always shown as text next to the sleeve. @param {{book: {id: string, title: string}, className?: string}} props */

@@ -1,8 +1,9 @@
 // Thư viện chung as "record crates": hero "Nghe tiếp", accent-insensitive search, topic pull-down
 // menu and one crate per topic. Layout reference: docs/mockups/vinyl-library-preview.html.
 import { html, useEffect, useMemo, useState } from '../../vendor/preact-htm.module.js';
-import { booksApi, authApi } from '../api-client.js';
-import { authStore, clearCachedUser, clearUserProgress } from '../store.js';
+import { booksApi } from '../api-client.js';
+import { authStore } from '../store.js';
+import { signOut } from '../sign-out.js';
 import { listOfflineBooks } from '../offline-book-cache.js';
 import { matchesQuery } from '../text-fold.js';
 import { LibraryHeroCard } from '../components/library-hero-card.js';
@@ -68,18 +69,6 @@ export function LibraryView() {
     load();
   }, []);
 
-  async function logout() {
-    try {
-      await authApi.logout();
-    } catch {
-      // Ignore network errors on logout — clear local state regardless.
-    }
-    if (user) clearUserProgress(user.id);
-    clearCachedUser();
-    authStore.set({ user: null, ready: true, offline: false });
-    window.location.hash = '#/auth';
-  }
-
   // Search narrows books first; topic options keep every topic but show counts for the search result.
   const { options, shelves, visibleCount, activeTopic } = useMemo(() => {
     const all = books || [];
@@ -110,7 +99,7 @@ export function LibraryView() {
           <p class="eyebrow">BookSnap · Thư phòng gia đình</p>
           <h1>Thư viện</h1>
         </div>
-        <${LibraryAccountMenu} name=${user ? user.display_name : ''} onLogout=${logout} />
+        <${LibraryAccountMenu} name=${user ? user.display_name : ''} onLogout=${signOut} />
       </header>
 
       <div class="container">

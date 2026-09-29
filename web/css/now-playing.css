@@ -1,5 +1,8 @@
 /* Listen mode of ReaderView: sleeve + sliding disc + brass tonearm (docs/mockups/vinyl-library-preview.html). */
 .now-playing { min-height: 100dvh; display: flex; flex-direction: column; background: var(--bg); }
+/* The bottom nav (64px + safe area) sits under listen mode; app-main already pads for it. */
+.app-main--with-nav .reader-view--listen, .app-main--with-nav .now-playing { min-height: calc(100dvh - 64px - env(safe-area-inset-bottom)); }
+.app-main--with-nav .np-body { padding-bottom: 24px; }
 .np-top {
   display: flex; align-items: center; justify-content: space-between;
   padding: calc(env(safe-area-inset-top) + var(--space-1)) 8px 0;
@@ -29,7 +32,7 @@
 
 .np-body { text-align: center; padding: 22px 20px calc(24px + env(safe-area-inset-bottom)); max-width: 26rem; width: 100%; margin: 0 auto; }
 .np-body .np-eyebrow { margin-bottom: 6px; }
-.np-title { margin: 0; font-family: var(--font-display); font-size: 30px; line-height: 1.12; text-wrap: balance; }
+.np-title { margin: 0; font-family: var(--font-display); font-size: 30px; line-height: 1.35; text-wrap: balance; }
 .np-by { margin: 4px 0 0; font-size: 13px; color: var(--ink-muted); }
 .np-status { margin: 6px 0 0; font-size: 12px; color: var(--ink-muted); display: flex; align-items: center; justify-content: center; gap: 4px; }
 .np-excerpt {
@@ -60,4 +63,4 @@
 .np-play .icon svg { fill: currentColor; stroke: none; }
 .np-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .np-options .chip { text-decoration: none; padding-inline: 12px; }
-.np-options .np-bookmark { padding-inline: 0; width: 44px; }
+.np-options .np-bookmark { padding-inline: 0; width: 44px; justify-content: center; }
