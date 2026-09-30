@@ -1,6 +1,8 @@
 # Deployment Guide — Railway (Railpack)
 
-**Last updated:** 2026-09-29
+**Last updated:** 2026-09-30
+
+> Self-hosted VPS alternative (Docker Compose + shared Caddy, auto HTTPS, backups, multi-project template): [deployment-vps-guide.html](deployment-vps-guide.html). Files: `Dockerfile`, `compose.yml`, `deploy/deploy.sh`, `deploy/backup.sh`.
 
 ## Quick Start — First Deploy
 

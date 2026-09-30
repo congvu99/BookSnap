@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hướng dẫn VPS Contabo</title>
+<meta name="description" content="Dựng VPS Contabo chạy nhiều dự án bằng Docker Compose + Caddy (HTTPS tự động), deploy BookSnap và khuôn mẫu cho dự án khác.">
+<style>
+:root{
+  --bg:#f7f6f2;--surface:#ffffff;--surface-2:#f0eee8;--text:#1d1c1a;--muted:#5d5a53;--border:#dedad0;
+  --accent:#1f6f5c;--accent-soft:#e1f0eb;--warn:#8a5a00;--warn-soft:#fbf0d9;--danger:#9b2c2c;--danger-soft:#fbe4e4;
+  --code-bg:#1e1f22;--code-text:#e8e6e1;--code-var:#ffd479;--code-comment:#8f98a3;
+  --radius:10px;--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141412;--surface:#1c1c1a;--surface-2:#252522;--text:#ebe9e4;--muted:#a8a49b;--border:#34332f;
+  --accent:#5cc3a6;--accent-soft:#17312a;--warn:#e8b64c;--warn-soft:#342a14;--danger:#f08a8a;--danger-soft:#3a1d1d;
+  --code-bg:#0f0f0e;--code-text:#e8e6e1;
+}}
+:root[data-theme="dark"]{
+  --bg:#141412;--surface:#1c1c1a;--surface-2:#252522;--text:#ebe9e4;--muted:#a8a49b;--border:#34332f;
+  --accent:#5cc3a6;--accent-soft:#17312a;--warn:#e8b64c;--warn-soft:#342a14;--danger:#f08a8a;--danger-soft:#3a1d1d;
+  --code-bg:#0f0f0e;--code-text:#e8e6e1;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:16px}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.layout{display:grid;grid-template-columns:260px minmax(0,1fr);max-width:1180px;margin:0 auto;gap:32px;padding:24px 16px 80px}
+nav.toc{position:sticky;top:16px;align-self:start;max-height:calc(100vh - 32px);overflow:auto;font-size:14px}
+nav.toc ol{list-style:none;padding:0;margin:0}
+nav.toc a{display:block;padding:5px 10px;border-radius:6px;color:var(--muted);text-decoration:none}
+nav.toc a:hover,nav.toc a.active{background:var(--surface-2);color:var(--text)}
+main{min-width:0}
+header.hero h1{font-size:clamp(28px,4vw,40px);line-height:1.15;margin:0 0 8px}
+header.hero p{color:var(--muted);margin:0 0 20px;max-width:70ch}
+h2{font-size:24px;margin:56px 0 12px;padding-top:8px;border-top:1px solid var(--border)}
+h2 .n{color:var(--accent);font-variant-numeric:tabular-nums;margin-right:8px}
+h3{font-size:18px;margin:28px 0 8px}
+p,li{max-width:78ch}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.9em;background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.cmd{position:relative;margin:12px 0 6px}
+.cmd pre{margin:0;background:var(--code-bg);color:var(--code-text);padding:14px 16px;border-radius:var(--radius);overflow-x:auto;font:13.5px/1.55 var(--mono)}
+.cmd pre code{background:none;padding:0;font-size:inherit;color:inherit}
+.cmd .where{position:absolute;top:0;left:12px;transform:translateY(-50%);font:600 11px/1 system-ui;letter-spacing:.04em;text-transform:uppercase;background:var(--accent);color:#fff;padding:4px 7px;border-radius:5px}
+.cmd .where.win{background:#3b5bab}
+.cmd .where.file{background:#7a4fa3}
+.cmd button.copy{position:absolute;top:8px;right:8px;background:#ffffff1a;color:#fff;border:1px solid #ffffff33;border-radius:6px;font:12px system-ui;padding:4px 9px;cursor:pointer}
+.cmd button.copy:hover{background:#ffffff33}
+.v{color:var(--code-var)}
+.c{color:var(--code-comment)}
+.explain{margin:4px 0 18px;padding:0 0 0 14px;border-left:3px solid var(--border)}
+.explain li{margin:3px 0}
+.explain li b{font-family:var(--mono);font-weight:600;font-size:.88em}
+.box{border-radius:var(--radius);padding:12px 16px;margin:16px 0;border:1px solid var(--border);background:var(--surface)}
+.box.ok{background:var(--accent-soft);border-color:transparent}
+.box.warn{background:var(--warn-soft);border-color:transparent}
+.box.danger{background:var(--danger-soft);border-color:transparent}
+.box strong:first-child{display:block;margin-bottom:2px}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14.5px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--border);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:var(--surface-2)}
+.vars{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:0 0 12px}
+.vars label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.vars input{font:14px var(--mono);padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)}
+.diagram{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin:16px 0}
+.node{flex:1 1 150px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:14px}
+.node b{display:block;font-size:15px}
+.node small{color:var(--muted)}
+.arrow{align-self:center;color:var(--muted);font-size:20px}
+.check{list-style:none;padding-left:0}
+.check li::before{content:"☐ ";color:var(--accent)}
+.theme-toggle{float:right;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr;gap:8px}
+  nav.toc{position:static;max-height:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px}
+  .arrow{transform:rotate(90deg);flex-basis:100%;text-align:center}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" aria-label="Mục lục">
+  <ol>
+    <li><a href="#vars">Thông số của bạn</a></li>
+    <li><a href="#c0">0. Bức tranh tổng thể</a></li>
+    <li><a href="#c1">1. SSH bằng key</a></li>
+    <li><a href="#c2">2. Bảo mật server</a></li>
+    <li><a href="#c3">3. Cài Docker</a></li>
+    <li><a href="#c4">4. Tên miền DuckDNS</a></li>
+    <li><a href="#c5">5. Caddy + HTTPS</a></li>
+    <li><a href="#c6">6. Deploy BookSnap</a></li>
+    <li><a href="#c7">7. Kiểm tra HTTPS</a></li>
+    <li><a href="#c8">8. Cập nhật &amp; vận hành</a></li>
+    <li><a href="#c9">9. Backup &amp; khôi phục</a></li>
+    <li><a href="#c10">10. Thêm dự án khác</a></li>
+    <li><a href="#c11">11. Tự deploy khi push</a></li>
+    <li><a href="#c12">12. Xử lý sự cố</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <button class="theme-toggle" type="button" id="themeToggle">Sáng / Tối</button>
+  <h1>Dựng VPS Contabo cho nhiều dự án</h1>
+  <p>Docker Compose + Caddy (HTTPS tự động), BookSnap là dự án đầu tiên. Mỗi lệnh có ghi <b>chạy ở đâu</b>, <b>ý nghĩa</b> và <b>cách kiểm tra</b>. Làm lần lượt từ trên xuống; lần đầu mất ~2–3 giờ, mỗi dự án sau ~15 phút.</p>
+</header>
+
+<section id="vars">
+  <h3>Thông số của bạn</h3>
+  <p>Điền vào đây, mọi lệnh bên dưới tự cập nhật (tô vàng). Chỉ lưu trong trình duyệt này.</p>
+  <div class="vars">
+    <label>IP server <input data-key="IP" value="62.171.135.240" autocomplete="off"></label>
+    <label>Domain gốc (DuckDNS) <input data-key="DOMAIN" value="congvu.duckdns.org" autocomplete="off"></label>
+    <label>Email (nhận cảnh báo chứng chỉ) <input data-key="EMAIL" value="ban@example.com" autocomplete="off"></label>
+    <label>Repo BookSnap <input data-key="REPO" value="https://github.com/congvu99/BookSnap.git" autocomplete="off"></label>
+  </div>
+  <div class="box">
+    <strong>Nhãn trên mỗi khối lệnh</strong>
+    <span style="background:#3b5bab;color:#fff;padding:1px 6px;border-radius:4px;font-size:12px">WINDOWS</span> chạy trên máy tính của bạn (cmd/PowerShell) ·
+    <span style="background:var(--accent);color:#fff;padding:1px 6px;border-radius:4px;font-size:12px">SERVER</span> chạy trong phiên SSH trên VPS ·
+    <span style="background:#7a4fa3;color:#fff;padding:1px 6px;border-radius:4px;font-size:12px">FILE</span> nội dung một file.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<h2 id="c0"><span class="n">0</span>Bức tranh tổng thể</h2>
+<div class="diagram" role="img" aria-label="Internet tới Caddy tới các app qua network web">
+  <div class="node"><b>Người dùng</b><small>https://booksnap.<span class="v" data-v="DOMAIN"></span></small></div>
+  <div class="arrow">→</div>
+  <div class="node"><b>DuckDNS</b><small>tên miền → IP <span data-v="IP"></span></small></div>
+  <div class="arrow">→</div>
+  <div class="node"><b>Caddy</b> (container)<small>cổng 80/443 duy nhất mở ra Internet. Tự xin &amp; gia hạn chứng chỉ Let's Encrypt, chuyển request theo tên miền</small></div>
+  <div class="arrow">→</div>
+  <div class="node"><b>booksnap:8000</b><small>app + SQLite trong volume <code>booksnap_data</code>. Không mở cổng ra ngoài</small></div>
+</div>
+<table>
+  <tr><th>Khái niệm</th><th>Hiểu nhanh</th></tr>
+  <tr><td>Docker image / container</td><td>Image = "bản đóng gói" app + Python + thư viện. Container = image đang chạy. Mỗi dự án một môi trường riêng, không đụng nhau.</td></tr>
+  <tr><td>Docker Compose</td><td>File <code>compose.yml</code> mô tả app chạy thế nào (biến môi trường, ổ dữ liệu, mạng). Lệnh <code>docker compose up -d</code> dựng theo file đó.</td></tr>
+  <tr><td>Volume</td><td>Ổ dữ liệu bền vững gắn vào container. Xoá/đổi container không mất dữ liệu.</td></tr>
+  <tr><td>Reverse proxy (Caddy)</td><td>Cửa chính duy nhất: nhận mọi request HTTPS, nhìn tên miền để chuyển vào đúng app.</td></tr>
+  <tr><td>Network <code>web</code></td><td>Mạng nội bộ Docker nối Caddy với các app. App gọi nhau bằng tên (vd <code>booksnap</code>), không cần mở cổng.</td></tr>
+</table>
+<h3>Bố cục thư mục trên server</h3>
+<div class="cmd"><pre><code>/srv/caddy/                 Caddy dùng chung (compose.yml)
+/srv/caddy/conf/Caddyfile   cấu hình chung
+/srv/caddy/conf/sites/      mỗi dự án 1 file .caddy (tên miền → app)
+/srv/apps/booksnap/         git clone BookSnap + .env (bí mật, không commit)
+/srv/apps/&lt;du-an-khac&gt;/     cùng khuôn mẫu
+/srv/sites/&lt;web-tinh&gt;/      web tĩnh (HTML) Caddy phục vụ trực tiếp
+/srv/backups/               bản backup hằng ngày</code></pre></div>
+
+<!-- ============================================================ -->
+<h2 id="c1"><span class="n">1</span>SSH bằng key (không phải gõ mật khẩu)</h2>
+<p>SSH key gồm 2 file: <b>khoá riêng</b> (giữ trên máy bạn, như chìa khoá) và <b>khoá công khai</b> (đặt lên server, như ổ khoá). An toàn hơn mật khẩu và không phải gõ lại.</p>
+<div class="cmd"><span class="where win">Windows</span><pre><code>ssh-keygen -t ed25519 -C "may-windows"</code></pre></div>
+<ul class="explain">
+  <li><b>-t ed25519</b>: loại key hiện đại, ngắn, an toàn.</li>
+  <li><b>-C</b>: ghi chú để sau này nhận ra key của máy nào.</li>
+  <li>Hỏi đường dẫn: Enter (mặc định <code>C:\Users\&lt;bạn&gt;\.ssh\id_ed25519</code>). Hỏi passphrase: Enter bỏ trống, hoặc đặt để bảo vệ key nếu máy bị lộ.</li>
+</ul>
+<div class="cmd"><span class="where win">Windows (cmd)</span><pre><code>type %USERPROFILE%\.ssh\id_ed25519.pub | ssh root@<span data-v="IP"></span> "mkdir -p ~/.ssh &amp;&amp; chmod 700 ~/.ssh &amp;&amp; cat &gt;&gt; ~/.ssh/authorized_keys &amp;&amp; chmod 600 ~/.ssh/authorized_keys"</code></pre></div>
+<ul class="explain">
+  <li>Đọc khoá <b>công khai</b> (<code>.pub</code>) rồi gửi qua SSH, nối vào <code>~/.ssh/authorized_keys</code> của root = danh sách key được phép vào.</li>
+  <li><b>chmod 700 / 600</b>: chỉ chủ sở hữu đọc được; sshd từ chối key nếu quyền quá rộng.</li>
+  <li>Đây là lần cuối gõ mật khẩu root. Tắt Unikey, dán bằng <b>chuột phải</b>.</li>
+</ul>
+<h3>Tên gọi tắt</h3>
+<div class="cmd"><span class="where win">Windows</span><pre><code>notepad %USERPROFILE%\.ssh\config</code></pre></div>
+<div class="cmd"><span class="where file">File ~/.ssh/config</span><pre><code>Host vps-root
+    HostName <span data-v="IP"></span>
+    User root
+    IdentityFile ~/.ssh/id_ed25519
+
+Host vps
+    HostName <span data-v="IP"></span>
+    User deploy
+    IdentityFile ~/.ssh/id_ed25519</code></pre></div>
+<ul class="explain">
+  <li>Lưu file <b>không có đuôi .txt</b> (Notepad: Save as type = All files).</li>
+  <li><code>vps-root</code> dùng tới hết chương 2; từ chương 3 trở đi dùng <code>vps</code> (user <code>deploy</code>, tạo ở chương 2).</li>
+</ul>
+<div class="box ok"><strong>Kiểm tra</strong><code>ssh vps-root</code> vào thẳng, không hỏi mật khẩu.</div>
+
+<!-- ============================================================ -->
+<h2 id="c2"><span class="n">2</span>Bảo mật server</h2>
+<div class="box danger"><strong>Vì sao làm ngay</strong>Log cho thấy VPS mới 45 phút đã bị bot dò mật khẩu root từ nhiều IP. Mật khẩu root cũ cũng đã bị lộ trong chat → đổi ngay.</div>
+
+<h3>2.1 Đổi mật khẩu, cập nhật hệ thống</h3>
+<div class="cmd"><span class="where">Server (root)</span><pre><code>passwd
+timedatectl set-timezone Asia/Ho_Chi_Minh
+apt update &amp;&amp; apt -y full-upgrade
+apt -y install git curl ufw fail2ban python3-systemd htop
+[ -f /var/run/reboot-required ] &amp;&amp; reboot</code></pre></div>
+<ul class="explain">
+  <li><b>passwd</b>: đặt mật khẩu root mới (dùng khi cần vào qua VNC Contabo).</li>
+  <li><b>timedatectl</b>: giờ Việt Nam → log và lịch backup dễ đọc.</li>
+  <li><b>apt update</b>: tải danh sách gói mới; <b>full-upgrade</b>: cài bản vá bảo mật.</li>
+  <li><b>ufw</b> firewall, <b>fail2ban</b> chặn IP dò mật khẩu, <b>htop</b> xem CPU/RAM.</li>
+  <li>Dòng cuối: nếu kernel vừa cập nhật thì khởi động lại (đợi ~1 phút rồi <code>ssh vps-root</code> lại).</li>
+</ul>
+
+<h3>2.2 Tạo user <code>deploy</code> (không làm việc hằng ngày bằng root)</h3>
+<div class="cmd"><span class="where">Server (root)</span><pre><code>adduser deploy
+usermod -aG sudo deploy
+install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+install -m 600 -o deploy -g deploy /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys</code></pre></div>
+<ul class="explain">
+  <li><b>adduser</b>: tạo user, hỏi mật khẩu (dùng cho <code>sudo</code>), các câu còn lại Enter.</li>
+  <li><b>usermod -aG sudo</b>: cho phép chạy lệnh quản trị bằng <code>sudo</code>.</li>
+  <li><b>install</b>: tạo thư mục/copy file và đặt đúng chủ + quyền trong 1 lệnh → user deploy dùng chung key của bạn.</li>
+</ul>
+<div class="box ok"><strong>Kiểm tra (cửa sổ Windows mới)</strong><code>ssh vps</code> vào được, rồi chạy <code>sudo whoami</code> → in ra <code>root</code>.</div>
+
+<h3>2.3 Firewall</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 443/udp
+sudo ufw --force enable
+sudo ufw status verbose</code></pre></div>
+<ul class="explain">
+  <li>Mặc định chặn mọi kết nối vào, chỉ mở: SSH (22), HTTP (80, cần để Let's Encrypt xác minh + chuyển sang HTTPS), HTTPS (443 tcp, và udp cho HTTP/3).</li>
+  <li><b>Phải</b> allow OpenSSH <b>trước</b> <code>enable</code>, nếu không tự khoá mình ngoài.</li>
+</ul>
+
+<h3>2.4 fail2ban: chặn IP dò mật khẩu</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>sudo tee /etc/fail2ban/jail.local &gt;/dev/null &lt;&lt;'EOF'
+[sshd]
+enabled  = true
+backend  = systemd
+maxretry = 5
+findtime = 10m
+bantime  = 1h
+EOF
+sudo systemctl enable --now fail2ban
+sudo systemctl restart fail2ban
+sudo fail2ban-client status sshd</code></pre></div>
+<ul class="explain">
+  <li><b>tee … &lt;&lt;'EOF' … EOF</b>: ghi đoạn chữ ở giữa vào file (cách tạo file không cần mở trình soạn thảo). Dùng lại nhiều lần trong hướng dẫn này.</li>
+  <li>Sai 5 lần trong 10 phút → IP bị chặn 1 giờ. <b>backend = systemd</b>: Ubuntu 24.04 ghi log SSH vào journal.</li>
+</ul>
+
+<h3>2.5 Tắt đăng nhập bằng mật khẩu và root qua SSH</h3>
+<div class="box warn"><strong>Giữ phiên SSH hiện tại mở</strong>Chỉ đóng sau khi đã thử đăng nhập được ở cửa sổ mới. Nếu lỡ khoá: Contabo panel → VNC → đăng nhập root bằng mật khẩu → xoá file dưới đây → <code>systemctl restart ssh</code>.</div>
+<div class="cmd"><span class="where">Server</span><pre><code>sudo tee /etc/ssh/sshd_config.d/00-hardening.conf &gt;/dev/null &lt;&lt;'EOF'
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+MaxAuthTries 3
+EOF
+sudo sshd -t &amp;&amp; sudo systemctl restart ssh
+sudo sshd -T | grep -Ei '^(permitrootlogin|passwordauthentication)'</code></pre></div>
+<ul class="explain">
+  <li>Tên bắt đầu <b>00-</b>: sshd lấy giá trị <b>đầu tiên</b> đọc được, file này được đọc trước <code>50-cloud-init.conf</code> (file Contabo bật mật khẩu).</li>
+  <li><b>sshd -t</b>: kiểm tra cú pháp trước khi restart (sai thì không restart).</li>
+  <li>Kết quả mong đợi: <code>permitrootlogin no</code>, <code>passwordauthentication no</code>.</li>
+</ul>
+<div class="box ok"><strong>Kiểm tra (cửa sổ Windows mới)</strong><code>ssh vps</code> vào được. <code>ssh vps-root</code> bị từ chối là <b>đúng</b>. Từ giờ dùng <code>ssh vps</code> + <code>sudo</code>.</div>
+
+<h3>2.6 Swap và tự cài bản vá</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h
+sudo dpkg-reconfigure -plow unattended-upgrades</code></pre></div>
+<ul class="explain">
+  <li>Swap = RAM dự phòng trên đĩa. VPS chưa có swap; khi build image hoặc nhiều dự án chạy cùng lúc, thiếu RAM sẽ bị kernel giết tiến trình (OOM). Dòng <code>/etc/fstab</code> giữ swap sau khi reboot.</li>
+  <li><b>unattended-upgrades</b>: chọn <b>Yes</b> → tự cài bản vá bảo mật hằng ngày.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="c3"><span class="n">3</span>Cài Docker</h2>
+<div class="cmd"><span class="where">Server</span><pre><code>sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release &amp;&amp; echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list &gt;/dev/null
+sudo apt update
+sudo apt -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin</code></pre></div>
+<ul class="explain">
+  <li>Thêm kho phần mềm <b>chính thức của Docker</b> (bản trong Ubuntu thường cũ) + khoá GPG để apt xác minh gói không bị giả mạo.</li>
+  <li><b>docker-compose-plugin</b>: lệnh <code>docker compose</code> (có dấu cách, bản v2).</li>
+</ul>
+<div class="cmd"><span class="where">Server</span><pre><code>sudo tee /etc/docker/daemon.json &gt;/dev/null &lt;&lt;'EOF'
+{
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "10m", "max-file": "3" }
+}
+EOF
+sudo systemctl restart docker
+sudo usermod -aG docker deploy
+exit</code></pre></div>
+<ul class="explain">
+  <li><b>daemon.json</b>: giới hạn log mỗi container 3 file × 10 MB. Không đặt thì log phình đến đầy ổ đĩa.</li>
+  <li><b>usermod -aG docker</b>: user deploy chạy <code>docker</code> không cần sudo. <b>exit</b> rồi <code>ssh vps</code> lại để quyền có hiệu lực.</li>
+</ul>
+<div class="box warn"><strong>Bảo mật</strong>Nhóm <code>docker</code> ≈ quyền root. Chỉ thêm user bạn tin tưởng.</div>
+<div class="box danger"><strong>Bẫy lớn: Docker bỏ qua ufw</strong>Cổng khai báo <code>ports:</code> trong compose được Docker mở thẳng ra Internet, <b>ufw không chặn</b>. Quy tắc cho server này: <b>chỉ Caddy</b> được có <code>ports:</code>. App/DB khác không khai báo <code>ports:</code>; nếu cần thử nghiệm thì <code>"127.0.0.1:8000:8000"</code> (chỉ trong máy).</div>
+<div class="box ok"><strong>Kiểm tra</strong><code>docker run --rm hello-world</code> in "Hello from Docker!". <code>docker compose version</code> in phiên bản v2.</div>
+
+<!-- ============================================================ -->
+<h2 id="c4"><span class="n">4</span>Tên miền miễn phí DuckDNS</h2>
+<p>Let's Encrypt chỉ cấp chứng chỉ HTTPS cho <b>tên miền</b>. DuckDNS cho tên miền miễn phí dạng <code>ten.duckdns.org</code>, và tự trỏ mọi tên con (<code>booksnap.ten.duckdns.org</code>, <code>app2.ten.duckdns.org</code>…) về cùng IP → mỗi dự án một tên con, không cần đăng ký thêm.</p>
+<ol>
+  <li>Vào <a href="https://www.duckdns.org" rel="noopener">duckdns.org</a> → đăng nhập bằng GitHub/Google.</li>
+  <li>Ô <b>sub domain</b>: gõ tên (vd <code>congvu</code>) → <b>add domain</b>.</li>
+  <li>Ô <b>current ip</b> của tên vừa tạo: điền <code data-v="IP"></code> → <b>update ip</b>.</li>
+  <li>Điền domain đầy đủ vào ô "Domain gốc" ở <a href="#vars">đầu trang</a>.</li>
+</ol>
+<div class="cmd"><span class="where win">Windows</span><pre><code>nslookup booksnap.<span data-v="DOMAIN"></span></code></pre></div>
+<div class="box ok"><strong>Kiểm tra</strong>Dòng <code>Address:</code> cuối cùng = <code data-v="IP"></code>. Nếu chưa đúng, đợi 1–5 phút.</div>
+<div class="box warn"><strong>Giới hạn</strong>DuckDNS là dịch vụ miễn phí do cá nhân vận hành, nếu ngừng thì web không vào được. Khi dùng thật lâu dài, mua domain riêng (~250k/năm), tạo bản ghi <code>A</code> (và <code>*</code>) trỏ về IP, rồi chỉ đổi tên miền trong các file <code>.caddy</code>. Phương án tạm khác: <code>booksnap.62-171-135-240.sslip.io</code> (không cần đăng ký, nhưng có thể dính giới hạn cấp chứng chỉ chung của Let's Encrypt).</div>
+
+<!-- ============================================================ -->
+<h2 id="c5"><span class="n">5</span>Caddy dùng chung + HTTPS tự động</h2>
+<h3>5.1 Thư mục và mạng chung</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>sudo mkdir -p /srv/caddy/conf/sites /srv/apps /srv/sites /srv/backups
+sudo chown -R deploy:deploy /srv
+docker network create web</code></pre></div>
+<ul class="explain">
+  <li><b>chown</b>: user deploy làm chủ <code>/srv</code> → không cần sudo khi làm việc với dự án.</li>
+  <li><b>docker network create web</b>: tạo mạng chung 1 lần; Caddy và mọi app sẽ nối vào.</li>
+</ul>
+
+<h3>5.2 File compose của Caddy</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>cat &gt; /srv/caddy/compose.yml &lt;&lt;'EOF'
+name: caddy
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./conf:/etc/caddy:ro
+      - /srv/sites:/srv/sites:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [web]
+volumes:
+  caddy_data:
+  caddy_config:
+networks:
+  web:
+    external: true
+EOF</code></pre></div>
+<ul class="explain">
+  <li><b>image: caddy:2</b>: bản Caddy chính thức, bản 2.x mới nhất.</li>
+  <li><b>restart: unless-stopped</b>: tự chạy lại khi crash hoặc server reboot.</li>
+  <li><b>ports</b>: container duy nhất mở cổng ra Internet.</li>
+  <li><b>./conf:/etc/caddy:ro</b>: cấu hình nằm ở <code>/srv/caddy/conf</code>, container chỉ đọc (<code>ro</code>).</li>
+  <li><b>caddy_data</b>: nơi lưu chứng chỉ HTTPS. <b>Không được xoá</b>, nếu mất Caddy phải xin lại (dễ dính giới hạn Let's Encrypt).</li>
+  <li><b>external: true</b>: dùng mạng <code>web</code> đã tạo ở 5.1, không tự tạo mạng riêng.</li>
+</ul>
+
+<h3>5.3 Caddyfile chung + trang thử</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>cat &gt; /srv/caddy/conf/Caddyfile &lt;&lt;'EOF'
+{
+	email <span data-v="EMAIL"></span>
+}
+
+import /etc/caddy/sites/*.caddy
+EOF
+
+cat &gt; /srv/caddy/conf/sites/hello.caddy &lt;&lt;'EOF'
+hello.<span data-v="DOMAIN"></span> {
+	respond "Caddy OK - HTTPS hoat dong"
+}
+EOF
+
+cd /srv/caddy &amp;&amp; docker compose up -d &amp;&amp; docker compose logs -f</code></pre></div>
+<ul class="explain">
+  <li><b>email</b>: Let's Encrypt gửi cảnh báo nếu chứng chỉ sắp hết hạn mà không gia hạn được.</li>
+  <li><b>import …/*.caddy</b>: mỗi dự án 1 file riêng trong <code>sites/</code> → thêm/xoá dự án không đụng file chung.</li>
+  <li>Trang <code>hello</code>: kiểm tra HTTPS chạy trước khi có app. Chỉ cần viết tên miền, Caddy <b>tự</b> xin chứng chỉ, tự chuyển http → https, tự gia hạn trước khi hết hạn 90 ngày.</li>
+  <li><b>logs -f</b>: xem log trực tiếp; thấy <code>certificate obtained successfully</code> là xong. <code>Ctrl+C</code> để thoát (Caddy vẫn chạy).</li>
+</ul>
+<div class="box ok"><strong>Kiểm tra</strong>Mở <code>https://hello.<span data-v="DOMAIN"></span></code> trên trình duyệt → thấy "Caddy OK", có ổ khoá. Xong thì xoá trang thử ở <a href="#c6">6.4</a>.</div>
+
+<h3>5.4 Lệnh Caddy hay dùng</h3>
+<div class="cmd"><span class="where">Server</span><pre><code><span class="c"># sau mỗi lần sửa file .caddy: kiểm tra rồi nạp lại, không gián đoạn</span>
+cd /srv/caddy
+docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
+docker compose exec -w /etc/caddy caddy caddy reload
+<span class="c"># xem log</span>
+docker compose logs --tail 100 caddy</code></pre></div>
+
+<!-- ============================================================ -->
+<h2 id="c6"><span class="n">6</span>Deploy BookSnap</h2>
+<p>Repo đã có sẵn <code>Dockerfile</code>, <code>compose.yml</code>, <code>deploy/deploy.sh</code>, <code>deploy/backup.sh</code>. Trước khi làm: trên máy Windows <code>git push</code> để GitHub có code mới nhất.</p>
+
+<h3>6.1 Lấy code</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>cd /srv/apps
+git clone <span data-v="REPO"></span> booksnap
+cd booksnap</code></pre></div>
+<ul class="explain"><li>Repo public → clone qua HTTPS, không cần key. (Repo private: xem <a href="#c10">chương 10</a>, mục deploy key.)</li></ul>
+
+<h3>6.2 File bí mật <code>.env</code></h3>
+<div class="cmd"><span class="where">Server</span><pre><code>cp .env.example .env
+chmod 600 .env
+openssl rand -hex 12
+nano .env</code></pre></div>
+<ul class="explain">
+  <li><b>chmod 600</b>: chỉ user deploy đọc được file chứa API key.</li>
+  <li><b>openssl rand -hex 12</b>: sinh chuỗi ngẫu nhiên, dùng làm <code>INVITE_CODE</code> (mã mời đăng ký).</li>
+  <li><b>nano</b>: sửa file. Lưu: <code>Ctrl+O</code>, Enter. Thoát: <code>Ctrl+X</code>.</li>
+</ul>
+<table>
+  <tr><th>Biến</th><th>Giá trị production</th></tr>
+  <tr><td><code>INVITE_CODE</code></td><td>chuỗi vừa sinh. Để trống = đóng đăng ký</td></tr>
+  <tr><td><code>COOKIE_SECURE</code></td><td><code>true</code> (bắt buộc, vì đã có HTTPS)</td></tr>
+  <tr><td><code>GEMINI_API_KEY</code></td><td>key từ AI Studio</td></tr>
+  <tr><td><code>DATA_DIR</code></td><td>để nguyên. <code>compose.yml</code> luôn ép <code>/data</code> (volume)</td></tr>
+  <tr><td>Còn lại</td><td>giữ như local, xem bảng biến trong <code>README.md</code></td></tr>
+</table>
+
+<h3>6.3 Build và chạy</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>bash deploy/deploy.sh</code></pre></div>
+<ul class="explain">
+  <li>Script làm lần lượt: <code>git pull</code> (chỉ fast-forward) → build image gắn tag = mã commit → (nếu app đang chạy) backup → thay container → đợi <code>/health</code> báo healthy tối đa 90 giây → nếu lỗi tự quay về image cũ.</li>
+  <li>Lần đầu build mất 2–4 phút (tải Python + thư viện). Các lần sau nhanh hơn nhờ cache.</li>
+  <li>Kết thúc bằng <code>deploy ok: &lt;mã commit&gt;</code> là thành công.</li>
+</ul>
+<div class="cmd"><span class="where">Server</span><pre><code>docker compose ps
+docker compose logs --tail 50 app</code></pre></div>
+<ul class="explain"><li><b>ps</b>: cột STATUS phải là <code>Up … (healthy)</code>.</li></ul>
+
+<h3>6.4 Gắn tên miền</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>cat &gt; /srv/caddy/conf/sites/booksnap.caddy &lt;&lt;'EOF'
+booksnap.<span data-v="DOMAIN"></span> {
+	encode zstd gzip
+	reverse_proxy booksnap:8000
+}
+EOF
+rm /srv/caddy/conf/sites/hello.caddy
+cd /srv/caddy &amp;&amp; docker compose exec -w /etc/caddy caddy caddy reload</code></pre></div>
+<ul class="explain">
+  <li><b>reverse_proxy booksnap:8000</b>: <code>booksnap</code> là tên (alias) của app trên mạng <code>web</code>, khai báo trong <code>compose.yml</code> của BookSnap.</li>
+  <li><b>encode</b>: nén HTML/JS/JSON cho nhanh.</li>
+  <li>Caddy tự thêm IP thật của người dùng vào header <code>X-Forwarded-For</code>; giới hạn đăng nhập sai của BookSnap dựa vào header này, không cần cấu hình thêm.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="c7"><span class="n">7</span>Kiểm tra HTTPS</h2>
+<div class="cmd"><span class="where win">Windows</span><pre><code>curl https://booksnap.<span data-v="DOMAIN"></span>/health
+curl -I http://booksnap.<span data-v="DOMAIN"></span></code></pre></div>
+<ul class="explain">
+  <li>Lệnh 1 → <code>{"status":"ok","db":"ok","data_dir":"ok"}</code>.</li>
+  <li>Lệnh 2 → <code>308 Permanent Redirect</code> sang <code>https://</code> (Caddy tự chuyển).</li>
+</ul>
+<div class="cmd"><span class="where">Server</span><pre><code>echo | openssl s_client -connect booksnap.<span data-v="DOMAIN"></span>:443 -servername booksnap.<span data-v="DOMAIN"></span> 2&gt;/dev/null | openssl x509 -noout -issuer -dates
+sudo ss -tlnp | grep -v 127.0.0.</code></pre></div>
+<ul class="explain">
+  <li>Lệnh 1: xem ai cấp chứng chỉ (Let's Encrypt) và ngày hết hạn (~90 ngày, Caddy tự gia hạn trước ~30 ngày).</li>
+  <li>Lệnh 2: liệt kê cổng đang mở ra ngoài. Chỉ được thấy <b>22, 80, 443</b>. Thấy cổng khác (vd 8000) = có app đang khai báo <code>ports:</code>, cần sửa.</li>
+</ul>
+<ul class="check">
+  <li>Trình duyệt: <code>https://booksnap.<span data-v="DOMAIN"></span></code> có ổ khoá, đăng ký bằng <code>INVITE_CODE</code> được.</li>
+  <li>iPhone Safari: mở trang, chụp trang sách → camera hoạt động (chỉ chạy trên HTTPS).</li>
+  <li>Đăng nhập xong tải lại trang vẫn còn đăng nhập (cookie Secure hoạt động).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="c8"><span class="n">8</span>Cập nhật code &amp; vận hành hằng ngày</h2>
+<h3>8.1 Đưa code mới lên</h3>
+<div class="cmd"><span class="where win">Windows</span><pre><code>git push
+ssh vps "cd /srv/apps/booksnap &amp;&amp; bash deploy/deploy.sh"</code></pre></div>
+<ul class="explain">
+  <li>Chạy <code>deploy.sh</code> từ xa trong 1 lệnh. Downtime ~5–10 giây khi đổi container (BookSnap chỉ được chạy 1 bản vì SQLite + worker).</li>
+  <li><code>already at …</code> = chưa có commit mới. Muốn build lại: <code>FORCE=1 bash deploy/deploy.sh</code>.</li>
+  <li><code>deploy FAILED</code> → script in 60 dòng log và tự quay về bản cũ. Sửa lỗi, push, chạy lại.</li>
+</ul>
+<div class="box warn"><strong>Rollback và migration DB</strong>DB tự nâng cấp khi app mới khởi động. Nếu bản mới đã nâng cấp DB rồi mới lỗi, bản cũ có thể không đọc được DB mới. Vì vậy script luôn <b>backup trước khi đổi container</b>; khi cần, khôi phục theo <a href="#c9">9.3</a>.</div>
+
+<h3>8.2 Đổi biến môi trường</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>cd /srv/apps/booksnap
+nano .env
+docker compose up -d --force-recreate</code></pre></div>
+<ul class="explain"><li>Tạo lại container với <code>.env</code> mới, không cần build lại image.</li></ul>
+
+<h3>8.3 Lệnh hay dùng</h3>
+<table>
+  <tr><th>Việc</th><th>Lệnh (trong <code>/srv/apps/booksnap</code>)</th></tr>
+  <tr><td>Trạng thái</td><td><code>docker compose ps</code></td></tr>
+  <tr><td>Log trực tiếp</td><td><code>docker compose logs -f app</code></td></tr>
+  <tr><td>Restart</td><td><code>docker compose restart app</code></td></tr>
+  <tr><td>Đặt lại mật khẩu user</td><td><code>docker compose exec app python -m app.cli reset-password &lt;username&gt;</code></td></tr>
+  <tr><td>Vào shell trong container</td><td><code>docker compose exec app bash</code></td></tr>
+  <tr><td>RAM/CPU mọi container</td><td><code>docker stats</code></td></tr>
+  <tr><td>Dung lượng đĩa</td><td><code>df -h /</code> · <code>docker system df</code></td></tr>
+  <tr><td>Dọn image/cache cũ</td><td><code>docker system prune -f</code> (không xoá volume)</td></tr>
+</table>
+<div class="box"><strong>Frontend không đổi sau deploy?</strong>Service worker giữ bản cũ. Mỗi lần phát hành JS/CSS, tăng <code>SHELL_CACHE</code> trong <code>web/sw.js</code> trước khi push.</div>
+
+<!-- ============================================================ -->
+<h2 id="c9"><span class="n">9</span>Backup &amp; khôi phục</h2>
+<p>Toàn bộ dữ liệu (DB + MP3) nằm trên <b>1 ổ đĩa của 1 VPS</b>. Không backup = mất VPS là mất hết.</p>
+<h3>9.1 Chạy thử và lên lịch</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>cd /srv/apps/booksnap &amp;&amp; bash deploy/backup.sh
+ls -lh /srv/backups/booksnap/
+crontab -e</code></pre></div>
+<ul class="explain">
+  <li><b>backup.sh</b>: chụp DB bằng API backup của SQLite (an toàn khi app đang ghi), nén cùng thư mục MP3 thành <code>booksnap-&lt;ngày-giờ&gt;.tar.gz</code>, xoá bản cũ hơn 7 ngày.</li>
+  <li><b>crontab -e</b>: lần đầu chọn <code>1</code> (nano). Thêm dòng dưới vào cuối file, lưu.</li>
+</ul>
+<div class="cmd"><span class="where file">crontab</span><pre><code>30 3 * * * cd /srv/apps/booksnap &amp;&amp; bash deploy/backup.sh &gt;&gt; /srv/backups/booksnap.log 2&gt;&amp;1</code></pre></div>
+<ul class="explain"><li>3:30 sáng mỗi ngày. Kiểm tra sau 1 ngày: <code>tail /srv/backups/booksnap.log</code> → <code>backup ok</code>.</li></ul>
+
+<h3>9.2 Chép backup ra khỏi VPS</h3>
+<div class="cmd"><span class="where win">Windows</span><pre><code>mkdir D:\backup\booksnap
+scp "vps:/srv/backups/booksnap/booksnap-*.tar.gz" D:\backup\booksnap\</code></pre></div>
+<ul class="explain"><li>Backup nằm cùng VPS không cứu được khi VPS hỏng. Làm hằng tuần, hoặc sau này dùng <code>rclone</code> đẩy tự động lên Google Drive.</li></ul>
+
+<h3>9.3 Khôi phục</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>cd /srv/apps/booksnap
+docker compose stop app
+docker run --rm -v booksnap_data:/data -v /srv/backups/booksnap:/b:ro alpine sh -c '
+  rm -rf /data/booksnap.db /data/booksnap.db-wal /data/booksnap.db-shm /data/library &amp;&amp;
+  tar -xzf /b/<span class="v">booksnap-YYYYMMDD-HHMMSS.tar.gz</span> -C /data &amp;&amp;
+  mv /data/.backup-snapshot.db /data/booksnap.db &amp;&amp;
+  chown -R 10001:10001 /data'
+docker compose start app</code></pre></div>
+<ul class="explain">
+  <li>Dừng app → dùng container tạm (alpine) gắn vào volume dữ liệu → xoá dữ liệu hiện tại, giải nén bản backup, đổi tên file DB, trả quyền cho user <code>app</code> (uid 10001) trong container.</li>
+  <li>Thay tên file bằng bản muốn khôi phục (<code>ls /srv/backups/booksnap/</code>).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="c10"><span class="n">10</span>Thêm dự án khác</h2>
+<p>Mọi dự án theo cùng 1 quy ước → server luôn gọn và dễ nhớ.</p>
+<table>
+  <tr><th>Quy ước</th><th>Giá trị</th></tr>
+  <tr><td>Thư mục</td><td><code>/srv/apps/&lt;ten&gt;</code> (git clone)</td></tr>
+  <tr><td>Tên miền</td><td><code>&lt;ten&gt;.<span data-v="DOMAIN"></span></code></td></tr>
+  <tr><td>Bí mật</td><td><code>.env</code> cạnh <code>compose.yml</code>, <code>chmod 600</code>, không commit</td></tr>
+  <tr><td>Mạng</td><td>nối <code>web</code> với alias = <code>&lt;ten&gt;</code>; <b>không</b> <code>ports:</code></td></tr>
+  <tr><td>Dữ liệu</td><td>named volume trong compose</td></tr>
+  <tr><td>Giới hạn</td><td><code>mem_limit</code> để 1 dự án lỗi không kéo sập cả server</td></tr>
+</table>
+
+<h3>10.1 Khuôn <code>compose.yml</code> (mọi loại app)</h3>
+<div class="cmd"><span class="where file">compose.yml trong repo</span><pre><code>name: <span class="v">ten-du-an</span>
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    networks:
+      web:
+        aliases: [<span class="v">ten-du-an</span>]
+    mem_limit: 512m
+    <span class="c"># volumes: [data:/data]   # nếu app cần lưu file</span>
+
+<span class="c"># volumes:
+#   data:</span>
+
+networks:
+  web:
+    external: true</code></pre></div>
+<ul class="explain"><li>Mọi app có thể dùng cùng cổng nội bộ (vd 8000, 3000) vì mỗi app có tên riêng trên mạng <code>web</code>.</li></ul>
+
+<h3>10.2 Dockerfile mẫu</h3>
+<div class="cmd"><span class="where file">Python (FastAPI/Flask)</span><pre><code>FROM python:3.12-slim
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+RUN useradd --uid 10001 app
+USER app
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]</code></pre></div>
+<div class="cmd"><span class="where file">Node.js</span><pre><code>FROM node:22-alpine
+ENV NODE_ENV=production PORT=3000
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY . .
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]</code></pre></div>
+<ul class="explain">
+  <li>Copy file khai báo thư viện <b>trước</b> code → sửa code không phải cài lại thư viện (build nhanh).</li>
+  <li>Chạy bằng user thường (<code>USER</code>), không root → app bị hack cũng khó chiếm container.</li>
+  <li>Kèm <code>.dockerignore</code> loại <code>.git</code>, <code>.env</code>, <code>node_modules</code>, <code>.venv</code>.</li>
+  <li>Next.js/Vite có bước build: dùng multi-stage (stage 1 <code>npm run build</code>, stage 2 chỉ copy kết quả).</li>
+</ul>
+
+<h3>10.3 Cần database (PostgreSQL)?</h3>
+<div class="cmd"><span class="where file">thêm vào compose.yml của dự án</span><pre><code>  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    mem_limit: 512m
+    <span class="c"># không nối mạng web, không ports: → chỉ app cùng compose thấy được</span></code></pre></div>
+<ul class="explain"><li>Service <code>db</code> không khai <code>networks</code> nên nằm trong mạng riêng mặc định của dự án. Khi đó service <code>app</code> phải khai báo <b>cả</b> <code>default</code> và <code>web</code> trong <code>networks</code>; app kết nối tới host <code>db</code>. Mật khẩu lấy từ <code>.env</code>.</li></ul>
+
+<h3>10.4 Web tĩnh (HTML/React đã build)</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>git clone https://github.com/<span class="v">ban/web-tinh</span>.git /srv/sites/<span class="v">web-tinh</span>
+cat &gt; /srv/caddy/conf/sites/<span class="v">web-tinh</span>.caddy &lt;&lt;'EOF'
+<span class="v">web-tinh</span>.<span data-v="DOMAIN"></span> {
+	root * /srv/sites/<span class="v">web-tinh</span>
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}
+EOF</code></pre></div>
+<ul class="explain"><li>Không cần container. <code>try_files … /index.html</code> cho SPA (React Router); web thuần HTML bỏ dòng đó. Cập nhật: <code>git -C /srv/sites/web-tinh pull</code>.</li></ul>
+
+<h3>10.5 Checklist thêm dự án</h3>
+<ol>
+  <li>Repo có <code>Dockerfile</code>, <code>.dockerignore</code>, <code>compose.yml</code> theo khuôn 10.1. Push lên GitHub.</li>
+  <li><code>git clone &lt;repo&gt; /srv/apps/&lt;ten&gt;</code></li>
+  <li>Tạo <code>.env</code>, <code>chmod 600 .env</code>.</li>
+  <li><code>docker compose up -d --build</code> → <code>docker compose ps</code> thấy <code>Up</code>.</li>
+  <li>Tạo <code>/srv/caddy/conf/sites/&lt;ten&gt;.caddy</code> (<code>reverse_proxy &lt;ten&gt;:&lt;cổng&gt;</code>) → reload Caddy (5.4).</li>
+  <li>Mở <code>https://&lt;ten&gt;.<span data-v="DOMAIN"></span></code>. Nếu có dữ liệu: thêm lịch backup.</li>
+</ol>
+<div class="box"><strong>Muốn dùng lại deploy.sh cho dự án khác?</strong>Copy <code>deploy/deploy.sh</code>, đổi chữ <code>booksnap</code> (tên image) thành tên dự án. Script cần service tên <code>app</code> có <code>HEALTHCHECK</code> trong Dockerfile.</div>
+<div class="box"><strong>Repo private</strong>Server tạo key riêng cho từng repo: <code>ssh-keygen -t ed25519 -f ~/.ssh/deploy-&lt;ten&gt; -N ""</code> → GitHub repo → Settings → Deploy keys → Add (chỉ đọc) nội dung file <code>.pub</code> → clone bằng <code>GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy-&lt;ten&gt;" git clone git@github.com:ban/&lt;ten&gt;.git</code>, sau đó <code>git config core.sshCommand "ssh -i ~/.ssh/deploy-&lt;ten&gt;"</code>.</div>
+<div class="box warn"><strong>Sức chứa</strong>VPS 4 vCPU / 8 GB RAM / 96 GB. Thoải mái cho ~5–10 web nhỏ. Theo dõi <code>docker stats</code> và <code>df -h</code>; khi RAM thường xuyên &gt;80% hoặc đĩa &gt;80% thì nâng gói hoặc tách server.</div>
+
+<!-- ============================================================ -->
+<h2 id="c11"><span class="n">11</span>Phụ lục: tự deploy khi push <code>main</code></h2>
+<p>GitHub Actions chạy test → nếu qua thì SSH vào VPS chạy <code>deploy.sh</code>. Key dành riêng cho GitHub bị <b>khoá cứng</b> chỉ chạy được đúng lệnh deploy, lộ key cũng không vào shell được.</p>
+<h3>11.1 Key riêng cho GitHub</h3>
+<div class="cmd"><span class="where win">Windows</span><pre><code>ssh-keygen -t ed25519 -f %USERPROFILE%\.ssh\gha-booksnap -N "" -C "gha-booksnap"
+type %USERPROFILE%\.ssh\gha-booksnap.pub
+ssh-keyscan -t ed25519 <span data-v="IP"></span></code></pre></div>
+<ul class="explain">
+  <li><b>-N ""</b>: không passphrase (máy GitHub không gõ được).</li>
+  <li><b>ssh-keyscan</b>: lấy "vân tay" server để GitHub xác minh đúng server, chống giả mạo. Copy dòng in ra.</li>
+</ul>
+<div class="cmd"><span class="where">Server</span><pre><code>nano ~/.ssh/authorized_keys</code></pre></div>
+<div class="cmd"><span class="where file">thêm 1 dòng cuối authorized_keys</span><pre><code>command="cd /srv/apps/booksnap &amp;&amp; bash deploy/deploy.sh",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty <span class="v">ssh-ed25519 AAAA…nội dung gha-booksnap.pub… gha-booksnap</span></code></pre></div>
+<ul class="explain"><li><b>command="…"</b>: dù GitHub gửi lệnh gì, server chỉ chạy deploy.sh. Các <code>no-…</code> tắt chuyển tiếp cổng, terminal.</li></ul>
+
+<h3>11.2 Secrets trên GitHub</h3>
+<p>Repo → Settings → Secrets and variables → Actions → New repository secret:</p>
+<table>
+  <tr><th>Tên</th><th>Giá trị</th></tr>
+  <tr><td><code>VPS_HOST</code></td><td><code data-v="IP"></code></td></tr>
+  <tr><td><code>VPS_SSH_KEY</code></td><td>toàn bộ nội dung file <code>gha-booksnap</code> (không có .pub), kể cả dòng BEGIN/END</td></tr>
+  <tr><td><code>VPS_KNOWN_HOSTS</code></td><td>dòng in ra từ <code>ssh-keyscan</code></td></tr>
+</table>
+
+<h3>11.3 Workflow</h3>
+<div class="cmd"><span class="where file">.github/workflows/deploy.yml</span><pre><code>name: Deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-booksnap
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" &gt; ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" &gt; ~/.ssh/known_hosts
+          ssh -o BatchMode=yes "deploy@$HOST"</code></pre></div>
+<ul class="explain">
+  <li><b>concurrency</b>: 2 lần push liền nhau thì deploy lần lượt, không chạy chồng lên nhau.</li>
+  <li><b>needs: test</b>: test đỏ thì không deploy.</li>
+  <li>Dùng <code>ssh</code> có sẵn thay vì action của bên thứ ba → ít rủi ro chuỗi cung ứng.</li>
+  <li>Xem kết quả: tab <b>Actions</b> của repo. Chạy tay: Actions → Deploy → Run workflow.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="c12"><span class="n">12</span>Xử lý sự cố</h2>
+<table>
+  <tr><th>Hiện tượng</th><th>Nguyên nhân thường gặp</th><th>Xử lý</th></tr>
+  <tr><td>SSH "Permission denied"</td><td>Sai key/user; đã tắt mật khẩu và root</td><td><code>ssh -v vps</code> xem key nào được thử. Cứu: VNC trong Contabo panel</td></tr>
+  <tr><td>Trình duyệt báo 502 Bad Gateway</td><td>App chưa chạy / sai tên alias / sai cổng</td><td><code>docker compose ps</code> trong thư mục app; so tên trong <code>.caddy</code> với <code>aliases</code></td></tr>
+  <tr><td>Không lấy được chứng chỉ</td><td>Tên miền chưa trỏ đúng IP, cổng 80 bị chặn</td><td><code>nslookup</code>, <code>sudo ufw status</code>, <code>docker compose logs caddy</code> ở <code>/srv/caddy</code></td></tr>
+  <tr><td>Container restart liên tục</td><td>Thiếu biến <code>.env</code>, lỗi code</td><td><code>docker compose logs --tail 100 app</code></td></tr>
+  <tr><td><code>deploy.sh</code>: "Not possible to fast-forward"</td><td>Có ai sửa file trực tiếp trên server</td><td><code>git status</code>; bỏ thay đổi: <code>git reset --hard origin/main</code> (không đụng <code>.env</code>, vì <code>.env</code> không nằm trong git)</td></tr>
+  <tr><td><code>network web … not found</code></td><td>Chưa tạo mạng chung</td><td><code>docker network create web</code></td></tr>
+  <tr><td>Đầy ổ đĩa</td><td>Image cũ, backup, MP3</td><td><code>docker system df</code>, <code>docker system prune -f</code>, <code>du -sh /srv/backups</code></td></tr>
+  <tr><td>Server chậm / bị kill</td><td>Hết RAM</td><td><code>docker stats</code>, <code>free -h</code>; giảm <code>mem_limit</code> dự án khác, kiểm tra swap</td></tr>
+  <tr><td>Web chạy nhưng giao diện cũ</td><td>Service worker cache</td><td>Tăng <code>SHELL_CACHE</code> trong <code>web/sw.js</code>; người dùng tải lại app</td></tr>
+  <tr><td>Chunk kẹt <code>waiting_quota</code></td><td>Hết quota Gemini</td><td>Đợi reset, hoặc đổi giọng sang Azure (xem <code>docs/deployment-guide.md</code>)</td></tr>
+</table>
+
+<div class="box"><strong>Ghi chú</strong>BookSnap vẫn giữ <code>railway.json</code>; chạy trên VPS không cần sửa code (kiểm tra volume Railway tự bỏ qua khi không chạy trên Railway). Chạy song song Railway và VPS = 2 bộ dữ liệu riêng.</div>
+</main>
+</div>
+
+<script>
+(function () {
+  var STORAGE_KEY = "vps-guide-vars";
+  var inputs = Array.prototype.slice.call(document.querySelectorAll(".vars input"));
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {}; } catch (e) { saved = {}; }
+
+  inputs.forEach(function (input) {
+    if (saved[input.dataset.key]) input.value = saved[input.dataset.key];
+  });
+
+  function render() {
+    var values = {};
+    inputs.forEach(function (input) { values[input.dataset.key] = input.value.trim() || input.defaultValue; });
+    document.querySelectorAll("[data-v]").forEach(function (el) {
+      el.textContent = values[el.dataset.v] || "";
+      if (el.closest("pre")) el.classList.add("v");
+    });
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(values)); } catch (e) { /* storage unavailable */ }
+  }
+  inputs.forEach(function (input) { input.addEventListener("input", render); });
+  render();
+
+  document.querySelectorAll(".cmd pre").forEach(function (pre) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "copy";
+    btn.textContent = "Copy";
+    btn.addEventListener("click", function () {
+      var text = pre.innerText.replace(/\n$/, "");
+      var done = function () { btn.textContent = "Đã copy"; setTimeout(function () { btn.textContent = "Copy"; }, 1400); };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(done, function () { fallback(text); done(); });
+      } else { fallback(text); done(); }
+    });
+    pre.parentNode.appendChild(btn);
+  });
+  function fallback(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch (e) { /* ignore */ }
+    ta.remove();
+  }
+
+  var root = document.documentElement;
+  try { var t = localStorage.getItem("vps-guide-theme"); if (t) root.dataset.theme = t; } catch (e) { /* ignore */ }
+  document.getElementById("themeToggle").addEventListener("click", function () {
+    var dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("vps-guide-theme", root.dataset.theme); } catch (e) { /* ignore */ }
+  });
+
+  var links = Array.prototype.slice.call(document.querySelectorAll("nav.toc a"));
+  var targets = links.map(function (a) { return document.querySelector(a.getAttribute("href")); });
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        links.forEach(function (a) { a.classList.toggle("active", a.getAttribute("href") === "#" + entry.target.id); });
+      });
+    }, { rootMargin: "0px 0px -75% 0px" });
+    targets.forEach(function (t) { if (t) io.observe(t); });
+  }
+})();
+</script>
+</body>
+</html>

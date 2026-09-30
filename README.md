@@ -4,7 +4,7 @@ Chụp trang sách bằng camera trình duyệt → Gemini OCR → TTS tiếng V
 
 - Backend: Python 3.12, FastAPI, SQLite (aiosqlite, WAL), worker asyncio chạy trong cùng process.
 - Frontend: PWA không build step (Preact + htm vendored) dưới `web/`, FastAPI serve static.
-- Deploy: Railway (Railpack), 1 replica, Volume `/data`.
+- Deploy: Railway (Railpack), 1 replica, Volume `/data`; hoặc VPS (Docker Compose + Caddy HTTPS) theo [docs/deployment-vps-guide.html](docs/deployment-vps-guide.html) (`compose.yml`, `deploy/deploy.sh`, `deploy/backup.sh`).
 
 Plan & quyết định kiến trúc: [plans/260929-1003-booksnap-mvp/plan.md](plans/260929-1003-booksnap-mvp/plan.md). Thiết kế UI: [docs/design-guidelines.md](docs/design-guidelines.md).
 

@@ -1,0 +1,26 @@
+# Production on a VPS behind the shared Caddy reverse proxy (see docs/deployment-vps-guide.html).
+# Single instance only: SQLite + in-process worker must never run twice on the same /data.
+name: booksnap
+
+services:
+  app:
+    build: .
+    image: booksnap:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - data:/data
+    networks:
+      web:
+        aliases: [booksnap]
+    stop_grace_period: 30s
+    mem_limit: 1g
+
+volumes:
+  data:
+
+networks:
+  web:
+    external: true
