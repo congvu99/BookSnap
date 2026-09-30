@@ -6,9 +6,11 @@ PATCH fields, can never mistake it for a full regeneration.
 """
 
 import xml.etree.ElementTree as ET
+from datetime import timedelta
 
 import pytest
 
+from app.db import now_iso
 from app.pipeline.tts_azure import _build_ssml
 from tests.conftest import ctx_of
 from tests.test_books_api import create_book, insert_done_chunk
@@ -108,3 +110,90 @@ def test_ssml_escapes_voice_attribute():
     voice = ET.fromstring(ssml).find("{http://www.w3.org/2001/10/synthesis}voice")
     assert voice is not None and voice.get("name") == 'x" onload="y' and voice.get("onload") is None
     assert voice.text == "Xin chào <b>"
+
+
+# --- quota waits when the voice changes -------------------------------------------------------
+
+AZURE_VOICE = {"tts_provider": "azure", "tts_voice": "vi-VN-NamMinhNeural"}
+
+
+async def chunk_row(app, chunk_id):
+    return await ctx_of(app).db.fetchone("SELECT status, not_before, error FROM chunks WHERE id=?", (chunk_id,))
+
+
+async def parked_on_quota(alice, app):
+    """A chunk claimed with the book's Gemini voice, then parked on a quota error for an hour."""
+    book = await create_book(alice)
+    await insert_chunk(app, book["id"], 0, sealed=1)
+    chunk = await claim(app, grace_seconds=3600)
+    assert chunk is not None
+    assert await ctx_of(app).chunks.mark_waiting_quota(chunk, now_iso(timedelta(hours=1)), "Hết quota")
+    return book, chunk
+
+
+async def test_set_voice_same_provider_keeps_quota_wait(alice, app):
+    book, chunk = await parked_on_quota(alice, app)
+    before = await chunk_row(app, chunk.id)
+    await alice.put(f"/api/books/{book['id']}/voice", json={"tts_provider": "gemini", "tts_voice": "Orus"})
+    assert dict(await chunk_row(app, chunk.id)) == dict(before), "same key, same quota: retrying now would only fail again"
+
+
+async def test_set_voice_new_provider_requeues_quota_wait(alice, app, azure_configured):
+    book, chunk = await parked_on_quota(alice, app)
+    await alice.put(f"/api/books/{book['id']}/voice", json=AZURE_VOICE)
+    assert tuple(await chunk_row(app, chunk.id)) == ("pending", None, None)
+    out = next(c for c in (await alice.get(f"/api/books/{book['id']}/chunks")).json() if c["id"] == chunk.id)
+    assert (out["provider"], out["voice"]) == ("azure", "vi-VN-NamMinhNeural")
+
+
+async def test_set_voice_new_provider_leaves_other_statuses(alice, app, azure_configured):
+    book, waiting = await parked_on_quota(alice, app)
+    done = await insert_done_chunk(app, book["id"], 1)
+    failed_id = await insert_chunk(app, book["id"], 2, status="failed")
+    other_book, other_waiting = await parked_on_quota(alice, app)
+    before = await book_row(app, book["id"])
+
+    await alice.put(f"/api/books/{book['id']}/voice", json=AZURE_VOICE)
+
+    assert (await chunk_row(app, waiting.id))["status"] == "pending"
+    assert (await chunk_row(app, done["id"]))["status"] == "done"
+    assert (await chunk_row(app, failed_id))["status"] == "failed"
+    assert (await chunk_row(app, other_waiting.id))["status"] == "waiting_quota", "other books keep waiting"
+    assert (await book_row(app, book["id"]))["updated_at"] == before["updated_at"], "must not restart the tail grace period"
+
+
+async def test_requeued_chunk_claimable_by_new_provider(alice, app, azure_configured):
+    book, chunk = await parked_on_quota(alice, app)
+    await alice.put(f"/api/books/{book['id']}/voice", json=AZURE_VOICE)
+    claimed = await ctx_of(app).chunks.claim_next_pending(["azure"], now_iso(), now_iso(-timedelta(hours=1)))
+    assert claimed is not None and claimed.id == chunk.id
+    assert (claimed.provider, claimed.voice) == ("azure", "vi-VN-NamMinhNeural")
+
+
+async def test_quota_on_old_provider_after_switch_does_not_park_chunk(alice, app, azure_configured):
+    """The chunk in flight when the user switches provider is the one that gets the old provider's 429."""
+    book = await create_book(alice)
+    await insert_chunk(app, book["id"], 0, sealed=1)
+    in_flight = await claim(app, grace_seconds=3600)
+    assert in_flight is not None and in_flight.provider == "gemini"
+    await alice.put(f"/api/books/{book['id']}/voice", json=AZURE_VOICE)
+
+    assert await ctx_of(app).chunks.mark_waiting_quota(in_flight, now_iso(timedelta(hours=1)), "Hết quota")
+
+    assert tuple(await chunk_row(app, in_flight.id)) == ("pending", None, None)
+    claimed = await ctx_of(app).chunks.claim_next_pending(["azure"], now_iso(), now_iso(-timedelta(hours=1)))
+    assert claimed is not None and claimed.id == in_flight.id
+
+
+async def test_quota_on_current_provider_still_parks_chunk(alice, app):
+    book, chunk = await parked_on_quota(alice, app)
+    row = await chunk_row(app, chunk.id)
+    assert row["status"] == "waiting_quota" and row["not_before"] and row["error"] == "Hết quota"
+
+
+async def test_set_voice_releases_chunks_parked_on_another_provider(alice, app, azure_configured):
+    """Also covers chunks left parked on the old provider by a switch made before this rule existed."""
+    book, chunk = await parked_on_quota(alice, app)
+    await ctx_of(app).db.execute("UPDATE books SET tts_provider='azure', tts_voice='vi-VN-HoaiMyNeural' WHERE id=?", (book["id"],))
+    await alice.put(f"/api/books/{book['id']}/voice", json=AZURE_VOICE)
+    assert tuple(await chunk_row(app, chunk.id)) == ("pending", None, None)

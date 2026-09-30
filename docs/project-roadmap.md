@@ -234,6 +234,7 @@
 
 | Date | Version | Status | Notes |
 |------|---------|--------|-------|
+| 2026-09-30 | — | Bugfix | chunk_out endpoint now returns effective voice (book's current for pending/waiting_quota/failed; chunk's own for done/processing). PUT /voice provider change unparks waiting_quota chunks immediately (not_before cleared). Docs updated. |
 | 2026-09-29 | MVP 1.0 | Phase 1–7 complete, phase 8 docs in progress | All backend + frontend features done. Voice preview, tail seal, PUT /voice, status views, capture flow, live polling, voice labels. M1 (Azure SSML) fixed. Default voice Charon (Gate 0 PoC done). Docs updated. Pending: device QA (iOS/Android), Railway env check for `GEMINI_TTS_VOICE`. |
 
 ---

@@ -157,7 +157,7 @@
 
 | Symptom | Check | Action |
 |---------|-------|--------|
-| Many chunks `waiting_quota` | Railway logs: `outcome=quota` | 1. Check [Gemini quota](https://ai.google.dev) 2. Wait for reset 3. Or change book voice to Azure |
+| Many chunks `waiting_quota` | Railway logs: `outcome=quota` | 1. Check [Gemini quota](https://ai.google.dev) 2. Wait for reset (auto-requeue at `not_before`) 3. Or use PUT `/api/books/{id}/voice` to change provider (e.g. to Azure; unparks waiting chunks) |
 | Many chunks `failed` | Logs: `outcome=error` | Retry from book status view. If pattern: check `GEMINI_OCR_MODEL` / `GEMINI_TTS_MODEL` env |
 | `/health` → 503 | Dashboard volume list | Verify volume mounted. Check free space (`du -sh /data`). If full: delete old books or export+delete. |
 | User: "forgot password" | — | SSH to Railway, run reset command (see below) |
@@ -242,9 +242,10 @@ print('Resumed OCR rows')
 2. Ensure `AZURE_SPEECH_KEY` is set
 
 **For existing books with quota:**
-1. Go to book settings → voice → pick an Azure voice
-2. All `waiting_quota` chunks→`pending` (new provider)
-3. TTS resumes with Azure credentials
+1. User opens the Capture flow for the book (add pages)
+2. User chooses an Azure voice at the voice confirmation step (calls PUT `/api/books/{id}/voice`)
+3. All `waiting_quota` chunks→`pending` immediately (provider changed, not_before cleared)
+4. TTS resumes with Azure credentials; `done` chunks keep their original audio
 
 ### Bump Web Cache Version (JS/CSS Changes)
 

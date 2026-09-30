@@ -3,8 +3,13 @@
 // Range requests with 206 + Content-Range for Safari's <audio> to seek while offline.
 // v2: fixes C3 (206 responses can never be cache.put'd — see handleChunkAudio) and ships the
 // H3/M3/M4 client-side fixes; bumped so already-installed clients pick up the new sw.js bytes.
-const SHELL_CACHE = 'booksnap-shell-v17';
+// Background music (/audio/ambient/*) has its own cache that survives SHELL_CACHE bumps so ~15MB
+// is not re-downloaded on every deploy. To replace one track, ship it under a new file name; bump
+// AMBIENT_CACHE only when every track changes (that forces all of them to download again).
+const SHELL_CACHE = 'booksnap-shell-v20';
 const AUDIO_CACHE = 'booksnap-audio-v1';
+const AMBIENT_CACHE = 'booksnap-ambient-v2'; // v2: tracks re-normalised to -18 LUFS
+const KEPT_CACHES = [SHELL_CACHE, AUDIO_CACHE, AMBIENT_CACHE];
 
 const SHELL_ASSETS = [
   '/',
@@ -27,6 +32,10 @@ const SHELL_ASSETS = [
   '/js/api-client.js',
   '/js/app.js',
   '/js/audio-playlist.js',
+  '/js/background-music.js',
+  '/js/background-music-graph.js',
+  '/js/background-music-prefs.js',
+  '/js/background-music-tracks.js',
   '/js/camera-capture.js',
   '/js/icons.js',
   '/js/media-session.js',
@@ -40,6 +49,7 @@ const SHELL_ASSETS = [
   '/js/text-fold.js',
   '/js/upload-notices.js',
   '/js/upload-queue.js',
+  '/js/use-background-music.js',
   '/js/use-book-bookmarks.js',
   '/js/use-visible-polling.js',
   '/js/voice-labels.js',
@@ -90,13 +100,16 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== SHELL_CACHE && k !== AUDIO_CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => !KEPT_CACHES.includes(k)).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
 function isChunkAudio(url) {
   return /\/api\/chunks\/[^/]+\/audio/.test(url.pathname);
+}
+function isAmbientAudio(url) {
+  return url.pathname.startsWith('/audio/ambient/');
 }
 function isAuthEndpoint(url) {
   return url.pathname.startsWith('/api/auth/') || url.pathname === '/api/me';
@@ -140,6 +153,23 @@ async function handleChunkAudio(request) {
   return cached;
 }
 
+/** Cache-first for background music. Only full 200s are stored (the Cache API rejects 206). */
+async function handleAmbientAudio(event) {
+  const request = event.request;
+  const cache = await caches.open(AMBIENT_CACHE);
+  const cached = await cache.match(request.url);
+  const range = request.headers.get('range');
+  if (cached) return range ? respondWithRange(cached.clone(), range) : cached;
+  try {
+    const res = await fetch(request);
+    // Keep the worker alive until the ~4MB write lands, or the next play misses the cache.
+    if (res.status === 200) event.waitUntil(cache.put(request.url, res.clone()).catch(() => {}));
+    return res;
+  } catch {
+    return new Response('Offline và chưa tải nhạc nền', { status: 503 });
+  }
+}
+
 async function networkFirst(request) {
   try {
     return await fetch(request);
@@ -168,6 +198,10 @@ self.addEventListener('fetch', (event) => {
 
   if (isChunkAudio(url)) {
     event.respondWith(handleChunkAudio(event.request));
+    return;
+  }
+  if (isAmbientAudio(url)) {
+    event.respondWith(handleAmbientAudio(event));
     return;
   }
   if (url.pathname.startsWith('/api/')) {

@@ -139,16 +139,16 @@ User:      Press "Retry" on page 2 → pages.status='ocr_processing' → chunks 
 6. ETA shown in reader (chunk-level) and book status (summary)
 7. **User recovery:** 
    - Wait for quota reset (natural re-queue at `not_before`)
-   - Change book voice to Azure (PATCH `/api/books/{id}`) → all `waiting_quota` chunks→`pending` with new provider
+   - Change book voice to Azure (PUT `/api/books/{id}/voice`) → if provider changes, all `waiting_quota` chunks→`pending` with new provider
 
 **Example:**
 ```
 Gemini quota hits at chunk 5
   → chunks [5–N] → waiting_quota
   → UI shows "Chờ quota — dự kiến lúc 2026-09-29T12:00:00Z" (if shown)
-  → User can wait OR PATCH voice to Azure
-  → If wait: at 12:00, chunk 5 auto-transitions to pending, TTS claims it with Azure creds
-  → If PATCH: all waiting_quota chunks immediately available, TTS claims via Azure
+  → User can wait OR use PUT /voice to change provider
+  → If wait: at 12:00, chunk 5 auto-transitions to pending, TTS claims it with Gemini
+  → If provider changes (e.g., to Azure): all waiting_quota chunks→pending immediately, TTS claims via new provider
 ```
 
 **No cross-provider retry:** Prevents voice mix within one book (D11 validation).
@@ -306,7 +306,7 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 | GET | `/books` | ✓ | 200 | `[book_out]` (thư viện chung, tiến độ của user hiện tại) |
 | GET | `/books/{id}` | ✓ | 200 | `book_detail` = `book_out` + `page_list` + `pages.missing_seqs` + `chunks.tail_wait_seconds` |
 | PATCH | `/books/{id}` | ✓ người tạo | 200 | `book_detail`; legacy: `title?`, `topic?`, `tts_provider?`, `tts_voice?` (đổi giọng → mọi chunk về `pending`) |
-| PUT | `/books/{id}/voice` | ✓ người tạo | 200 | `book_detail`; body `{tts_provider, tts_voice}` (đổi giọng cho đoạn chưa có audio; không reset grace) |
+| PUT | `/books/{id}/voice` | ✓ người tạo | 200 | `book_detail`; body `{tts_provider, tts_voice}` (đổi giọng cho đoạn chưa có audio; không reset grace). Đổi provider (vd. gemini→azure) → các đoạn `waiting_quota` của sách về `pending` ngay; cùng provider thì vẫn chờ quota |
 | POST | `/books/{id}/seal-tail` | ✓ mọi thành viên | 204 | Bỏ qua khoảng chờ; tail chunk được đề cử TTS ngay |
 | DELETE | `/books/{id}` | ✓ người tạo | 204 | xoá DB + audio + ảnh tạm |
 | GET | `/books/{id}/export` | ✓ | 200 | ZIP stream (MP3 theo seq + `text.json`) |
@@ -324,8 +324,8 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 | POST | `/pages/{id}/retry` | ✓ | 200 | `page_out`; chỉ trang `failed` còn ảnh |
 | **Chunks** ||||
 | GET | `/books/{id}/chunks` | ✓ | 200 | `[chunk_out]`; `audio_url` chỉ có khi `done` |
-| PATCH | `/chunks/{id}` | ✓ | 200 | `chunk_out`; sửa `text` → seal + `pending` |
-| POST | `/chunks/{id}/retry` | ✓ | 200 | `chunk_out`; từ `failed`/`waiting_quota` |
+| PATCH | `/chunks/{id}` | ✓ | 200 | `chunk_out`; sửa `text` → seal + `pending`; returns voice/provider = book's current (the voice next claim will use) |
+| POST | `/chunks/{id}/retry` | ✓ | 200 | `chunk_out`; từ `failed`/`waiting_quota`; returns voice/provider = book's current |
 | GET | `/chunks/{id}/audio` | ✓ | 200/206 | MP3, hỗ trợ `Range` |
 | **Voices** ||||
 | GET | `/voices` | ✓ | 200 | `{default_provider, providers: {gemini: {default, voices, configured, preview_urls}, azure: {…}}}` |
@@ -434,7 +434,10 @@ ocr_processing
             │              (auto-requeue when not_before expires OR provider changed)
             └─ [TTS error] → failed (error message)
 
-    [user voice change] → all processing/waiting_quota → pending (provider/voice updated)
+    [user voice change via PUT /voice]:
+        chunks of this book parked on another provider's quota → pending, not_before cleared (new provider unparked)
+        chunk in flight that then gets the old provider's 429 → pending (not parked), worker still pauses old provider
+        if same provider, different voice → waiting_quota stay waiting (quota per key); processing/done unaffected
     [user discard] → all pending+sealed → removed from book
 ```
 

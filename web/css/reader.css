@@ -108,6 +108,12 @@
   box-shadow: inset 0 0 0 2px var(--primary), inset 0 0 0 3px color-mix(in srgb, var(--gold) 75%, var(--primary));
 }
 
+.music-volume {
+  display: block; width: 100%; height: 44px; margin-top: var(--space-3);
+  accent-color: var(--primary); background: transparent; cursor: pointer;
+}
+.music-volume:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; border-radius: var(--radius-sm); }
+
 .book-settings-row { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--gold-faint); }
 
 .chunk-editor-text { font-family: var(--font-read); line-height: 1.6; padding: 12px; resize: vertical; }

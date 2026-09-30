@@ -152,8 +152,18 @@ class BookRepository:
         without audio (new pages, and older pending/failed ones) picks up the new voice.
         `updated_at` is left alone on purpose: it marks pipeline activity, and bumping it would
         restart the tail grace period.
+
+        Chunks parked on another provider's quota are released so the new provider can take them
+        now. Chunks parked on the chosen provider keep waiting: quota is per key, so a new voice
+        would only hit the same limit.
         """
-        await self.db.execute("UPDATE books SET tts_provider=?, tts_voice=? WHERE id=?", (tts_provider, tts_voice, book_id))
+        async with self.db.transaction() as conn:
+            await conn.execute("UPDATE books SET tts_provider=?, tts_voice=? WHERE id=?", (tts_provider, tts_voice, book_id))
+            await conn.execute(
+                "UPDATE chunks SET status='pending', not_before=NULL, error=NULL, updated_at=?"
+                " WHERE book_id=? AND status='waiting_quota' AND provider IS NOT ?",
+                (now_iso(), book_id, tts_provider),
+            )
 
     async def change_voice(self, book_id: str, tts_provider: str, tts_voice: str) -> None:
         """Switch the book's voice and queue every chunk for regeneration in one transaction.

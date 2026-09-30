@@ -4,7 +4,7 @@ import math
 from datetime import datetime, timedelta
 
 from app.db import parse_iso
-from app.repositories.book_repository import BookSummary
+from app.repositories.book_repository import Book, BookSummary
 from app.repositories.chunk_repository import Chunk
 from app.repositories.page_repository import Page
 from app.repositories.user_repository import User
@@ -96,16 +96,22 @@ def page_out(p: Page) -> dict:
     return {"id": p.id, "seq": p.seq, "status": p.status, "error": p.error, "created_at": p.created_at}
 
 
-def chunk_out(c: Chunk) -> dict:
+# Only these chunks carry a voice the worker actually used; any other chunk gets the book's
+# voice copied on its next claim, so its own `provider`/`voice` columns may be stale or empty.
+_OWN_VOICE_STATUSES = ("done", "processing")
+
+
+def chunk_out(c: Chunk, book: Book) -> dict:
     ready = c.status == "done" and c.audio_path is not None
+    own_voice = c.status in _OWN_VOICE_STATUSES
     return {
         "id": c.id,
         "seq": c.seq,
         "text": c.text,
         "status": c.status,
         "not_before": c.not_before,
-        "provider": c.provider,
-        "voice": c.voice,
+        "provider": c.provider if own_voice else book.tts_provider,
+        "voice": c.voice if own_voice else book.tts_voice,
         "duration_ms": c.duration_ms if ready else None,
         "error": c.error,
         "audio_url": f"/api/chunks/{c.id}/audio?v={(c.content_hash or '')[:8]}" if ready else None,

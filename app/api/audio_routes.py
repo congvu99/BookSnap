@@ -18,6 +18,15 @@ class ChunkPatchIn(BaseModel):
     text: str
 
 
+async def _chunk_response(ctx: Ctx, chunk_id: str) -> dict:
+    """Re-read after a write; the book (and with it the chunk) may have been deleted meanwhile."""
+    chunk = await ctx.chunks.get(chunk_id)
+    book = await ctx.books.get(chunk.book_id) if chunk is not None else None
+    if chunk is None or book is None:
+        raise not_found("Không tìm thấy đoạn")
+    return chunk_out(chunk, book)
+
+
 @router.patch("/chunks/{chunk_id}")
 async def patch_chunk(chunk_id: str, body: ChunkPatchIn, ctx: Ctx, user: CurrentUser) -> dict:
     if await ctx.chunks.get(chunk_id) is None:
@@ -27,7 +36,7 @@ async def patch_chunk(chunk_id: str, body: ChunkPatchIn, ctx: Ctx, user: Current
         raise ApiError(400, "text_invalid", f"Nội dung đoạn 1–{CHUNK_TEXT_MAX} ký tự", "text")
     await ctx.chunks.update_text(chunk_id, text)
     ctx.worker.wake()
-    return chunk_out(await ctx.chunks.get(chunk_id))  # type: ignore[arg-type]
+    return await _chunk_response(ctx, chunk_id)
 
 
 @router.post("/chunks/{chunk_id}/retry")
@@ -37,7 +46,7 @@ async def retry_chunk(chunk_id: str, ctx: Ctx, user: CurrentUser) -> dict:
     if not await ctx.chunks.reset_for_retry(chunk_id):
         raise ApiError(409, "chunk_not_retryable", "Đoạn không ở trạng thái lỗi hoặc chờ quota")
     ctx.worker.wake()
-    return chunk_out(await ctx.chunks.get(chunk_id))  # type: ignore[arg-type]
+    return await _chunk_response(ctx, chunk_id)
 
 
 @router.get("/chunks/{chunk_id}/audio")

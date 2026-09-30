@@ -100,6 +100,7 @@ Reader/Camera là màn full-screen, có nút quay lại rõ ràng; bottom nav �
 - Mở rộng thành sheet: chọn chương, hẹn giờ tắt, chọn giọng, cỡ chữ, sáng/tối.
 - Đoạn chưa có audio: chữ `--ink-muted` + spinner nhỏ; đoạn lỗi: icon + "Thử lại".
 - Media Session API: điều khiển ở màn hình khoá, nghe khi tắt màn hình.
+- Nhạc nền (mục "Nhạc nền" trong sheet, ngay sau "Hẹn giờ tắt"): chip `Tắt · Mưa · Piano · Lò sưởi · Violin` + slider âm lượng 0–100% (mặc định 100% ≈ gần ngang giọng đọc, người nghe tự giảm; ẩn khi Tắt, cao 44px, `accent-color: var(--primary)`). Nhạc chỉ phát khi giọng đọc phát: fade-in 1s, dừng giọng → chờ 0.6s rồi fade-out 1s. Chọn bài khi đang dừng chỉ lưu + nạp sẵn, không tự phát. Lỗi tải → dùng lại `.reader-toast`. Chỉ nhạc không lời, ít biến động; mọi bài cùng gain 1.
 
 ### 6.3.1 Đánh dấu
 - Trang `#/bookmarks`: danh sách đánh dấu của user hiện tại (mới nhất trước), nhóm theo sách, mỗi thẻ = "Đoạn n" + trích 160 ký tự + thời gian tương đối. "Nghe từ đây" → `#/listen/:id?seq=n` (mở đúng đoạn, không tự phát; đoạn không còn thì lấy đoạn kế tiếp). Đánh dấu/bỏ dấu: chip dấu trang ở màn Đang nghe (đoạn đang phát) và nút dấu trang 44px cạnh nút sửa ở mỗi đoạn trong reader.

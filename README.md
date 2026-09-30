@@ -53,6 +53,7 @@ cd D:\project\BookSnap
 
 - Test: `.venv\Scripts\python -m pytest -q` (không gọi mạng; provider OCR/TTS được giả lập).
 - Test JS thuần (helper không import Preact): `node --test "tests/web/**/*.test.mjs"` (Node ≥22.7, không cần package.json).
+- Nhạc nền (`web/audio/ambient/`): nguồn, giấy phép và cách thêm bài nằm trong [CREDITS.md](web/audio/ambient/CREDITS.md). Chuẩn hoá bằng `scripts/prepare_ambient_audio.py` (cần ffmpeg hoặc `pip install imageio-ffmpeg`).
 - Mockup giao diện (không cần server): mở trực tiếp [docs/mockups/vinyl-library-preview.html](docs/mockups/vinyl-library-preview.html) trong trình duyệt; thêm `?screen=listen&playing=1` hoặc `?screen=auth` để vào thẳng một màn.
 
 ## Biến môi trường

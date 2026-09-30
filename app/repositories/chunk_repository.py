@@ -5,6 +5,8 @@ from app.repositories.row_mapping import new_id, row_to, rows_to
 
 CHUNK_STATUSES = ("pending", "processing", "waiting_quota", "done", "failed")
 
+_STILL_ON_CHUNK_PROVIDER = "chunks.provider IS (SELECT tts_provider FROM books WHERE books.id = chunks.book_id)"
+
 
 class TailBusyError(Exception):
     """The unsealed tail chunk changed between our read and our write: claimed by the TTS
@@ -162,9 +164,18 @@ class ChunkRepository:
         ) == 1
 
     async def mark_waiting_quota(self, chunk: Chunk, not_before: str, error: str) -> bool:
+        """Park the chunk until `not_before` — unless its book switched provider while it was being
+        synthesized: then the old provider's quota is irrelevant and it goes straight back to
+        `pending` for the new one (the worker still pauses the old provider in memory)."""
         return await self.db.execute(
-            "UPDATE chunks SET status='waiting_quota', not_before=?, attempts=attempts+1, error=?, claim_token=NULL,"
-            " updated_at=? WHERE id=? AND status='processing' AND claim_token=?",
+            f"""
+            UPDATE chunks SET
+                status = CASE WHEN {_STILL_ON_CHUNK_PROVIDER} THEN 'waiting_quota' ELSE 'pending' END,
+                not_before = CASE WHEN {_STILL_ON_CHUNK_PROVIDER} THEN ? END,
+                error = CASE WHEN {_STILL_ON_CHUNK_PROVIDER} THEN ? END,
+                attempts=attempts+1, claim_token=NULL, updated_at=?
+            WHERE id=? AND status='processing' AND claim_token=?
+            """,
             (not_before, error, now_iso(), chunk.id, chunk.claim_token),
         ) == 1
 

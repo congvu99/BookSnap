@@ -13,6 +13,7 @@ import { MiniPlayer } from '../components/mini-player.js';
 import { PlayerSheet } from '../components/player-sheet.js';
 import { NowPlayingPanel } from '../components/now-playing-panel.js';
 import { useBookBookmarks } from '../use-book-bookmarks.js';
+import { useBackgroundMusic } from '../use-background-music.js';
 import { Icon } from '../icons.js';
 
 const CHUNK_POLL_MS = 4000;
@@ -37,6 +38,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
   const [book, setBook] = useState(/** @type {any|null} */ (null));
   const [chunks, setChunks] = useState(/** @type {any[]} */ ([]));
   const [playerState, setPlayerState] = useState({ currentSeq: null, currentTimeMs: 0, durationMs: 0, playing: false, ready: false, rate: 1 });
+  const music = useBackgroundMusic(playerState.playing);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingChunk, setEditingChunk] = useState(/** @type {any|null} */ (null));
   const [fontSize, setFontSizeState] = useState(loadNum('booksnap:fontSize', 18));
@@ -295,6 +297,11 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
   const currentSeq = chunks.length ? chunks[chunkIndex].seq : null;
   const seekBack = () => playlistRef.current.seekRelative(-15);
   const seekForward = () => playlistRef.current.seekRelative(15);
+  // Taps are the only place iOS lets the background-music AudioContext start.
+  const togglePlay = () => {
+    music.unlock();
+    playlistRef.current.togglePlay();
+  };
 
   return html`
     <div class="reader-view ${isListen ? 'reader-view--listen' : ''}">
@@ -315,7 +322,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
             currentAbsoluteMs=${currentAbsoluteMs}
             totalDurationMs=${totalDurationMs}
             rate=${playerState.rate}
-            onTogglePlay=${() => playlistRef.current.togglePlay()}
+            onTogglePlay=${togglePlay}
             onSeekBack=${seekBack}
             onSeekForward=${seekForward}
             onSeekAbsolute=${seekAbsolute}
@@ -352,7 +359,10 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
                 isActive=${c.seq === playerState.currentSeq}
                 bookmarked=${bookmarks.seqs.has(c.seq)}
                 onToggleBookmark=${bookmarks.toggle}
-                onPlayFrom=${(seq) => playlistRef.current.loadAt(seq, 0, true)}
+                onPlayFrom=${(seq) => {
+                  music.unlock();
+                  playlistRef.current.loadAt(seq, 0, true);
+                }}
                 onRetry=${retryChunk}
                 onEdit=${setEditingChunk}
               />
@@ -375,7 +385,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         statusLabel=${statusLabel}
         currentAbsoluteMs=${currentAbsoluteMs}
         totalDurationMs=${totalDurationMs}
-        onTogglePlay=${() => playlistRef.current.togglePlay()}
+        onTogglePlay=${togglePlay}
         onSeekBack=${seekBack}
         onSeekForward=${seekForward}
         onSeekAbsolute=${seekAbsolute}
@@ -391,6 +401,10 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         theme=${(document.documentElement.getAttribute('data-theme')) || 'auto'}
         sleepMinutes=${sleepMinutes}
         onSetSleep=${setSleep}
+        musicTrack=${music.trackId}
+        musicVolume=${music.volume}
+        onSetMusicTrack=${music.setTrack}
+        onSetMusicVolume=${music.setVolume}
         downloadState=${downloadState}
         onDownload=${handleDownload}
         canManage=${book.can_manage}
@@ -402,7 +416,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         onClose=${() => setSheetOpen(false)}
       />`}
 
-      <div class="reader-toast" role="status" aria-live="polite" hidden=${!bookmarks.message}>${bookmarks.message || ''}</div>
+      <div class="reader-toast" role="status" aria-live="polite" hidden=${!(bookmarks.message || music.message)}>${bookmarks.message || music.message || ''}</div>
 
       ${editingChunk &&
       html`<${ChunkEditor} chunk=${editingChunk} onClose=${() => setEditingChunk(null)} onSaved=${onChunkSaved} />`}

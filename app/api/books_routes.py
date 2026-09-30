@@ -198,8 +198,8 @@ def _remove_book_files(library_dir: Path, image_paths: list[str]) -> None:
 
 @router.get("/books/{book_id}/chunks")
 async def list_chunks(book_id: str, ctx: Ctx, user: CurrentUser) -> list[dict]:
-    await load_book(ctx, book_id)
-    return [chunk_out(c) for c in await ctx.chunks.list_for_book(book_id)]
+    book = await load_book(ctx, book_id)
+    return [chunk_out(c, book) for c in await ctx.chunks.list_for_book(book_id)]
 
 
 @router.get("/books/{book_id}/progress")

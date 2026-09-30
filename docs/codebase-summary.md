@@ -62,7 +62,8 @@ BookSnap/
 ├── web/                                  Frontend (PWA, ES modules + Preact)
 │   ├── index.html                       [~20 LOC] Minimal: root element, manifest link, no CSS
 │   ├── manifest.webmanifest             [~25 LOC] PWA: name, icons (192/512 + SVG), theme color
-│   ├── sw.js                            [146 LOC] Service worker (cache-first shell, network-first API)
+│   ├── sw.js                            [~170 LOC] Service worker (cache-first shell, network-first API, cache riêng chunk audio + nhạc nền)
+│   ├── audio/ambient/                   Nhạc nền MP3 (-18 LUFS, 128kbps) + CREDITS.md (nguồn, license); không precache
 │   │
 │   ├── css/                             No CSS framework, design tokens only
 │   │   ├── tokens.css                   [~50 LOC] Colors (wine-red, ivory, gold), fonts (Playfair Display)
@@ -93,6 +94,11 @@ BookSnap/
 │       ├── camera-capture.js            [~90 LOC] getUserMedia, canvas JPEG, torch, vibrate
 │       ├── upload-queue.js              [~120 LOC] Sequential upload, seq conflict + gap handling
 │       ├── audio-playlist.js            [~130 LOC] Dual <audio> preload, seek, playback rate
+│       ├── background-music.js          [~200 LOC] Nhạc nền: <audio loop> qua GainNode, fade theo TTS, blob URL, chống race
+│       ├── background-music-graph.js    [~35 LOC] Web Audio: dựng graph element→gain (all-or-nothing), ramp gain
+│       ├── background-music-prefs.js    [~60 LOC] Pref nhạc nền theo thiết bị (localStorage), pure/testable
+│       ├── background-music-tracks.js   [~20 LOC] Danh sách bài nhạc nền (id, nhãn, URL, gain)
+│       ├── use-background-music.js      [~85 LOC] Hook: engine theo `playing`, lưu pref, toast lỗi
 │       ├── playback-progress.js         [~60 LOC] Local 5s + server 15s debounce, prefer-newer merge
 │       ├── media-session.js             [~40 LOC] Lock-screen play/pause/next/prev
 │       ├── offline-audio-cache.js       [~50 LOC] Cache API download, verify, remove
@@ -129,7 +135,7 @@ BookSnap/
 │           ├── bottom-nav.js            [~52 LOC] Tab bar (library, bookmarks, capture, listen; 4 items)
 │           ├── progress-timeline.js     [~70 LOC] Page/chunk status timeline
 │           ├── mini-player.js           [~90 LOC] Inline player with sleeve icon + disc (48px)
-│           ├── player-sheet.js          [~80 LOC] Bottom sheet: rate, theme, offline mode, export
+│           ├── player-sheet.js          [~150 LOC] Bottom sheet: rate, sleep, nhạc nền, font, theme, offline, export
 │           ├── chunk-paragraph.js       [~50 LOC] Text render + edit button (long-press)
 │           └── chunk-editor.js          [~50 LOC] Edit dialog for chunk text
 │
@@ -145,10 +151,11 @@ BookSnap/
 │   ├── test_export_and_storage_health.py [~50 LOC] Export ZIP, health check
 │   ├── test_pipeline_end_to_end.py      [~60 LOC] Full flow: upload → OCR → chunk → TTS (fake)
 │   ├── test_service_worker_assets.py    [~40 LOC] Verify SW SHELL_ASSETS list matches files
-│   └── web/*.test.mjs                   [~200 LOC] Node tests: voice-labels, upload-notices, processing-progress, use-visible-polling (node --test, Node ≥22.7)
+│   └── web/*.test.mjs                   [~280 LOC] Node tests: voice-labels, upload-notices, processing-progress, use-visible-polling, background-music-prefs, background-music-engine (fake Audio/AudioContext + mock timers) (node --test, Node ≥22.7)
 │
 ├── scripts/
-│   └── voice_poc.py                     [~80 LOC] CLI: PoC voice selection (OCR 1 image, synthesize 4 Gemini + 2 Azure voices)
+│   ├── voice_poc.py                     [~80 LOC] CLI: PoC voice selection (OCR 1 image, synthesize 4 Gemini + 2 Azure voices)
+│   └── prepare_ambient_audio.py         [~130 LOC] Chuẩn hoá nguồn nhạc nền (scripts/ambient-source/, gitignored) → web/audio/ambient/ bằng ffmpeg
 │
 ├── docs/                                Documentation
 │   ├── design-guidelines.md             [existing] UI/UX, Classic Library theme

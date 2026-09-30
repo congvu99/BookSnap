@@ -1,9 +1,11 @@
-// Sheet mở rộng: tốc độ, hẹn giờ tắt, cỡ chữ, sáng/tối, tải offline, cài đặt sách (chủ sách).
+// Sheet mở rộng: tốc độ, hẹn giờ tắt, nhạc nền, cỡ chữ, sáng/tối, tải offline, cài đặt sách (chủ sách).
 import { html, useEffect, useState } from '../../vendor/preact-htm.module.js';
 import { Icon } from '../icons.js';
 import { setTheme } from '../store.js';
 import { TopicInput } from './topic-input.js';
 import { voiceLabel } from '../voice-labels.js';
+import { AMBIENT_TRACKS } from '../background-music-tracks.js';
+import { MAX_VOLUME } from '../background-music-prefs.js';
 
 export const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
 const SLEEP_OPTIONS = [
@@ -19,6 +21,8 @@ const FONT_SIZES = [16, 18, 20, 22, 24];
  *   rate:number, onSetRate:(r:number)=>void,
  *   fontSize:number, onSetFontSize:(s:number)=>void,
  *   theme:string, sleepMinutes:number|null, onSetSleep:(m:number|null)=>void,
+ *   musicTrack:string|null, musicVolume:number,
+ *   onSetMusicTrack:(id:string|null)=>void, onSetMusicVolume:(v:number)=>void,
  *   downloadState:{status:string, done:number, total:number}, onDownload:()=>void,
  *   canManage:boolean, book:object, currentVoice:string,
  *   onChangeTopic:(name:string)=>Promise<boolean>, onDelete:()=>void, exportUrl:string,
@@ -26,7 +30,7 @@ const FONT_SIZES = [16, 18, 20, 22, 24];
  * }} props
  */
 export function PlayerSheet(props) {
-  const { rate, onSetRate, fontSize, onSetFontSize, sleepMinutes, onSetSleep, downloadState, onDownload, canManage, book, currentVoice, onChangeTopic, onDelete, exportUrl, onClose } = props;
+  const { rate, onSetRate, fontSize, onSetFontSize, sleepMinutes, onSetSleep, musicTrack, musicVolume, onSetMusicTrack, onSetMusicVolume, downloadState, onDownload, canManage, book, currentVoice, onChangeTopic, onDelete, exportUrl, onClose } = props;
   const savedTopic = book.topic ? book.topic.name : '';
   const [topicDraft, setTopicDraft] = useState(savedTopic);
   // Show the server's spelling after a save ("VĂN HỌC" → "Văn học").
@@ -62,6 +66,28 @@ export function PlayerSheet(props) {
             (o) => html`<button class="chip" aria-pressed=${String(sleepMinutes === o.value)} onClick=${() => onSetSleep(o.value)}>${o.label}</button>`
           )}
         </div>
+      </div>
+
+      <div class="player-sheet-section">
+        <h3>Nhạc nền</h3>
+        <div class="chip-row">
+          <button class="chip" aria-pressed=${String(musicTrack == null)} onClick=${() => onSetMusicTrack(null)}>Tắt</button>
+          ${AMBIENT_TRACKS.map(
+            (t) => html`<button class="chip" aria-pressed=${String(musicTrack === t.id)} onClick=${() => onSetMusicTrack(t.id)}>${t.label}</button>`
+          )}
+        </div>
+        ${musicTrack != null &&
+        html`<input
+          type="range"
+          class="music-volume"
+          min="0"
+          max=${Math.round(MAX_VOLUME * 100)}
+          step="5"
+          value=${Math.round(musicVolume * 100)}
+          aria-label="Âm lượng nhạc nền"
+          aria-valuetext=${`${Math.round(musicVolume * 100)}%`}
+          onInput=${(e) => onSetMusicVolume(Number(e.currentTarget.value) / 100)}
+        />`}
       </div>
 
       <div class="player-sheet-section">
