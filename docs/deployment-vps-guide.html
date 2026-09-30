@@ -402,6 +402,18 @@ docker compose logs --tail 100 caddy</code></pre></div>
 git clone <span data-v="REPO"></span> booksnap
 cd booksnap</code></pre></div>
 <ul class="explain"><li>Repo public → clone qua HTTPS, không cần key. (Repo private: xem <a href="#c10">chương 10</a>, mục deploy key.)</li></ul>
+<div class="box warn"><strong>Chạy bằng user deploy, sau khi đã push</strong>
+<ul style="margin:4px 0 0;padding-left:18px">
+  <li>Prompt phải là <code>deploy@…$</code>, không phải <code>root@…#</code>. Clone bằng root thì file thuộc root → <code>deploy.sh</code>/cron backup (chạy bằng deploy) lỗi quyền. Đang ở root: gõ <code>su - deploy</code> trước.</li>
+  <li>Server chỉ nhận code <b>đã push</b> lên GitHub. Clone trước khi push → thiếu <code>deploy/</code>, <code>Dockerfile</code>, <code>compose.yml</code>.</li>
+</ul></div>
+<div class="cmd"><span class="where">Server</span><pre><code>git log --oneline -1
+ls deploy/ Dockerfile compose.yml</code></pre></div>
+<ul class="explain">
+  <li>Mã commit phải trùng commit mới nhất trên GitHub, và <code>ls</code> không báo "No such file".</li>
+  <li>Thiếu file → push từ Windows rồi chạy <code>git pull --ff-only</code> ở đây. Chỉ lần đầu cần pull tay; từ lần sau <code>deploy.sh</code> tự pull.</li>
+  <li>Lỡ clone bằng root → sửa quyền: <code>sudo chown -R deploy:deploy /srv/apps/booksnap</code>.</li>
+</ul>
 
 <h3>6.2 File bí mật <code>.env</code></h3>
 <div class="cmd"><span class="where">Server</span><pre><code>cp .env.example .env
@@ -470,17 +482,85 @@ sudo ss -tlnp | grep -v 127.0.0.</code></pre></div>
 
 <!-- ============================================================ -->
 <h2 id="c8"><span class="n">8</span>Cập nhật code &amp; vận hành hằng ngày</h2>
-<h3>8.1 Đưa code mới lên</h3>
-<div class="cmd"><span class="where win">Windows</span><pre><code>git push
-ssh vps "cd /srv/apps/booksnap &amp;&amp; bash deploy/deploy.sh"</code></pre></div>
+<h3>8.1 Cập nhật code mới và build lại (quy trình chuẩn)</h3>
+<p>Server <b>chỉ lấy code từ GitHub</b>. Không sửa code trực tiếp trên server; sửa trên máy Windows → push → server kéo về và build.</p>
+
+<p><b>Bước 1: trên máy Windows, test rồi đẩy code lên GitHub</b></p>
+<div class="cmd"><span class="where win">Windows</span><pre><code>cd D:\project\BookSnap
+.venv\Scripts\python -m pytest -q
+git add -A
+git commit -m "feat: mo ta thay doi"
+git push</code></pre></div>
 <ul class="explain">
-  <li>Chạy <code>deploy.sh</code> từ xa trong 1 lệnh. Downtime ~5–10 giây khi đổi container (BookSnap chỉ được chạy 1 bản vì SQLite + worker).</li>
-  <li><code>already at …</code> = chưa có commit mới. Muốn build lại: <code>FORCE=1 bash deploy/deploy.sh</code>.</li>
-  <li><code>deploy FAILED</code> → script in 60 dòng log và tự quay về bản cũ. Sửa lỗi, push, chạy lại.</li>
+  <li><b>pytest</b>: chạy test trước; đỏ thì sửa, đừng đẩy lên server.</li>
+  <li><b>git add -A / commit</b>: gói thay đổi thành 1 commit. <code>.env</code> và <code>data/</code> đã nằm trong <code>.gitignore</code> nên không bị đẩy lên.</li>
+  <li><b>git push</b>: đưa commit lên GitHub. Kiểm tra trên trang GitHub thấy commit mới là được.</li>
+</ul>
+
+<p><b>Bước 2: trên server, kéo code về + build + chạy bản mới</b></p>
+<div class="cmd"><span class="where win">Windows (1 lệnh, không cần vào server)</span><pre><code>ssh vps "cd /srv/apps/booksnap &amp;&amp; bash deploy/deploy.sh"</code></pre></div>
+<p>hoặc vào server rồi chạy:</p>
+<div class="cmd"><span class="where">Server (user deploy)</span><pre><code>cd /srv/apps/booksnap
+bash deploy/deploy.sh</code></pre></div>
+<ul class="explain">
+  <li>Script tự làm hết: <code>git pull</code> → build image mới (tag = mã commit) → backup DB + MP3 → thay container cũ bằng container mới → đợi <code>/health</code> OK → nếu lỗi tự quay về bản cũ.</li>
+  <li>Thời gian: 30 giây – 2 phút (chỉ đổi code), 2–4 phút (đổi <code>requirements.txt</code>, phải cài lại thư viện). Web gián đoạn ~5–10 giây lúc đổi container.</li>
+</ul>
+<table>
+  <tr><th>Script in ra</th><th>Ý nghĩa</th><th>Làm gì</th></tr>
+  <tr><td><code>deploy ok: 1e81324…</code></td><td>Thành công, đang chạy commit đó</td><td>Sang bước 3</td></tr>
+  <tr><td><code>already at …, nothing to deploy</code></td><td>Server đã chạy commit mới nhất trên GitHub</td><td>Quên <code>git push</code>? Hoặc cần build lại: <code>FORCE=1 bash deploy/deploy.sh</code></td></tr>
+  <tr><td><code>deploy FAILED … rolling back</code></td><td>Bản mới không khởi động được; đã quay về bản cũ, web vẫn chạy</td><td>Đọc 60 dòng log in ra, sửa trên Windows, push, chạy lại</td></tr>
+  <tr><td><code>Not possible to fast-forward</code></td><td>Có file bị sửa trực tiếp trên server</td><td>Xem <a href="#c12">chương 12</a></td></tr>
+</table>
+
+<p><b>Bước 3: kiểm tra</b></p>
+<div class="cmd"><span class="where">Server</span><pre><code>git log --oneline -1
+cat .deployed-tag
+docker compose ps
+curl -fsS https://booksnap.<span data-v="DOMAIN"></span>/health</code></pre></div>
+<ul class="explain">
+  <li><code>git log</code> và <code>.deployed-tag</code> cùng mã commit = đang chạy đúng bản mới.</li>
+  <li><code>docker compose ps</code> → <code>Up … (healthy)</code>. <code>curl</code> → <code>"status":"ok"</code>.</li>
+  <li>Sửa giao diện (JS/CSS) mà điện thoại vẫn thấy bản cũ: đã tăng <code>SHELL_CACHE</code> trong <code>web/sw.js</code> chưa? Đóng hẳn app/tab rồi mở lại.</li>
+</ul>
+
+<h3>8.1b Đổi cái gì thì làm gì</h3>
+<table>
+  <tr><th>Thay đổi</th><th>Cần làm</th></tr>
+  <tr><td>Code Python (<code>app/</code>)</td><td>Bước 1 → 2</td></tr>
+  <tr><td>Giao diện (<code>web/</code>)</td><td>Tăng <code>SHELL_CACHE</code> trong <code>web/sw.js</code> → Bước 1 → 2</td></tr>
+  <tr><td>Thêm/đổi thư viện (<code>requirements.txt</code>)</td><td>Bước 1 → 2 (script tự cài lại, build lâu hơn)</td></tr>
+  <tr><td>Biến môi trường (<code>.env</code> trên server)</td><td>Không cần build, xem <a href="#c8-env">8.2</a></td></tr>
+  <tr><td>Chỉ tài liệu (<code>docs/</code>, <code>plans/</code>)</td><td>Push là đủ, không cần deploy (các thư mục này không nằm trong image)</td></tr>
+</table>
+
+<h3>8.1c Làm tay không dùng script (khi cần hiểu/gỡ lỗi)</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>cd /srv/apps/booksnap
+git pull --ff-only
+docker compose build
+docker compose up -d
+docker compose logs -f app</code></pre></div>
+<ul class="explain">
+  <li><b>git pull --ff-only</b>: kéo code mới; từ chối nếu server có thay đổi lệch với GitHub (an toàn).</li>
+  <li><b>docker compose build</b>: đóng gói code mới thành image <code>booksnap:latest</code>. Thêm <code>--no-cache</code> để build lại từ đầu (khi nghi cache lỗi).</li>
+  <li><b>docker compose up -d</b>: thấy image mới → dừng container cũ, chạy container mới. <code>-d</code> = chạy nền.</li>
+  <li><b>logs -f</b>: xem app khởi động; <code>Ctrl+C</code> để thoát (app vẫn chạy).</li>
+  <li>Khác với script: <b>không</b> tự backup và <b>không</b> tự quay về bản cũ khi lỗi.</li>
+</ul>
+
+<h3>8.1d Quay về bản cũ bằng tay</h3>
+<div class="cmd"><span class="where">Server</span><pre><code>cd /srv/apps/booksnap
+docker images booksnap
+IMAGE_TAG=<span class="v">ma-commit-cu</span> docker compose up -d</code></pre></div>
+<ul class="explain">
+  <li><b>docker images booksnap</b>: liệt kê image còn giữ (script giữ bản hiện tại + bản trước đó). Cột TAG là mã commit.</li>
+  <li><b>IMAGE_TAG=… up -d</b>: chạy lại image cũ ngay, không cần build. Nhớ sửa lỗi rồi deploy lại, vì lần deploy sau vẫn lấy code mới nhất trên GitHub.</li>
+  <li>Muốn chạy lại bản mới nhất mà chưa có commit mới: <code>FORCE=1 bash deploy/deploy.sh</code> (vì <code>.deployed-tag</code> vẫn ghi mã mới, script sẽ báo <code>already at</code>).</li>
 </ul>
 <div class="box warn"><strong>Rollback và migration DB</strong>DB tự nâng cấp khi app mới khởi động. Nếu bản mới đã nâng cấp DB rồi mới lỗi, bản cũ có thể không đọc được DB mới. Vì vậy script luôn <b>backup trước khi đổi container</b>; khi cần, khôi phục theo <a href="#c9">9.3</a>.</div>
 
-<h3>8.2 Đổi biến môi trường</h3>
+<h3 id="c8-env">8.2 Đổi biến môi trường</h3>
 <div class="cmd"><span class="where">Server</span><pre><code>cd /srv/apps/booksnap
 nano .env
 docker compose up -d --force-recreate</code></pre></div>
@@ -709,6 +789,10 @@ jobs:
   <tr><td>Không lấy được chứng chỉ</td><td>Tên miền chưa trỏ đúng IP, cổng 80 bị chặn</td><td><code>nslookup</code>, <code>sudo ufw status</code>, <code>docker compose logs caddy</code> ở <code>/srv/caddy</code></td></tr>
   <tr><td>Container restart liên tục</td><td>Thiếu biến <code>.env</code>, lỗi code</td><td><code>docker compose logs --tail 100 app</code></td></tr>
   <tr><td><code>deploy.sh</code>: "Not possible to fast-forward"</td><td>Có ai sửa file trực tiếp trên server</td><td><code>git status</code>; bỏ thay đổi: <code>git reset --hard origin/main</code> (không đụng <code>.env</code>, vì <code>.env</code> không nằm trong git)</td></tr>
+  <tr><td><code>bash: deploy/deploy.sh: No such file or directory</code></td><td>Clone trước khi push; hoặc đang đứng sai thư mục</td><td>Push từ Windows → trên server <code>cd /srv/apps/booksnap &amp;&amp; git pull --ff-only</code> → chạy lại (<a href="#c6">6.1</a>)</td></tr>
+  <tr><td><code>permission denied … /var/run/docker.sock</code></td><td>User chưa thuộc nhóm docker, hoặc chưa đăng nhập lại</td><td><code>sudo usermod -aG docker deploy</code> → <code>exit</code> → <code>ssh vps</code> lại</td></tr>
+  <tr><td><code>Permission denied</code> khi git pull / ghi <code>.deployed-tag</code> / backup</td><td>File dự án thuộc root (clone bằng root)</td><td><code>sudo chown -R deploy:deploy /srv/apps/&lt;ten&gt; /srv/backups</code></td></tr>
+  <tr><td><code>fatal: detected dubious ownership</code></td><td>Chạy git bằng user khác chủ thư mục (vd root trong thư mục của deploy)</td><td>Chạy bằng deploy: <code>su - deploy</code>. Không dùng <code>safe.directory</code> để lách</td></tr>
   <tr><td><code>network web … not found</code></td><td>Chưa tạo mạng chung</td><td><code>docker network create web</code></td></tr>
   <tr><td>Đầy ổ đĩa</td><td>Image cũ, backup, MP3</td><td><code>docker system df</code>, <code>docker system prune -f</code>, <code>du -sh /srv/backups</code></td></tr>
   <tr><td>Server chậm / bị kill</td><td>Hết RAM</td><td><code>docker stats</code>, <code>free -h</code>; giảm <code>mem_limit</code> dự án khác, kiểm tra swap</td></tr>
