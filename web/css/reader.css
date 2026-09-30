@@ -117,3 +117,20 @@
 .book-settings-row { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--gold-faint); }
 
 .chunk-editor-text { font-family: var(--font-read); line-height: 1.6; padding: 12px; resize: vertical; }
+
+/* Page picker sheet + page chip in the mini player (page-picker-sheet.js). */
+.mini-page-btn {
+  min-height: 24px; padding: 0 8px; border: 1px solid var(--gold-soft); border-radius: var(--radius-sm);
+  background: none; color: var(--ink-muted); font: inherit; font-size: 12px; cursor: pointer;
+}
+.page-pick-list { list-style: none; margin: 0; padding: 0; }
+.page-pick-row {
+  display: flex; align-items: baseline; gap: var(--space-3); width: 100%; min-height: 48px; padding: 10px var(--space-2);
+  border: none; border-bottom: 1px solid var(--gold-soft); background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+}
+.page-pick-row:hover:not(:disabled) { background: var(--surface-sunken); }
+.page-pick-row[aria-current='true'] { background: var(--surface-sunken); box-shadow: inset 3px 0 0 var(--primary); }
+.page-pick-row:disabled { color: var(--ink-muted); cursor: default; }
+.page-pick-num { flex: none; min-width: 5.5em; font-family: var(--font-display); font-weight: 600; font-variant-numeric: tabular-nums; }
+.page-pick-excerpt { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; }
+.page-pick-row:disabled .page-pick-excerpt { font-style: italic; }

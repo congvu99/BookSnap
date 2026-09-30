@@ -64,3 +64,10 @@
 .np-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .np-options .chip { text-decoration: none; padding-inline: 12px; }
 .np-options .np-bookmark { padding-inline: 0; width: 44px; justify-content: center; }
+
+/* "Trang X/N" in the eyebrow opens the page picker; keeps the eyebrow's type, adds a tap target. */
+.np-page-btn {
+  display: inline-flex; align-items: center; min-height: 32px; padding: 0 6px; margin: -8px 0;
+  border: none; border-bottom: 1px dotted currentColor; background: none; color: inherit;
+  font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer;
+}

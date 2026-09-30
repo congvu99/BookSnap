@@ -116,3 +116,11 @@ def test_spoken_text_leaves_a_sentence_that_continues_in_the_next_chunk_open():
     assert spoken_text("Chương hai\nCon đường làng quanh co dẫn") == "Chương hai. Con đường làng quanh co dẫn"
 
 
+def test_chunk_text_preserves_non_whitespace_sequence():
+    # Page anchors rely on this: the chunker only touches whitespace, so counting non-whitespace
+    # characters maps a position in the page text onto the same position in the chunks.
+    long_sentence = "Một mệnh đề rất dài, " * 90 + "kết thúc ở đây."
+    text = "Chương Một\n\n  Chiều xuống. Tôi ngồi \t trên bậc thềm!?\n" + long_sentence + "\nHết… Thật rồi."
+    chunks = chunk_text(text)
+    assert len(chunks) > 1
+    assert "".join("".join(chunks).split()) == "".join(text.split())

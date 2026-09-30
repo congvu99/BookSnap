@@ -1,6 +1,6 @@
 # Codebase Summary — Module Map
 
-**Last updated:** 2026-09-29 | **LOC:** ~7.5K (app ~2.4K, web ~2.9K, tests ~1.1K)
+**Last updated:** 2026-09-30 | **LOC:** ~8K (app ~2.7K, web ~3.3K, tests ~1.5K)
 
 ## Directory Structure
 
@@ -44,6 +44,7 @@ BookSnap/
 │   │   └── row_mapping.py               [~25 LOC] new_id() (UUID), dataclass constructors from rows
 │   │
 │   ├── tts_voices.py                    [25 LOC] GEMINI_VOICES, AZURE_VOICES, allowed_voices, provider_configured
+│   ├── page_anchors.py                  [~110 LOC] Compute page ↔ chunk mapping (on-read, pure fn, no DB)
 │   ├── voice_preview.py                 [188 LOC] Preview service: single-flight, cache, rate limit, failure TTL
 │   │
 │   └── pipeline/                        Worker (OCR → chunk → TTS)
@@ -108,6 +109,8 @@ BookSnap/
 │       ├── upload-notices.js            [~60 LOC] Pure logic for page upload notifications (page#, error)
 │       ├── processing-progress.js       [~80 LOC] Pure logic for phaseOf (queued/processing/done), ETA calc
 │       ├── use-visible-polling.js       [~40 LOC] Pure hook: pause polling when tab hidden
+│       ├── page-position.js             [~80 LOC] Pure: map page ↔ (chunk_seq, frac), seek, playback position, anchors reconcile
+│       ├── use-page-anchors.js          [~55 LOC] Hook: fetch anchors on chunk change, poll when pages pending, offline cache
 │       │
 │       ├── views/                       Route components (Preact)
 │       │   ├── auth-view.js             [~90 LOC] iOS-optimized signin (hero + segmented + form), invite validation
@@ -135,6 +138,7 @@ BookSnap/
 │           ├── bottom-nav.js            [~52 LOC] Tab bar (library, bookmarks, capture, listen; 4 items)
 │           ├── progress-timeline.js     [~70 LOC] Page/chunk status timeline
 │           ├── mini-player.js           [~90 LOC] Inline player with sleeve icon + disc (48px)
+│           ├── page-picker-sheet.js      [~65 LOC] Bottom sheet: list captured pages, current marked, disabled pages labeled, tap to play from
 │           ├── player-sheet.js          [~150 LOC] Bottom sheet: rate, sleep, nhạc nền, font, theme, offline, export
 │           ├── chunk-paragraph.js       [~50 LOC] Text render + edit button (long-press)
 │           └── chunk-editor.js          [~50 LOC] Edit dialog for chunk text
@@ -145,13 +149,14 @@ BookSnap/
 │   ├── test_books_api.py                [~252 LOC] CRUD books, voice change, multi-user progress, seal-tail
 │   ├── test_pages_api.py                [~80 LOC] Upload, retry, discard, seq conflict
 │   ├── test_chunks_api.py               [~60 LOC] List chunks, audio streaming (Range)
-│   ├── test_text_chunker.py             [~50 LOC] Pure chunker: split text, boundaries
+│   ├── test_page_anchors_api.py          [~70 LOC] GET /page-anchors with various page/chunk scenarios
+│   ├── test_text_chunker.py             [~50 LOC] Pure chunker: split text, boundaries, invariant non-ws preservation
 │   ├── test_tts_router.py               [~50 LOC] Router: backoff, quota, RPM limit
 │   ├── test_worker_resume.py            [~248 LOC] Resume on-flight rows (pages, chunks)
 │   ├── test_export_and_storage_health.py [~50 LOC] Export ZIP, health check
 │   ├── test_pipeline_end_to_end.py      [~60 LOC] Full flow: upload → OCR → chunk → TTS (fake)
 │   ├── test_service_worker_assets.py    [~40 LOC] Verify SW SHELL_ASSETS list matches files
-│   └── web/*.test.mjs                   [~280 LOC] Node tests: voice-labels, upload-notices, processing-progress, use-visible-polling, background-music-prefs, background-music-engine (fake Audio/AudioContext + mock timers) (node --test, Node ≥22.7)
+│   └── web/*.test.mjs                   [~350 LOC] Node tests: voice-labels, upload-notices, processing-progress, use-visible-polling, background-music-prefs, background-music-engine, page-position (fake Audio/AudioContext + mock timers) (node --test, Node ≥22.7)
 │
 ├── scripts/
 │   ├── voice_poc.py                     [~80 LOC] CLI: PoC voice selection (OCR 1 image, synthesize 4 Gemini + 2 Azure voices)
@@ -180,15 +185,15 @@ BookSnap/
 
 | Metric | Value |
 |--------|-------|
-| Python LOC | ~2,700 |
-| JavaScript LOC | ~3,400 |
-| Test LOC | ~1,500 |
-| Tests | 99+ Python (pytest) + ~200 JS (node --test) |
-| API endpoints | 22 (including voice preview, seal-tail, PUT /voice) |
+| Python LOC | ~2,850 |
+| JavaScript LOC | ~3,550 |
+| Test LOC | ~1,700 |
+| Tests | 220 Python (pytest) + 77 JS (node --test) |
+| API endpoints | 23 (including page-anchors, voice preview, seal-tail, PUT /voice) |
 | DB tables | 7 (users, sessions, books, pages, chunks, progress, bookmarks) |
 | DB migrations | 2 (append-only, PRAGMA user_version) |
-| Python modules | 37+ |
-| JS modules | 35+ |
+| Python modules | 38+ |
+| JS modules | 38+ |
 | External deps (production) | 10 (fastapi, aiosqlite, google-genai, httpx, lameenc, etc.) |
 | External deps (dev) | 5 (pytest, playwright, etc.) |
 
@@ -250,6 +255,6 @@ web/sw.js (global)
 
 ---
 
-**Status:** Complete. Code review done (99 tests, 3 High issues, remainder Low/Medium).
+**Status:** Complete. Page position + page picker features implemented (220 Python + 77 JS tests, 3 High issues post-review, remainder Low/Medium).
 
 **Next:** Fix N1 migration, run voice PoC with real keys, device testing, Railway deploy.

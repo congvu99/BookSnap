@@ -20,6 +20,7 @@ export function formatTime(ms) {
  *   currentAbsoluteMs: number, totalDurationMs: number,
  *   onTogglePlay: () => void, onSeekBack: () => void, onSeekForward: () => void,
  *   onSeekAbsolute: (ms:number) => void, onExpand: () => void,
+ *   pageText?: string|null, onOpenPages?: () => void,
  * }} props
  */
 export function MiniPlayer({
@@ -35,6 +36,8 @@ export function MiniPlayer({
   onSeekForward,
   onSeekAbsolute,
   onExpand,
+  pageText,
+  onOpenPages,
 }) {
   const pct = totalDurationMs > 0 ? Math.min(100, (currentAbsoluteMs / totalDurationMs) * 100) : 0;
 
@@ -53,6 +56,8 @@ export function MiniPlayer({
       />
       <div class="mini-player-times">
         <span>${formatTime(currentAbsoluteMs)}</span>
+        ${pageText &&
+        html`<button class="mini-page-btn" aria-label=${`Đang ở trang ${pageText.replace('/', ' trên ')}, chọn trang`} onClick=${onOpenPages}>Tr. ${pageText}</button>`}
         <span>${formatTime(totalDurationMs)}</span>
       </div>
       <div class="mini-player-row">

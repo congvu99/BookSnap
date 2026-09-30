@@ -1,6 +1,6 @@
 # System Architecture — BookSnap MVP
 
-**Last updated:** 2026-09-29
+**Last updated:** 2026-09-30
 
 ## Component Overview
 
@@ -310,6 +310,7 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 | POST | `/books/{id}/seal-tail` | ✓ mọi thành viên | 204 | Bỏ qua khoảng chờ; tail chunk được đề cử TTS ngay |
 | DELETE | `/books/{id}` | ✓ người tạo | 204 | xoá DB + audio + ảnh tạm |
 | GET | `/books/{id}/export` | ✓ | 200 | ZIP stream (MP3 theo seq + `text.json`) |
+| GET | `/books/{id}/page-anchors` | ✓ | 200 | `[{page_seq, status, chunk_seq, chunk_frac, excerpt}]` — vị trí từng trang trong chunks (tính on-read) |
 | GET/PUT | `/books/{id}/progress` | ✓ | 200 | `{chunk_seq, offset_ms, updated_at}` của user hiện tại |
 | **Bookmarks** ||||
 | GET | `/bookmarks` | ✓ | 200 | `[{book_id, book_title, chunk_seq, excerpt, created_at}]` (mới nhất trước, excerpt 160 ký tự) |
@@ -347,6 +348,30 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 ```
 
 **Error codes:** `invalid_request` (400), `username_invalid` / `display_name_invalid` / `password_invalid` / `title_invalid` / `topic_invalid` / `text_invalid` (400), `current_password_invalid` / `password_unchanged` (400), `unauthorized` / `invalid_credentials` (401), `forbidden` / `invite_invalid` (403), `not_found` (404), `page_seq_taken` / `username_taken` / `page_not_discardable` / `page_not_retryable` / `chunk_not_retryable` (409), `unknown_voice` (400 khi tên giọng lạ), `provider_unavailable` (409 khi provider không cấu hình API key), `image_too_large` / `request_too_large` (413), `image_type_invalid` (415), `rate_limited` (429, có `Retry-After`).
+
+### Page Anchor Computation (On-Read Mapping)
+
+**Goal:** Map mỗi trang chụp → (chunk_seq, vị trí trong đoạn) để hiện "Trang X/N" và cho phép nhảy tới trang tùy ý.
+
+**Constraint:** Chunker nối text mọi trang rồi cắt lại → không lưu thông tin trang nào ở đâu trong chunk. Nhưng `text_chunker` **chỉ chuẩn hoá khoảng trắng** (strip + collapse), không xoá ký tự → dãy ký tự non-whitespace của pages = dãy ký tự non-whitespace của chunks.
+
+**Algorithm (`app/page_anchors.py::compute_page_anchors`):**
+- Đếm cộng dồn ký tự non-whitespace của mỗi trang
+- So sánh với chunks để tìm (chunk_seq, chunk_frac) mỗi trang
+- Trả `status=ready` khi trang đã `ocr_done` + `chunked` (trong ordering invariant), `status=pending`/`failed`/`discarded` nếu không
+- Chunk sửa tay → anchor của trang sau nó lệch theo số ký tự đổi; past-end clamp tới chunk cuối cùng
+- Tính on-read (mỗi GET), không lưu DB → sách cũ chạy ngay, tail re-chunk tự đúng
+
+**Response:** `[{page_seq, status: ready|pending|failed|discarded|empty, chunk_seq|null, chunk_frac 0..1|null, excerpt}]`, sorted by `page_seq`.
+- `chunk_frac`: vị trí phần trăm trong text của chunk (0..1, unit-free để JS dùng trực tiếp)
+- `excerpt`: 80 ký tự đầu của trang, dùng cho page picker sheet
+
+**Frontend (`page-position.js`, `use-page-anchors.js`, `page-picker-sheet.js`):**
+- `seekForPage(anchor, chunk)`: tính seek position = `frac × duration - 1500ms` (lead-in tránh hụt chữ đầu)
+- `pageAt(anchors, currentSeq, timeMs, durationMs)`: trang hiện tại = trang sẵn sàng cuối cùng trước vị trí phát
+- `usePageAnchors`: refetch khi chunks đổi, poll 10s khi có trang pending/failed, cache offline per-book
+- NowPlayingPanel & MiniPlayer: hiển "Mặt A · Trang X/N" (fallback "Đoạn X/Y" nếu không có anchors)
+- PagePickerSheet: trang hiện tại đánh dấu + auto-scroll; trang `pending`/`failed`/`discarded`/`empty` disabled
 
 ### Voice Preview Details
 

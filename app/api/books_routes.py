@@ -6,11 +6,12 @@ from pathlib import Path
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from app.api.serializers import book_out, chunk_out, missing_seqs, page_out, tail_wait_seconds
+from app.api.serializers import book_out, chunk_out, missing_seqs, page_anchor_out, page_out, tail_wait_seconds
 from app.api_errors import ApiError, not_found
 from app.auth.current_user import Ctx, CurrentUser, ensure_book_owner
 from app.config import TtsProviderName
 from app.db import now_utc
+from app.page_anchors import compute_page_anchors
 from app.repositories.book_repository import Book
 from app.repositories.topic_repository import clean_topic_name
 from app.tts_voices import allowed_voices, provider_configured
@@ -200,6 +201,15 @@ def _remove_book_files(library_dir: Path, image_paths: list[str]) -> None:
 async def list_chunks(book_id: str, ctx: Ctx, user: CurrentUser) -> list[dict]:
     book = await load_book(ctx, book_id)
     return [chunk_out(c, book) for c in await ctx.chunks.list_for_book(book_id)]
+
+
+@router.get("/books/{book_id}/page-anchors")
+async def list_page_anchors(book_id: str, ctx: Ctx, user: CurrentUser) -> list[dict]:
+    """Where each captured page starts in the chunks, so the player can show and seek by page."""
+    await load_book(ctx, book_id)
+    pages = await ctx.pages.list_for_book(book_id)
+    chunks = await ctx.chunks.list_for_book(book_id)
+    return [page_anchor_out(a) for a in compute_page_anchors(pages, chunks)]
 
 
 @router.get("/books/{book_id}/progress")

@@ -12,8 +12,11 @@ import { ChunkEditor } from '../components/chunk-editor.js';
 import { MiniPlayer } from '../components/mini-player.js';
 import { PlayerSheet } from '../components/player-sheet.js';
 import { NowPlayingPanel } from '../components/now-playing-panel.js';
+import { PagePickerSheet } from '../components/page-picker-sheet.js';
 import { useBookBookmarks } from '../use-book-bookmarks.js';
 import { useBackgroundMusic } from '../use-background-music.js';
+import { usePageAnchors } from '../use-page-anchors.js';
+import { pageAt, seekForPage } from '../page-position.js';
 import { Icon } from '../icons.js';
 
 const CHUNK_POLL_MS = 4000;
@@ -40,6 +43,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
   const [playerState, setPlayerState] = useState({ currentSeq: null, currentTimeMs: 0, durationMs: 0, playing: false, ready: false, rate: 1 });
   const music = useBackgroundMusic(playerState.playing);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [pagePickerOpen, setPagePickerOpen] = useState(false);
   const [editingChunk, setEditingChunk] = useState(/** @type {any|null} */ (null));
   const [fontSize, setFontSizeState] = useState(loadNum('booksnap:fontSize', 18));
   const [sleepMinutes, setSleepMinutes] = useState(/** @type {number|null} */ (null));
@@ -47,6 +51,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
   const [downloadState, setDownloadState] = useState({ status: 'idle', done: 0, total: 0 });
   const [error, setError] = useState(/** @type {string|null} */ (null));
   const [isOffline, setIsOffline] = useState(false);
+  const { anchors } = usePageAnchors(bookId, chunks, downloadState.status === 'done');
 
   const playlistRef = useRef(/** @type {AudioPlaylist|null} */ (null));
   const progressRef = useRef(/** @type {PlaybackProgress|null} */ (null));
@@ -302,6 +307,16 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
     music.unlock();
     playlistRef.current.togglePlay();
   };
+  const pagePos = anchors && pageAt(anchors, playerState.currentSeq, playerState.currentTimeMs, playerState.durationMs);
+  const pageText = pagePos ? `${pagePos.pageSeq + 1}/${pagePos.total}` : null;
+  const openPages = () => setPagePickerOpen(true);
+  function playPage(anchor) {
+    const target = seekForPage(anchor, chunks.find((c) => c.seq === anchor.chunk_seq));
+    if (!target) return;
+    music.unlock();
+    playlistRef.current.loadAt(target.seq, target.offsetMs, true);
+    setPagePickerOpen(false);
+  }
 
   return html`
     <div class="reader-view ${isListen ? 'reader-view--listen' : ''}">
@@ -329,6 +344,8 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
             onSetRate=${(r) => playlistRef.current.setRate(r)}
             onOpenSheet=${() => setSheetOpen(true)}
             readHref=${`#/read/${bookId}`}
+            pageText=${pageText}
+            onOpenPages=${openPages}
             bookmarkSlot=${currentSeq != null &&
             html`<button
               class="chip np-bookmark"
@@ -390,6 +407,16 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         onSeekForward=${seekForward}
         onSeekAbsolute=${seekAbsolute}
         onExpand=${() => setSheetOpen(true)}
+        pageText=${pageText}
+        onOpenPages=${openPages}
+      />`}
+
+      ${pagePickerOpen && anchors &&
+      html`<${PagePickerSheet}
+        anchors=${anchors}
+        currentPageSeq=${pagePos ? pagePos.pageSeq : null}
+        onPick=${playPage}
+        onClose=${() => setPagePickerOpen(false)}
       />`}
 
       ${sheetOpen &&

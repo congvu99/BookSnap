@@ -23,9 +23,10 @@ export function nextRate(rate) {
  *   currentAbsoluteMs: number, totalDurationMs: number, rate: number,
  *   onTogglePlay: () => void, onSeekBack: () => void, onSeekForward: () => void,
  *   onSeekAbsolute: (ms:number) => void, onSetRate: (r:number) => void, onOpenSheet: () => void,
- *   readHref: string, bookmarkSlot?: any,
+ *   readHref: string, bookmarkSlot?: any, pageText?: string|null, onOpenPages?: () => void,
  * }} props
  * bookmarkSlot: optional vnode rendered as the last chip (reserved for the bookmark toggle).
+ * pageText: "X/N" of the page being heard; without it the eyebrow falls back to chunk numbers.
  */
 export function NowPlayingPanel({
   book,
@@ -46,6 +47,8 @@ export function NowPlayingPanel({
   onOpenSheet,
   readHref,
   bookmarkSlot,
+  pageText,
+  onOpenPages,
 }) {
   const progress = totalDurationMs > 0 ? Math.min(1, Math.max(0, currentAbsoluteMs / totalDurationMs)) : 0;
   const pct = progress * 100;
@@ -66,7 +69,11 @@ export function NowPlayingPanel({
       </div>
 
       <div class="np-body">
-        <p class="np-eyebrow">Mặt A${chunkCount > 0 ? ` · Đoạn ${chunkIndex + 1}/${chunkCount}` : ''}</p>
+        <p class="np-eyebrow">
+          Mặt A${pageText
+            ? html` · <button class="np-page-btn" aria-label=${`Đang ở trang ${pageText.replace('/', ' trên ')}, chọn trang`} onClick=${onOpenPages}>Trang ${pageText}</button>`
+            : chunkCount > 0 ? ` · Đoạn ${chunkIndex + 1}/${chunkCount}` : ''}
+        </p>
         <h1 class="np-title">${book.title}</h1>
         ${book.created_by_name && html`<p class="np-by">Chụp bởi ${book.created_by_name}</p>`}
         ${statusLabel && html`<p class="np-status"><${Icon} name="clock" size=${14} /> ${statusLabel}</p>`}

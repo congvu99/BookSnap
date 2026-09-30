@@ -4,6 +4,7 @@ import math
 from datetime import datetime, timedelta
 
 from app.db import parse_iso
+from app.page_anchors import PageAnchor
 from app.repositories.book_repository import Book, BookSummary
 from app.repositories.chunk_repository import Chunk
 from app.repositories.page_repository import Page
@@ -94,6 +95,10 @@ def book_out(b: BookSummary, user: User) -> dict:
 
 def page_out(p: Page) -> dict:
     return {"id": p.id, "seq": p.seq, "status": p.status, "error": p.error, "created_at": p.created_at}
+
+
+def page_anchor_out(a: PageAnchor) -> dict:
+    return {"page_seq": a.page_seq, "status": a.status, "chunk_seq": a.chunk_seq, "chunk_frac": a.chunk_frac, "excerpt": a.excerpt}
 
 
 # Only these chunks carry a voice the worker actually used; any other chunk gets the book's

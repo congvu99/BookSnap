@@ -1,6 +1,6 @@
 # Project Roadmap — MVP & Next Steps
 
-**Last updated:** 2026-09-29 | **Status:** MVP phase 1–7 complete, phase 8 (docs) in progress, ready for device QA
+**Last updated:** 2026-09-30 | **Status:** MVP phase 1–7 complete + page position feature, phase 8 (docs) in progress, ready for device QA
 
 ## MVP Status
 
@@ -23,6 +23,7 @@
 - [x] Camera: `getUserMedia` + canvas JPEG (no device library), page count "Trang N", upload notices
 - [x] Library: **vinyl redesign** — record crates by topic, 5-color sleeves (hash by book.id), hero "Continue", sticky tabs, iOS topic menu, search, live polling (5s/60s)
 - [x] Listen mode: dedicated `#/listen/:id` (sleeve + disc + tonearm), 33⅓ rpm spin, tonearm angle by progress, pause → lift + slide
+- [x] Page position & picker: "Trang X/N" label + sheet to jump to page (pure on-read mapping, GET /api/books/{id}/page-anchors)
 - [x] Bookmarks: per-user marks by chunk_seq, full-stack (DB + API + UI)
 - [x] Capture flow: **multipanel** choose book → confirm voice (preview chips + ▶ play) → camera
 - [x] Reader: text display, tap-to-jump, sync highlight, `prefers-reduced-motion` respected
@@ -234,7 +235,7 @@
 
 | Date | Version | Status | Notes |
 |------|---------|--------|-------|
-| 2026-09-30 | — | Bugfix | chunk_out endpoint now returns effective voice (book's current for pending/waiting_quota/failed; chunk's own for done/processing). PUT /voice provider change unparks waiting_quota chunks immediately (not_before cleared). Docs updated. |
+| 2026-09-30 | — | Feature + Bugfix | **Page position + picker:** GET /api/books/{id}/page-anchors maps each page → (chunk_seq, frac); "Trang X/N" label in NowPlayingPanel + MiniPlayer; sheet to jump to page. Pure on-read computation (no DB); offline cache; SHELL_CACHE bumped to v21. **Voice endpoint:** chunk_out now returns effective voice. PUT /voice provider change unparks waiting_quota chunks. Docs updated. |
 | 2026-09-29 | MVP 1.0 | Phase 1–7 complete, phase 8 docs in progress | All backend + frontend features done. Voice preview, tail seal, PUT /voice, status views, capture flow, live polling, voice labels. M1 (Azure SSML) fixed. Default voice Charon (Gate 0 PoC done). Docs updated. Pending: device QA (iOS/Android), Railway env check for `GEMINI_TTS_VOICE`. |
 
 ---

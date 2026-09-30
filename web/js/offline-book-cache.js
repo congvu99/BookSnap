@@ -2,6 +2,8 @@
 // offline (C4). Keyed by book id in localStorage — deliberately NOT under an /api/* path, so the
 // service worker's network-first /api/* rule never intercepts or shadows it.
 const PREFIX = 'booksnap:offline-book:';
+// Page anchors live under their own key so saveOfflineBook's shape stays unchanged.
+const ANCHORS_PREFIX = 'booksnap:offline-anchors:';
 
 /** @param {string} bookId @param {object} book @param {object[]} chunks */
 export function saveOfflineBook(bookId, book, chunks) {
@@ -24,6 +26,26 @@ export function readOfflineBook(bookId) {
 
 export function removeOfflineBook(bookId) {
   localStorage.removeItem(PREFIX + bookId);
+  localStorage.removeItem(ANCHORS_PREFIX + bookId);
+}
+
+/** @param {string} bookId @param {object[]} anchors */
+export function saveOfflinePageAnchors(bookId, anchors) {
+  try {
+    localStorage.setItem(ANCHORS_PREFIX + bookId, JSON.stringify(anchors));
+  } catch {
+    // Storage full/unavailable — offline the player just shows chunk numbers instead of pages.
+  }
+}
+
+/** @param {string} bookId @returns {object[]|null} */
+export function readOfflinePageAnchors(bookId) {
+  try {
+    const raw = localStorage.getItem(ANCHORS_PREFIX + bookId);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** @returns {{id:string, book:object}[]} every book saved for offline use (for the library view). */

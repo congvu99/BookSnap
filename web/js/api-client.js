@@ -95,6 +95,8 @@ export const booksApi = {
   sealTail: (id) => apiFetch(`/api/books/${id}/seal-tail`, { method: 'POST' }),
   remove: (id) => apiFetch(`/api/books/${id}`, { method: 'DELETE' }),
   chunks: (id) => apiFetch(`/api/books/${id}/chunks`),
+  /** Where each captured page starts in the chunks: [{page_seq, status, chunk_seq, chunk_frac, excerpt}]. */
+  pageAnchors: (id) => apiFetch(`/api/books/${id}/page-anchors`),
   getProgress: (id) => apiFetch(`/api/books/${id}/progress`),
   putProgress: (id, body) => apiFetch(`/api/books/${id}/progress`, { method: 'PUT', body }),
   exportUrl: (id) => `/api/books/${id}/export`,
