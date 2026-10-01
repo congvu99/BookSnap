@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "VPS Contabo — cổng kết nối và luồng gọi",
+    "output": "docs/diagrams/vps-server-topology.html",
+    "quality_profile": "showcase",
+    "viewBox": [1200, 650]
+  },
+  "components": [
+    { "id": "dns", "type": "cloud", "label": "DuckDNS", "sublabel": "*.congvu.duckdns.org → IP", "pos": [40, 30], "size": [170, 64] },
+    { "id": "acme", "type": "external", "label": "Let's Encrypt", "sublabel": "cấp chứng chỉ TLS", "pos": [330, 30], "size": [170, 64] },
+    { "id": "gemini", "type": "external", "label": "Gemini API", "sublabel": "OCR + TTS", "pos": [1000, 30], "size": [170, 64] },
+    { "id": "users", "type": "frontend", "label": "Người dùng", "sublabel": "trình duyệt / iPhone", "pos": [40, 310], "size": [170, 64] },
+    { "id": "admin", "type": "external", "label": "Bạn (admin)", "sublabel": "Windows, SSH", "pos": [40, 550], "size": [170, 64] },
+    { "id": "caddy", "type": "security", "label": "Caddy", "sublabel": "public :80 :443 tcp/udp", "pos": [330, 310], "size": [170, 64], "tag": "172.18.0.2" },
+    { "id": "sshd", "type": "security", "label": "sshd :22", "sublabel": "host, ngoài Docker", "pos": [330, 550], "size": [170, 64], "tag": "ufw allow" },
+    { "id": "booksnap", "type": "backend", "label": "booksnap:8000", "sublabel": "FastAPI + SQLite", "pos": [700, 170], "size": [170, 64], "tag": "172.18.0.3" },
+    { "id": "lingobrain", "type": "backend", "label": "lingobrain:3000", "sublabel": "app", "pos": [700, 310], "size": [170, 64], "tag": "172.18.0.4" },
+    { "id": "omnilab", "type": "backend", "label": "omnilab:8080", "sublabel": "app", "pos": [700, 450], "size": [170, 64], "tag": "172.18.0.5" },
+    { "id": "postgres", "type": "database", "label": "postgres:5432", "sublabel": "lingobrain-db", "pos": [1000, 310], "size": [170, 64], "tag": "mạng riêng" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "VPS Contabo 62.171.135.240 (Ubuntu 24.04)", "wraps": ["caddy", "sshd", "booksnap", "lingobrain", "omnilab", "postgres"], "pad": 26 },
+    { "kind": "security-group", "label": "Docker network web (172.18.0.0/16)", "wraps": ["caddy", "booksnap", "lingobrain", "omnilab"], "pad": 14 }
+  ],
+  "connections": [
+    { "from": "users", "to": "dns", "label": "DNS lookup", "variant": "dashed" },
+    { "from": "users", "to": "caddy", "label": "HTTPS :443", "variant": "emphasis" },
+    { "from": "caddy", "to": "booksnap", "label": "Host booksnap.", "variant": "emphasis", "labelAt": [650, 184] },
+    { "from": "caddy", "to": "lingobrain", "label": "Host lingobrain.", "variant": "emphasis", "labelAt": [650, 328] },
+    { "from": "caddy", "to": "omnilab", "label": "Host omnilab.", "variant": "emphasis", "labelAt": [650, 502] },
+    { "from": "lingobrain", "to": "postgres", "label": "SQL :5432" },
+    { "from": "booksnap", "to": "gemini", "label": "HTTPS ra ngoài", "variant": "dashed" },
+    { "from": "caddy", "to": "acme", "label": "ACME xin/gia hạn", "variant": "dashed" },
+    { "from": "admin", "to": "sshd", "label": "SSH :22", "variant": "security" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Public ra Internet", "items": ["Chỉ 22 (sshd), 80, 443 tcp+udp (Caddy)", ":80 tự chuyển 308 sang https", "App và DB không publish port nào"] },
+    { "dot": "cyan", "title": "Gọi nhau bên trong", "items": ["Caddy chọn app theo tên miền booksnap. / lingobrain. / omnilab.", "Gọi bằng alias trên mạng web, không qua Internet", "Postgres chỉ lingobrain thấy (mạng riêng)"] },
+    { "dot": "rose", "title": "Cần xử lý", "items": ["SSH: root + mật khẩu vẫn BẬT, fail2ban tắt", "Chưa có cron backup; email Caddy là ban@example.com", "Port Docker publish bỏ qua ufw"] }
+  ]
+}
