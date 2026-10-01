@@ -1,30 +1,51 @@
-/* Screen-to-screen motion. Everything lives in no-preference (app.css also kills motion globally for
-   reduced-motion users). Enter animations use fill-mode `backwards` so no transform stays applied after
-   they end: a lingering transform would make the wrapper the containing block of position:fixed UI
-   (mini player, sheets, toasts). */
-@media (prefers-reduced-motion: no-preference) {
-  :root { --ease-out: cubic-bezier(.2, .8, .2, 1); }
+/* Screen-to-screen motion, always on (the OS reduced-motion switch is deliberately ignored).
+   Enter animations use fill-mode `backwards` so no transform stays applied after they end: a lingering
+   transform would make the wrapper the containing block of position:fixed UI (mini player, sheets, toasts). */
+:root { --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-ios: cubic-bezier(.32, .72, 0, 1); --ease-spring: cubic-bezier(.34, 1.56, .64, 1); }
 
-  /* Clip (not hidden: no scroll container, sticky keeps working) the few px of sideways travel. */
-  .app-shell { overflow-x: clip; }
+/* Clip (not hidden: no scroll container, sticky keeps working) the few px of sideways travel. */
+.app-shell { overflow-x: clip; }
 
-  .route-view { animation: route-enter 220ms var(--ease-out) backwards; }
-  .route-view--deep { animation-name: route-enter-deep; }
-  @keyframes route-enter { from { opacity: 0; transform: translateY(10px); } }
-  @keyframes route-enter-deep { from { opacity: 0; transform: translate(12px, 6px); } }
+/* Fallback for browsers without View Transitions (js/route-transition.js sets html[data-vt] when supported). */
+html:not([data-vt]) .route-view { animation: route-enter 220ms var(--ease-out) backwards; }
+html:not([data-vt]) .route-view--deep { animation-name: route-enter-deep; }
+@keyframes route-enter { from { opacity: 0; transform: translateY(10px); } }
+@keyframes route-enter-deep { from { opacity: 0; transform: translate(12px, 6px); } }
 
-  .player-sheet { animation: sheet-up 240ms var(--ease-out) backwards; }
-  .player-sheet-backdrop { animation: fade-in 200ms ease-out backwards; }
-  @keyframes sheet-up { from { transform: translateY(100%); } }
-  @keyframes fade-in { from { opacity: 0; } }
+/* View Transitions: iOS-style push / pop, tab crossfade with a small rise. */
+html[data-vt] .bottom-nav { view-transition-name: bottom-nav; }
+html[data-vt] .mini-player { view-transition-name: mini-player; }
+/* Chrome stays put: show only the new copy, no crossfade ghosting. */
+::view-transition-old(bottom-nav), ::view-transition-old(mini-player) { display: none; }
+::view-transition-new(bottom-nav), ::view-transition-new(mini-player) { animation: none; }
 
-  .profiles-overlay { animation: overlay-in 220ms var(--ease-out) backwards; }
-  @keyframes overlay-in { from { opacity: 0; transform: scale(.98); } }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 360ms; animation-timing-function: var(--ease-ios); animation-fill-mode: both; mix-blend-mode: normal; }
 
-  /* Toasts toggle via [hidden], so the animation replays each time one appears. */
-  .status-toast, .reader-toast { animation: toast-in 200ms var(--ease-out) backwards; }
-  @keyframes toast-in { from { opacity: 0; transform: translateY(12px); } }
+html[data-nav='push']::view-transition-new(root) { animation-name: vt-push-in; z-index: 2; }
+html[data-nav='push']::view-transition-old(root) { animation-name: vt-push-under; z-index: 1; }
+html[data-nav='pop']::view-transition-new(root) { animation-name: vt-pop-under; z-index: 1; }
+html[data-nav='pop']::view-transition-old(root) { animation-name: vt-pop-out; z-index: 2; }
+html[data-nav='tab']::view-transition-new(root) { animation-name: vt-tab-in; animation-duration: 340ms; z-index: 2; }
+html[data-nav='tab']::view-transition-old(root) { animation-name: vt-tab-out; animation-duration: 200ms; animation-timing-function: ease-out; z-index: 1; }
 
-  .profile-tile, .chip, .shelf-toggle { transition: transform 150ms var(--ease-out); }
-  .profile-tile:active, .chip:active, .shelf-toggle:active { transform: scale(.97); }
-}
+@keyframes vt-push-in { from { transform: translateX(100%); box-shadow: -12px 0 24px -12px rgba(0, 0, 0, .35); } }
+@keyframes vt-push-under { to { transform: translateX(-28%); filter: brightness(.86); } }
+@keyframes vt-pop-under { from { transform: translateX(-28%); filter: brightness(.86); } }
+@keyframes vt-pop-out { to { transform: translateX(100%); box-shadow: -12px 0 24px -12px rgba(0, 0, 0, .35); } }
+@keyframes vt-tab-in { from { opacity: 0; transform: translateY(14px) scale(.985); } }
+@keyframes vt-tab-out { to { opacity: 0; } }
+
+.player-sheet { animation: sheet-up 240ms var(--ease-out) backwards; }
+.player-sheet-backdrop { animation: fade-in 200ms ease-out backwards; }
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@keyframes fade-in { from { opacity: 0; } }
+
+.profiles-overlay { animation: overlay-in 220ms var(--ease-out) backwards; }
+@keyframes overlay-in { from { opacity: 0; transform: scale(.98); } }
+
+/* Toasts toggle via [hidden], so the animation replays each time one appears. */
+.status-toast, .reader-toast { animation: toast-in 200ms var(--ease-out) backwards; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(12px); } }
+
+.profile-tile, .chip, .shelf-toggle { transition: transform 150ms var(--ease-out); }
+.profile-tile:active, .chip:active, .shelf-toggle:active { transform: scale(.97); }

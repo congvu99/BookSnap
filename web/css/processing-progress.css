@@ -27,14 +27,8 @@
   content: ''; position: absolute; inset: 2px; transform: rotate(45deg);
   border: 1.5px solid var(--primary); opacity: 0;
 }
-@media (prefers-reduced-motion: no-preference) {
   .status-step--active .status-step-dot::after { animation: step-pulse 1.6s ease-out infinite; }
-  @keyframes step-pulse {
-    0% { transform: rotate(45deg) scale(.8); opacity: .8; }
-    100% { transform: rotate(45deg) scale(1.5); opacity: 0; }
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .build-progress-track > i { transition: none; }
-  .status-step--active .status-step-dot::after { opacity: .5; }
+@keyframes step-pulse {
+  0% { transform: rotate(45deg) scale(.8); opacity: .8; }
+  100% { transform: rotate(45deg) scale(1.5); opacity: 0; }
 }

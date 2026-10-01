@@ -3,8 +3,6 @@
 import { html, useEffect, useRef } from '../../vendor/preact-htm.module.js';
 import { pageStatusLabel } from '../page-position.js';
 
-const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 /**
  * @param {{
  *   anchors: import('../page-position.js').PageAnchor[], currentPageSeq: number|null,
@@ -18,7 +16,7 @@ export function PagePickerSheet({ anchors, currentPageSeq, onPick, onClose }) {
   useEffect(() => {
     const opener = /** @type {HTMLElement|null} */ (document.activeElement);
     const el = currentRef.current;
-    if (el) el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+    if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     // Focus lands inside the dialog even with no current page: the current row, else the first pickable one.
     const target = el || (dialogRef.current && dialogRef.current.querySelector('.page-pick-row:not(:disabled)')) || dialogRef.current;
     if (target) target.focus({ preventScroll: true });

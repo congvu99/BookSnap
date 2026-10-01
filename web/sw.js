@@ -6,7 +6,7 @@
 // Background music (/audio/ambient/*) has its own cache that survives SHELL_CACHE bumps so ~15MB
 // is not re-downloaded on every deploy. To replace one track, ship it under a new file name; bump
 // AMBIENT_CACHE only when every track changes (that forces all of them to download again).
-const SHELL_CACHE = 'booksnap-shell-v24';
+const SHELL_CACHE = 'booksnap-shell-v26';
 const AUDIO_CACHE = 'booksnap-audio-v1';
 const AMBIENT_CACHE = 'booksnap-ambient-v2'; // v2: tracks re-normalised to -18 LUFS
 const KEPT_CACHES = [SHELL_CACHE, AUDIO_CACHE, AMBIENT_CACHE];
@@ -22,6 +22,7 @@ const SHELL_ASSETS = [
   '/css/camera.css',
   '/css/library.css',
   '/css/loading.css',
+  '/css/me.css',
   '/css/motion.css',
   '/css/now-playing.css',
   '/css/ornaments.css',
@@ -43,6 +44,7 @@ const SHELL_ASSETS = [
   '/js/auth-error-kind.js',
   '/js/icons.js',
   '/js/library-cache.js',
+  '/js/library-rails.js',
   '/js/media-session.js',
   '/js/network-activity.js',
   '/js/offline-audio-cache.js',
@@ -50,8 +52,11 @@ const SHELL_ASSETS = [
   '/js/page-position.js',
   '/js/playback-progress.js',
   '/js/processing-progress.js',
+  '/js/profile-switcher.js',
+  '/js/profile-zoom.js',
   '/js/profile-avatar-style.js',
   '/js/registration-status-cache.js',
+  '/js/route-transition.js',
   '/js/scrub-math.js',
   '/js/shelf-sync.js',
   '/js/sign-out.js',
@@ -72,8 +77,8 @@ const SHELL_ASSETS = [
   '/js/components/capture-thumb-strip.js',
   '/js/components/chunk-editor.js',
   '/js/components/chunk-paragraph.js',
-  '/js/components/library-account-menu.js',
   '/js/components/library-crate.js',
+  '/js/components/library-rail.js',
   '/js/components/library-hero-card.js',
   '/js/components/mini-player.js',
   '/js/components/now-playing-panel.js',
@@ -82,6 +87,7 @@ const SHELL_ASSETS = [
   '/js/components/page-picker-sheet.js',
   '/js/components/profile-avatar.js',
   '/js/components/profile-manage-form.js',
+  '/js/components/profile-switch-sheet.js',
   '/js/components/player-sheet.js',
   '/js/components/progress-timeline.js',
   '/js/components/range-slider.js',
@@ -90,18 +96,19 @@ const SHELL_ASSETS = [
   '/js/components/tonearm.js',
   '/js/components/top-progress-bar.js',
   '/js/components/usage-meter-list.js',
-  '/js/components/topic-filter-menu.js',
   '/js/components/topic-input.js',
   '/js/components/vinyl-disc.js',
   '/js/components/voice-picker.js',
-  '/js/views/account-view.js',
   '/js/views/auth-view.js',
   '/js/views/book-status-view.js',
   '/js/views/bookmarks-view.js',
   '/js/views/capture-choose-step.js',
   '/js/views/capture-confirm-step.js',
   '/js/views/capture-view.js',
+  '/js/views/library-browse-view.js',
   '/js/views/library-view.js',
+  '/js/views/me-section-view.js',
+  '/js/views/me-view.js',
   '/js/views/profile-picker-view.js',
   '/js/views/reader-view.js',
   '/icons/icon.svg',

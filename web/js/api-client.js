@@ -73,7 +73,9 @@ async function apiFetchUntracked(path, options, opts) {
   if (!res.ok) {
     const errBody = (data && data.error) || { code: 'unknown_error', message: `Lỗi máy chủ (${res.status})` };
     if (res.status === 409 && PROFILE_REQUIRED_CODES.has(errBody.code)) {
-      window.dispatchEvent(new CustomEvent(PROFILE_REQUIRED_EVENT));
+      // Carry the profile the request was made for: a reply to a request sent before a profile
+      // switch says nothing about the profile now in use.
+      window.dispatchEvent(new CustomEvent(PROFILE_REQUIRED_EVENT, { detail: { code: errBody.code, profileId: headers.get('X-Profile-Id') } }));
     }
     throw new ApiError(res.status, errBody, res.headers);
   }

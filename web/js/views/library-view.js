@@ -1,47 +1,24 @@
-// Thư viện chung as "record crates": hero "Nghe tiếp", accent-insensitive search, topic pull-down
-// menu and one crate per topic. Layout reference: docs/mockups/vinyl-library-preview.html.
+// Thư viện chung as Netflix-style rails: hero "Nghe tiếp", then rails (continue, shelf, recent, one per
+// topic). Search swaps the rails for a flat result grid. Layout: docs/mockups/netflix-style-ux-preview.html.
 import { html, useEffect, useMemo, useRef, useState } from '../../vendor/preact-htm.module.js';
 import { booksApi } from '../api-client.js';
 import { authStore, safeLocalStorage } from '../store.js';
-import { signOut } from '../sign-out.js';
+import { openProfileSwitcher } from '../profile-switcher.js';
+import { buildRails } from '../library-rails.js';
 import { listOfflineBooks } from '../offline-book-cache.js';
 import { readLibraryCache, writeLibraryCache } from '../library-cache.js';
 import { matchesQuery } from '../text-fold.js';
 import { LibraryHeroCard } from '../components/library-hero-card.js';
-import { LibraryCrate } from '../components/library-crate.js';
-import { LibraryAccountMenu } from '../components/library-account-menu.js';
-import { TopicFilterMenu } from '../components/topic-filter-menu.js';
+import { LibraryRail, LibraryBookGrid } from '../components/library-rail.js';
+import { ProfileAvatar } from '../components/profile-avatar.js';
 import { useVisiblePolling } from '../use-visible-polling.js';
 import { phaseOf } from '../processing-progress.js';
 import { Icon } from '../icons.js';
 
-const UNSORTED_LABEL = 'Chưa phân loại';
-const ALL = 'all';
-const UNSORTED_KEY = 'unsorted';
+const OFFLINE_RAIL_TITLE = 'Đã tải để nghe offline';
 const LIVE_POLL_MS = 5000;
 const QUOTA_POLL_MS = 60000;
 const LIVE_PHASES = new Set(['ocr', 'tts', 'tail_wait']);
-
-/**
- * One shelf per topic, sorted by Vietnamese collation; books without a topic go last.
- * Within a shelf books keep the server order (most recently updated first).
- * @param {any[]} books @returns {{key: string, name: string, books: any[]}[]}
- */
-export function groupIntoShelves(books) {
-  const shelves = new Map();
-  for (const book of books) {
-    const key = book.topic ? book.topic.id : '';
-    if (!shelves.has(key)) shelves.set(key, { key, name: book.topic ? book.topic.name : UNSORTED_LABEL, books: [] });
-    shelves.get(key).books.push(book);
-  }
-  const named = [...shelves.values()].filter((s) => s.key !== '');
-  named.sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }));
-  return shelves.has('') ? [...named, shelves.get('')] : named;
-}
-
-/** Menu option key for a shelf ('' topic id -> UNSORTED_KEY). */
-const shelfKey = (shelf) => shelf.key || UNSORTED_KEY;
-
 
 export function LibraryView() {
   const user = authStore.get().user;
@@ -52,8 +29,11 @@ export function LibraryView() {
   const [error, setError] = useState(/** @type {string|null} */ (null));
   const [isOffline, setIsOffline] = useState(false);
   const [query, setQuery] = useState('');
-  const [topic, setTopic] = useState(ALL);
-  const [shelfOnly, setShelfOnly] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef(/** @type {HTMLInputElement|null} */ (null));
+  useEffect(() => {
+    if (searchOpen && searchRef.current) searchRef.current.focus();
+  }, [searchOpen]);
   // Showing a snapshot whose refresh failed: tell the user and offer a retry.
   const [stale, setStale] = useState(false);
   const staleRef = useRef(false);
@@ -128,40 +108,35 @@ export function LibraryView() {
   const onlyQuota = !anyLive && phases.includes('quota');
   useVisiblePolling(refresh, anyLive ? LIVE_POLL_MS : QUOTA_POLL_MS, !isOffline && online && (anyLive || onlyQuota));
 
-  // "Kệ của tôi" narrows to this profile's picks, then search; topic options keep every topic of that
-  // set but show counts for the search result.
-  const { options, shelves, visibleCount, activeTopic } = useMemo(() => {
-    // Offline lists come from the download cache (no shelf info): the filter only applies online.
-    const all = (books || []).filter((b) => !shelfOnly || isOffline || b.on_shelf);
-    const searched = all.filter((b) => matchesQuery(b.title, query));
-    const searchedCounts = new Map(groupIntoShelves(searched).map((s) => [shelfKey(s), s.books.length]));
-    const opts = [
-      { key: ALL, label: 'Mọi chủ đề', count: searched.length },
-      ...groupIntoShelves(all).map((s) => ({ key: shelfKey(s), label: s.name, count: searchedCounts.get(shelfKey(s)) || 0 })),
-    ];
-    // A topic that vanished from the list must not leave the filter stuck on nothing.
-    const active = opts.some((o) => o.key === topic) ? topic : ALL;
-    const shown = groupIntoShelves(searched).filter((s) => active === ALL || shelfKey(s) === active);
-    return { options: opts, activeTopic: active, shelves: shown, visibleCount: shown.reduce((n, s) => n + s.books.length, 0) };
-  }, [books, query, topic, shelfOnly, isOffline]);
+  const profileName = user ? user.display_name : '';
+  const searching = query.trim() !== '';
+  const rails = useMemo(() => {
+    const list = books || [];
+    // Offline lists come from the download cache (no shelf/topic info): one flat rail of them.
+    if (isOffline) return list.length ? [{ key: 'offline', title: OFFLINE_RAIL_TITLE, books: list }] : [];
+    return buildRails(list, continuing, profileName);
+  }, [books, continuing, isOffline, profileName]);
+  const results = useMemo(() => (searching ? (books || []).filter((b) => matchesQuery(b.title, query)) : []), [books, query, searching]);
 
   const hero = !isOffline && continuing.length > 0 ? continuing[0] : null;
   const hasBooks = books !== null && books.length > 0;
 
-  function clearFilters() {
-    setQuery('');
-    setTopic(ALL);
-    setShelfOnly(false);
+  function toggleSearch() {
+    if (searchOpen) setQuery('');
+    setSearchOpen(!searchOpen);
   }
 
   return html`
     <div>
       <header class="lib-header">
-        <div>
-          <p class="eyebrow">BookSnap · Thư phòng gia đình</p>
-          <h1>Thư viện</h1>
+        <h1>Thư viện</h1>
+        <div class="lib-header-actions">
+          ${hasBooks &&
+          html`<button class="icon-btn" aria-label="Tìm sách" aria-expanded=${searchOpen ? 'true' : 'false'} onClick=${toggleSearch}><${Icon} name=${searchOpen ? 'x' : 'search'} size=${22} /></button>`}
+          <button class="avatar avatar--profile" aria-label=${`Hồ sơ ${profileName}, đổi hồ sơ`} onClick=${(e) => openProfileSwitcher(e.currentTarget)}>
+            <${ProfileAvatar} name=${profileName} avatar=${user ? user.avatar : null} />
+          </button>
         </div>
-        <${LibraryAccountMenu} name=${user ? user.display_name : ''} avatar=${user ? user.avatar : null} onLogout=${signOut} />
       </header>
 
       <div class="container">
@@ -187,38 +162,24 @@ export function LibraryView() {
           </div>
         `}
 
-        ${hasBooks &&
-        html`
-          <div class="search">
-            <${Icon} name="search" size=${18} />
-            <input type="search" placeholder="Tìm tên sách…" aria-label="Tìm tên sách" value=${query} onInput=${(e) => setQuery(e.currentTarget.value)} />
-          </div>
-          <div class="lib-toolbar">
-            <p class="lib-summary" aria-live="polite">${visibleCount} đĩa · ${shelves.length} thùng</p>
-            <div class="lib-filters">
-              ${!isOffline &&
-              html`<button class="shelf-toggle" aria-pressed=${shelfOnly ? 'true' : 'false'} onClick=${() => setShelfOnly(!shelfOnly)}>
-                <${Icon} name="bookmark" size=${16} /> Kệ của tôi
-              </button>`}
-              <${TopicFilterMenu} options=${options} value=${activeTopic} onChange=${setTopic} />
-            </div>
-          </div>
-          ${shelves.map((shelf) => html`<${LibraryCrate} key=${shelfKey(shelf)} shelf=${shelf} offline=${isOffline} />`)}
-          ${visibleCount === 0 &&
-          html`
-            <div class="lib-empty">
-              <p>
-                ${query.trim()
-                  ? html`Không có sách nào khớp “${query.trim()}”.`
-                  : shelfOnly && !isOffline
-                    ? 'Kệ của bạn chưa có sách. Khi nghe, mở ⋮ Tuỳ chọn và chọn “Thêm vào kệ”.'
-                    : 'Không có sách nào trong chủ đề này.'}
-              </p>
-              <button class="btn btn-secondary" onClick=${clearFilters}>Xoá tìm kiếm và bộ lọc</button>
-            </div>
-          `}
-          <div class="fleuron-rule lib-end" aria-hidden="true"><i></i></div>
-        `}
+        ${hasBooks && searchOpen &&
+        html`<div class="search">
+          <${Icon} name="search" size=${18} />
+          <input type="search" ref=${searchRef} placeholder="Tìm tên sách…" aria-label="Tìm tên sách" value=${query} onInput=${(e) => setQuery(e.currentTarget.value)} />
+        </div>`}
+
+        ${hasBooks && !searching && rails.map((rail) => html`<${LibraryRail} key=${rail.key} rail=${rail} offline=${isOffline} />`)}
+        ${hasBooks && searching && results.length > 0 &&
+        html`<section class="rail" aria-label="Kết quả tìm kiếm">
+          <div class="rail-head"><h2 class="rail-title">Kết quả<small aria-live="polite">${results.length}</small></h2></div>
+          <${LibraryBookGrid} books=${results} offline=${isOffline} />
+        </section>`}
+        ${hasBooks && searching && results.length === 0 &&
+        html`<div class="lib-empty">
+          <p>Không có sách nào khớp “${query.trim()}”.</p>
+          <button class="btn btn-secondary" onClick=${() => setQuery('')}>Xoá tìm kiếm</button>
+        </div>`}
+        ${hasBooks && html`<div class="fleuron-rule lib-end" aria-hidden="true"><i></i></div>`}
       </div>
     </div>
   `;

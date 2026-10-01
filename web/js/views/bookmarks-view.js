@@ -80,6 +80,11 @@ export function BookmarksView() {
   return html`
     <div>
       <header class="bookmarks-header">
+        <button
+          class="icon-btn"
+          aria-label="Quay lại"
+          onClick=${() => (window.history.length > 1 ? window.history.back() : (window.location.hash = '#/me'))}
+        ><${Icon} name="chevron-left" /></button>
         <div>
           <p class="bookmarks-eyebrow">Những đoạn muốn nghe lại</p>
           <h1 class="bookmarks-title">Đánh dấu</h1>

@@ -1,4 +1,5 @@
-// Hash router + app shell. Routes: #/auth #/profiles #/library #/bookmarks #/account #/capture #/capture/:bookId
+// Hash router + app shell. Routes: #/auth #/profiles #/library #/browse/:railKey #/bookmarks #/me #/me/:section #/capture #/capture/:bookId
+// (#/account redirects to #/me)
 // #/book/:id #/read/:id #/listen/:id (both take an optional ?seq= to start at a chunk)
 import { html, render, useEffect, useState } from '../vendor/preact-htm.module.js';
 import { authApi, onProfileRequired, onUnauthorized } from './api-client.js';
@@ -13,8 +14,12 @@ import { CaptureView } from './views/capture-view.js';
 import { BookStatusView } from './views/book-status-view.js';
 import { ReaderView } from './views/reader-view.js';
 import { BookmarksView } from './views/bookmarks-view.js';
-import { AccountView } from './views/account-view.js';
+import { MeView } from './views/me-view.js';
+import { MeSectionView } from './views/me-section-view.js';
+import { LibraryBrowseView } from './views/library-browse-view.js';
 import { ProfilePickerView } from './views/profile-picker-view.js';
+import { ProfileSwitchSheet } from './components/profile-switch-sheet.js';
+import { directionFor, runRouteTransition } from './route-transition.js';
 
 /** Parse the current location hash into a {name, params} route. */
 function parseRoute(hash) {
@@ -27,6 +32,14 @@ function parseRoute(hash) {
   if (segments[0] === 'book' && segments[1]) return { name: 'book', bookId: segments[1] };
   if (segments[0] === 'bookmarks') return { name: 'bookmarks' };
   if (segments[0] === 'account') return { name: 'account' };
+  if (segments[0] === 'me') return segments[1] ? { name: 'me-section', section: segments[1] } : { name: 'me' };
+  if (segments[0] === 'browse' && segments[1]) {
+    try {
+      return { name: 'browse', railKey: decodeURIComponent(segments[1]) };
+    } catch {
+      return { name: 'library' };
+    }
+  }
   // listen and read are two modes of the same ReaderView, so switching never remounts the player.
   if ((segments[0] === 'read' || segments[0] === 'listen') && segments[1]) {
     return { name: 'read', bookId: segments[1], mode: segments[0], query };
@@ -46,9 +59,9 @@ const NO_NAV_ROUTES = new Set(['auth', 'profiles', 'capture', 'read']);
 const showsNav = (route) => !NO_NAV_ROUTES.has(route.name) || (route.name === 'read' && route.mode === 'listen');
 
 // Transition identity: name + book, never mode, so read↔listen neither animates nor remounts.
-const routeKeyOf = (route) => route.name + (route.bookId || '');
+const routeKeyOf = (route) => route.name + (route.bookId || route.section || route.railKey || '');
 // Deeper screens slide in from the right a few px; top-level tabs just fade/rise (see motion.css).
-const DEEP_ROUTES = new Set(['book', 'read', 'capture']);
+const DEEP_ROUTES = new Set(['book', 'read', 'capture', 'browse', 'me-section', 'profiles', 'bookmarks']);
 
 function App() {
   const [hash, setHash] = useState(window.location.hash);
@@ -59,6 +72,8 @@ function App() {
 
   useEffect(() => {
     let shownHash = window.location.hash;
+    // Hashes visited since the last tab switch: going back to the previous one animates as a pop.
+    const navStack = [shownHash];
     const onHashChange = () => {
       // Under the picker overlay the capture view holds unsent pages: back/swipe must not unmount it.
       const s = authStore.get();
@@ -66,8 +81,24 @@ function App() {
         window.history.replaceState(null, '', shownHash);
         return;
       }
-      shownHash = window.location.hash;
-      setHash(window.location.hash);
+      if (window.location.hash.startsWith('#/account')) {
+        window.location.replace('#/me');
+        return;
+      }
+      const from = parseRoute(shownHash);
+      const nextHash = window.location.hash;
+      shownHash = nextHash;
+      // iOS-style motion: push into deeper screens, pop back out, crossfade between tabs.
+      let direction = directionFor(from, parseRoute(nextHash));
+      if (direction === 'tab') navStack.splice(0, navStack.length, nextHash);
+      else if (navStack.length > 1 && navStack[navStack.length - 2] === nextHash) {
+        navStack.pop();
+        if (direction !== 'none') direction = 'pop';
+      } else navStack.push(nextHash);
+      runRouteTransition(direction, () => new Promise((resolve) => {
+        setHash(nextHash);
+        requestAnimationFrame(() => resolve());
+      })).catch(() => setHash(nextHash));
     };
     window.addEventListener('hashchange', onHashChange);
     const unsubAuth = authStore.subscribe((s) => {
@@ -84,7 +115,9 @@ function App() {
       authStore.set({ user: null, needsProfile: false, ready: true, offline: false });
       if (parseRoute(window.location.hash).name !== 'auth') window.location.hash = '#/auth';
     });
-    const unsubProfileRequired = onProfileRequired(() => {
+    const unsubProfileRequired = onProfileRequired((e) => {
+      const detail = (e && e.detail) || {};
+      if (detail.code === 'profile_mismatch' && detail.profileId && detail.profileId !== authStore.get().user?.id) return;
       // The profile was deleted on another device, or another tab switched profile. Unsent captured
       // pages must survive: keep the current view (and its stale user) under the picker overlay.
       if (authStore.get().needsProfile) return;
@@ -176,6 +209,9 @@ function App() {
     return null;
   }
 
+  // Switching profile rebuilds the screen so every view reloads that profile's data (library rails,
+  // shelf, progress). Capture is the exception: its unsent pages must survive a profile switch.
+  const viewKey = route.name === 'capture' ? routeKey : `${user ? user.id : ''}:${routeKey}`;
   const showNav = showsNav(route);
   let view;
   switch (route.name) {
@@ -199,7 +235,16 @@ function App() {
       view = html`<${BookmarksView} />`;
       break;
     case 'account':
-      view = html`<${AccountView} />`;
+      window.location.replace('#/me');
+      return null;
+    case 'me':
+      view = html`<${MeView} />`;
+      break;
+    case 'me-section':
+      view = html`<${MeSectionView} section=${route.section} />`;
+      break;
+    case 'browse':
+      view = html`<${LibraryBrowseView} railKey=${route.railKey} />`;
       break;
     default:
       view = html`<${LibraryView} />`;
@@ -217,10 +262,11 @@ function App() {
       </div>`}
       <${TopProgressBar} />
       <main class="app-main ${showNav ? 'app-main--with-nav' : ''}" inert=${needsProfile ? true : undefined}>
-        <div class="route-view ${DEEP_ROUTES.has(route.name) ? 'route-view--deep' : ''}" key=${routeKey}>${view}</div>
+        <div class="route-view ${DEEP_ROUTES.has(route.name) ? 'route-view--deep' : ''}" key=${viewKey}>${view}</div>
       </main>
       ${showNav && html`<${BottomNav} currentRoute=${hash || '#/library'} />`}
       ${needsProfile && html`<${ProfilePickerView} currentUser=${user} overlay onPicked=${onPicked} />`}
+      ${user && html`<${ProfileSwitchSheet} />`}
     </div>
   `;
 }

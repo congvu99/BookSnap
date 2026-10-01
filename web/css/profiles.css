@@ -24,7 +24,7 @@
 .profiles-overlay { position: fixed; inset: 0; z-index: 60; overflow-y: auto; }
 .profiles-head { text-align: center; }
 .profiles-head .eyebrow { margin: 0; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold-ink); }
-.profiles-head h1 { margin: 4px 0 0; font-size: 34px; line-height: 1.15; }
+.profiles-head h1 { margin: 4px 0 0; font-size: 34px; font-weight: var(--display-weight, 800); letter-spacing: var(--display-tracking, -.02em); line-height: 1.15; text-wrap: balance; }
 .profiles-head p { margin: 8px 0 0; font-size: 14px; color: var(--ink-muted); }
 .profiles .banner { width: min(100%, 480px); margin: var(--space-4) 0 0; }
 .profiles-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 132px)); justify-content: center; gap: 20px 16px; width: 100%; margin: 28px 0 0; padding: 0; list-style: none; }
@@ -34,9 +34,13 @@
 .profile-tile:active .profile-avatar { transform: scale(.96); }
 .profile-tile[aria-current='true'] .profile-avatar { box-shadow: inset 0 0 0 3px var(--avatar-bg), inset 0 0 0 5px rgba(240, 213, 152, .55), 0 0 0 3px var(--bg), 0 0 0 5px var(--gold); }
 .profile-tile-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 600; }
-.profile-tile-note { margin-top: -6px; font-size: 12px; color: var(--ink-muted); }
+.profile-tile-avatar { position: relative; display: grid; }
+.profile-pencil { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 50%; background: rgba(20, 16, 12, .48); color: #F6ECD6; opacity: 0; transform: scale(.8); transition: opacity 200ms, transform 260ms cubic-bezier(.34, 1.56, .64, 1); pointer-events: none; }
+.profile-pencil svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.profiles-manage .profile-pencil { opacity: 1; transform: none; }
+.profiles-grid > li { animation: profile-tile-in 520ms cubic-bezier(.34, 1.56, .64, 1) both; }
+@keyframes profile-tile-in { from { opacity: 0; transform: translateY(18px) scale(.9); } to { opacity: 1; transform: none; } }
 .profile-tile--add .profile-add-icon { display: grid; place-items: center; width: 88px; height: 88px; border: 1px dashed var(--gold-soft); border-radius: 50%; color: var(--ink-muted); font: 300 44px/1 var(--font-ui); }
-.profiles-manage .profile-tile .profile-avatar { opacity: .82; }
 .profiles-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: 32px; }
 .profiles-actions .btn { min-width: 140px; }
 .profiles-signout { margin-top: var(--space-6); border: 0; background: none; color: var(--ink-muted); font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; min-height: 44px; }
@@ -65,3 +69,25 @@
 .page-header-actions { display: flex; align-items: center; gap: var(--space-2); flex: none; }
 .page-header-actions .shelf-toggle { padding: 0 10px; font-size: 13px; }
 .account-switch { display: inline-flex; align-items: center; min-height: 44px; color: var(--primary); font-size: 14px; font-weight: 600; text-decoration: none; }
+
+/* ——— Profile switch sheet ("Đổi hồ sơ") ——— */
+.switch-layer { position: fixed; inset: 0; z-index: 70; }
+.switch-scrim { position: absolute; inset: 0; background: rgba(20, 16, 12, .5); opacity: 0; transition: opacity 260ms; }
+.switch-scrim.open { opacity: 1; }
+.switch-sheet { position: absolute; left: 0; right: 0; bottom: 0; max-width: 560px; margin: 0 auto; max-height: 85dvh; overflow-y: auto; padding: 10px 16px calc(env(safe-area-inset-bottom) + 20px); border-radius: 16px 16px 0 0; background: var(--surface); box-shadow: 0 -10px 30px -10px rgba(0, 0, 0, .3); transform: translateY(105%); transition: transform 380ms cubic-bezier(.32, .72, 0, 1); }
+.switch-sheet.open { transform: none; }
+.switch-grab { width: 38px; height: 5px; margin: 0 auto 12px; border-radius: 3px; background: var(--border); }
+.switch-sheet h2 { margin: 0 0 14px; font-size: 20px; font-weight: var(--display-weight, 800); letter-spacing: var(--display-tracking, -.02em); line-height: 1.2; text-align: center; }
+.switch-error { margin: 0 0 12px; text-align: center; font-size: 14px; color: var(--danger); }
+.switch-profiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 18px; }
+.switch-profiles button { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 104px; min-height: 44px; padding: 6px 4px; border: 0; border-radius: var(--radius-md); background: none; color: var(--ink); cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; }
+.switch-profiles button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.switch-profiles button:active .profile-avatar { transform: scale(.95); }
+.switch-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.switch-profiles .is-current .profile-avatar { box-shadow: inset 0 0 0 3px var(--avatar-bg), inset 0 0 0 5px rgba(240, 213, 152, .55), 0 0 0 3px var(--surface), 0 0 0 5px var(--gold); }
+.switch-profiles .is-current small { margin-top: -6px; font-size: 11px; font-weight: 500; color: var(--gold-ink); }
+.switch-foot { display: flex; justify-content: center; gap: 8px; margin-top: 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+/* ——— Avatar flight (profile switch) ——— */
+.zoom-veil { position: fixed; inset: 0; z-index: 90; background: var(--bg); opacity: 0; }
+.zoom-ghost { position: fixed; z-index: 91; width: 96px; height: 96px; font-size: 44px; pointer-events: none; transform-origin: center; will-change: transform, opacity; }

@@ -32,20 +32,10 @@
 .btn-primary[aria-busy='true']::after { margin: -4px; }
 .profile-tile[aria-busy='true']::after { position: absolute; top: 4px; right: 4px; }
 
-/* Reduced motion: a static dot instead of a spinning ring. */
-@media (prefers-reduced-motion: reduce) {
-  .btn[aria-busy='true']::after, .shelf-toggle[aria-busy='true']::after, .profile-tile[aria-busy='true']::after {
-    border: 0; background: currentColor; transform: scale(.5);
-  }
-  .top-progress[data-phase='active'] .top-progress-bar { transform: none; }
-}
-
-@media (prefers-reduced-motion: no-preference) {
   .top-progress-bar { transition: transform 400ms cubic-bezier(.2, .8, .2, 1); }
   .top-progress[data-phase='active'] .top-progress-bar { animation: top-progress-shimmer 1.2s linear infinite; }
   .btn[aria-busy='true']::after, .shelf-toggle[aria-busy='true']::after, .profile-tile[aria-busy='true']::after {
     animation: busy-spin .7s linear infinite;
-  }
 }
 @keyframes top-progress-shimmer { to { background-position: -200% 0; } }
 @keyframes busy-spin { to { transform: rotate(360deg); } }

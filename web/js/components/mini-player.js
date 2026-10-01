@@ -54,6 +54,7 @@ export function MiniPlayer({
         value=${Math.round(pct * 10)}
         label="Tiến độ sách"
         valueText=${(v) => `${formatTime((v / 1000) * totalDurationMs)} trên ${formatTime(totalDurationMs)}`}
+        bubble=${(v) => `${formatTime((v / 1000) * totalDurationMs)} / ${formatTime(totalDurationMs)}`}
         onScrub=${(v) => setPreviewMs((v / 1000) * totalDurationMs)}
         onCommit=${(v) => {
           onSeekAbsolute((v / 1000) * totalDurationMs);

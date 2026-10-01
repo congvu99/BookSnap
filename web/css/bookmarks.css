@@ -1,5 +1,6 @@
 /* Bookmarks view: bookmarked passages grouped by book (docs/mockups/vinyl-library-preview.html, screen-marks). */
-.bookmarks-header { max-width: 768px; margin: 0 auto; padding: var(--space-4) 20px 0; }
+.bookmarks-header { display: flex; align-items: flex-start; gap: 4px; max-width: 768px; margin: 0 auto; padding: var(--space-4) 20px 0; }
+.bookmarks-header .icon-btn { flex: none; margin: 2px 0 0 -12px; }
 .bookmarks-eyebrow { margin: 0; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold-ink); }
 .bookmarks-title { margin: 2px 0 0; font-size: 36px; line-height: 1.1; }
 

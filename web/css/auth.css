@@ -6,7 +6,8 @@
 .signin-art { position: relative; width: 236px; height: 150px; transform-origin: 50% 40%; transition: transform 260ms ease-out; }
 .signin-art .sleeve { position: absolute; left: 0; top: 0; width: 150px; z-index: 1; }
 .signin-art .disc { position: absolute; left: 10px; top: 4px; width: 142px; transform: translateX(58%); }
-@media (prefers-reduced-motion: no-preference) { .signin-art .disc { animation: signin-disc-out 900ms cubic-bezier(.45, .05, .3, 1) 250ms both; } }
+/* Always on: the record slides out of the sleeve. */
+.signin-art .disc { animation: signin-disc-out 900ms cubic-bezier(.45, .05, .3, 1) 250ms both; }
 @keyframes signin-disc-out { from { transform: translateX(0); } }
 
 .signin-brand { text-align: center; margin-top: 18px; transition: opacity 200ms, margin 260ms; }
@@ -19,7 +20,6 @@
 .signin:focus-within:not(:has(.signin-segmented :focus)) .signin-brand { margin-top: -6px; }
 .signin:focus-within:not(:has(.signin-segmented :focus)) .signin-brand p, .signin:focus-within:not(:has(.signin-segmented :focus)) .signin-brand .fleuron-rule { display: none; }
 .signin:focus-within:not(:has(.signin-segmented :focus)) .signin-brand h1 { font-size: 28px; }
-@media (prefers-reduced-motion: reduce) { .signin-hero, .signin-art, .signin-brand { transition: none; } }
 
 .signin-segmented { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 3px; margin: 22px 0 14px; background: var(--surface-sunken); border: 1px solid var(--gold-soft); border-radius: var(--radius-md); }
 .signin-segmented::before { content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: var(--radius-sm); background: var(--surface);
@@ -27,10 +27,10 @@
 .signin-segmented[data-value='register']::before { transform: translateX(100%); }
 .signin-segmented button { position: relative; min-height: 44px; border: 0; background: none; font: 600 16px var(--font-display); color: var(--ink-muted); cursor: pointer; }
 .signin-segmented button[aria-selected='true'] { color: var(--ink); }
-@media (prefers-reduced-motion: reduce) { .signin-segmented::before { transition: none; } }
 /* Placeholder while sign-up status is unknown: keeps the box, hides it and blocks taps. */
 .signin-segmented.is-pending { visibility: hidden; opacity: 0; pointer-events: none; }
-@media (prefers-reduced-motion: no-preference) { .signin-segmented { transition: opacity 150ms ease-out; } }
+
+.signin-segmented { transition: opacity 150ms ease-out; }
 
 .signin-banner { margin-bottom: 12px; }
 

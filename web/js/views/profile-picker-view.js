@@ -6,10 +6,13 @@ import { AVATAR_KEYS } from '../profile-avatar-style.js';
 import { authStore, cacheUser, hasUnsavedWork } from '../store.js';
 import { signOut } from '../sign-out.js';
 import { ProfileAvatar } from '../components/profile-avatar.js';
+import { flyAvatarToCentre } from '../profile-zoom.js';
 import { ProfileManageForm } from '../components/profile-manage-form.js';
 
 // Mirrors app/api/profiles_routes.py MAX_PROFILES.
 const MAX_PROFILES = 8;
+const STAGGER_MS = 70;
+const PENCIL_ICON = html`<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z" /></svg>`;
 
 /**
  * @param {{ currentUser: {id:string}|null, overlay?: boolean, onPicked: (me: any) => void, onBack?: (() => void)|null }} props
@@ -19,7 +22,8 @@ const MAX_PROFILES = 8;
 export function ProfilePickerView({ currentUser, overlay = false, onPicked, onBack = null }) {
   const [profiles, setProfiles] = useState(/** @type {any[]|null} */ (null));
   const [error, setError] = useState(/** @type {string|null} */ (null));
-  const [managing, setManaging] = useState(false);
+  // "#/profiles?manage=1" (from the switch sheet) opens straight in manage mode.
+  const [managing, setManaging] = useState(() => !overlay && /[?&]manage=1(&|$)/.test(window.location.hash));
   const [editing, setEditing] = useState(/** @type {any|'new'|null} */ (null));
   const [busyId, setBusyId] = useState(/** @type {string|null} */ (null));
   const headingRef = useRef(/** @type {HTMLHeadingElement|null} */ (null));
@@ -45,7 +49,7 @@ export function ProfilePickerView({ currentUser, overlay = false, onPicked, onBa
     load();
   }, []);
 
-  async function pick(profile) {
+  async function pick(profile, avatarEl) {
     if (managing) {
       setEditing(profile);
       return;
@@ -53,13 +57,20 @@ export function ProfilePickerView({ currentUser, overlay = false, onPicked, onBa
     if (busyId) return;
     setBusyId(profile.id);
     setError(null);
+    // Avatar flies to centre while the selection is saved; the picker is swapped out under the veil.
+    const flight = flyAvatarToCentre(avatarEl, profile);
+    let reveal = async () => {};
     try {
-      onPicked(await profilesApi.select(profile.id));
+      const [me, revealFn] = await Promise.all([profilesApi.select(profile.id), flight]);
+      reveal = revealFn;
+      onPicked(me);
     } catch (err) {
       setError(err.message || 'Không chọn được hồ sơ, thử lại.');
       load();
+      reveal = await flight.catch(() => reveal);
     } finally {
       setBusyId(null);
+      reveal();
     }
   }
 
@@ -120,26 +131,28 @@ export function ProfilePickerView({ currentUser, overlay = false, onPicked, onBa
       html`
         <ul class="profiles-grid">
           ${list.map(
-            (p) => html`
-              <li key=${p.id}>
+            (p, i) => html`
+              <li key=${p.id} style=${{ animationDelay: `${i * STAGGER_MS}ms` }}>
                 <button
                   class="profile-tile"
                   aria-current=${currentUser?.id === p.id ? 'true' : null}
                   aria-label=${managing ? `Sửa hồ sơ ${p.display_name}` : `Nghe với hồ sơ ${p.display_name}`}
                   disabled=${busyId !== null}
                   aria-busy=${busyId === p.id ? 'true' : null}
-                  onClick=${() => pick(p)}
+                  onClick=${(e) => pick(p, e.currentTarget.querySelector('.profile-avatar'))}
                 >
-                  <${ProfileAvatar} name=${p.display_name} avatar=${p.avatar} large />
+                  <span class="profile-tile-avatar">
+                    <${ProfileAvatar} name=${p.display_name} avatar=${p.avatar} large />
+                    <span class="profile-pencil" aria-hidden="true">${PENCIL_ICON}</span>
+                  </span>
                   <span class="profile-tile-name">${p.display_name}</span>
-                  ${managing && html`<span class="profile-tile-note">Sửa</span>`}
                 </button>
               </li>
             `,
           )}
           ${list.length < MAX_PROFILES &&
           html`
-            <li>
+            <li style=${{ animationDelay: `${list.length * STAGGER_MS}ms` }}>
               <button class="profile-tile profile-tile--add" onClick=${() => setEditing('new')}>
                 <span class="profile-add-icon" aria-hidden="true">+</span>
                 <span class="profile-tile-name">Thêm hồ sơ</span>

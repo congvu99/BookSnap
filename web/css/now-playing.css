@@ -26,9 +26,6 @@
 .arm-shadow { flood-color: var(--vinyl); }
 .arm-head { fill: var(--vinyl); }
 .stage-floor { position: absolute; left: 4%; right: 4%; bottom: -4px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold-soft) 15%, var(--gold-soft) 85%, transparent); }
-@media (prefers-reduced-motion: reduce) {
-  .stage-disc, .tonearm { transition: none; }
-}
 
 .np-body { text-align: center; padding: 22px 20px calc(24px + env(safe-area-inset-bottom)); max-width: 26rem; width: 100%; margin: 0 auto; }
 .np-body .np-eyebrow { margin-bottom: 6px; }

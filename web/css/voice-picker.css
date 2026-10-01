@@ -37,4 +37,3 @@
   animation: spinner-turn .8s linear infinite; vertical-align: -3px;
 }
 @keyframes spinner-turn { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }

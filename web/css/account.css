@@ -37,7 +37,6 @@
 .usage-alert { display: flex; align-items: flex-start; gap: 6px; margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: var(--danger); }
 .usage-alert .icon { display: inline-flex; flex: none; margin-top: 2px; }
 .usage-meter[data-status='unconfigured'] { opacity: .7; }
-@media (prefers-reduced-motion: reduce) { .usage-bar > i { transition: none; } }
 
 .account-form .field:last-of-type { margin-bottom: var(--space-3); }
 .account-form .account-hint { margin-bottom: var(--space-3); }

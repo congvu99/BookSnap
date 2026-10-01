@@ -16,7 +16,7 @@
 .sleeve-title {
   position: absolute; inset: 31% 17%;
   display: flex; align-items: center; justify-content: center; text-align: center;
-  font-family: var(--font-display); font-weight: 600; line-height: 1.22; color: var(--cover-ink);
+  font-family: var(--font-cover); font-weight: 600; line-height: 1.22; color: var(--cover-ink);
   font-size: calc(var(--title-scale, 1) * 9.5cqw); text-wrap: balance; overflow-wrap: anywhere;
 }
 .sleeve-title span { padding-top: .12em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -33,7 +33,7 @@
 .disc-label-rule { fill: none; stroke: var(--cover-ornament); stroke-width: .8; }
 .disc-label-rule.is-thin { stroke-width: .3; }
 .disc-label-lozenge { fill: var(--cover-ornament); }
-.disc-label-title { fill: var(--cover-ink); font-family: var(--font-display); font-weight: 600; }
+.disc-label-title { fill: var(--cover-ink); font-family: var(--font-cover); font-weight: 600; }
 .disc-label-small { fill: var(--cover-ornament); font-family: var(--font-ui); }
 .disc-label-ornament { color: var(--cover-ornament); }
 .disc-hole { fill: var(--bg); }
@@ -44,8 +44,3 @@
 .disc.is-spinning .disc-spin { animation-play-state: running; }
 @keyframes disc-spin { to { transform: rotate(360deg); } }
 
-/* app.css shrinks every animation to 0.001ms under reduced motion; an infinite 0.001ms spin would
-   flicker, so the record is explicitly still instead. */
-@media (prefers-reduced-motion: reduce) {
-  .disc-spin { animation: none; }
-}

@@ -11,12 +11,14 @@ const SETTLE_MS = 800;
 
 /**
  * @param {{ value: number, min?: number, max: number, step?: number|string, className: string,
- *   label: string, valueText?: (v: number) => string, onScrub?: (v: number) => void,
+ *   label: string, valueText?: (v: number) => string, bubble?: (v: number) => string, onScrub?: (v: number) => void,
  *   onCommit: (v: number) => void, disabled?: boolean }} props
  */
-export function RangeSlider({ value, min = 0, max, step = 1, className, label, valueText, onScrub, onCommit, disabled = false }) {
+export function RangeSlider({ value, min = 0, max, step = 1, className, label, valueText, bubble, onScrub, onCommit, disabled = false }) {
   const [dragValue, setDragValue] = useState(/** @type {number|null} */ (null));
   const [dragging, setDragging] = useState(false);
+  // Touching the track (before any value change) already swells it; cleared on release.
+  const [pressed, setPressed] = useState(false);
   const dragRef = useRef(/** @type {number|null} */ (null));
   const settleTimer = useRef(/** @type {any} */ (0));
   const shown = shownValue(dragValue, value);
@@ -39,7 +41,12 @@ export function RangeSlider({ value, min = 0, max, step = 1, className, label, v
     if (onScrub) onScrub(v);
   }
 
+  function press() {
+    setPressed(true);
+  }
+
   function release() {
+    setPressed(false);
     const v = dragRef.current;
     if (v === null) return;
     dragRef.current = null;
@@ -50,24 +57,30 @@ export function RangeSlider({ value, min = 0, max, step = 1, className, label, v
     settleTimer.current = setTimeout(() => setDragValue(null), SETTLE_MS);
   }
 
+  const active = pressed || dragging;
+  const bubbleText = bubble ? bubble(shown) : valueText ? valueText(shown) : '';
   return html`
-    <input
-      type="range"
-      class=${`range ${className} ${dragging ? 'is-dragging' : ''}`}
-      style=${{ '--fill': `${fillPercent(shown, min, max)}%` }}
-      min=${min}
-      max=${max}
-      step=${step}
-      value=${shown}
-      disabled=${disabled}
-      aria-label=${label}
-      aria-valuetext=${valueText ? valueText(shown) : null}
-      onInput=${move}
-      onChange=${release}
-      onPointerUp=${release}
-      onPointerCancel=${release}
-      onKeyUp=${release}
-      onBlur=${release}
-    />
+    <div class=${`range-wrap ${className}-wrap ${active ? 'is-active' : ''}`} style=${{ '--fill': `${fillPercent(shown, min, max)}%` }}>
+      <input
+        type="range"
+        class=${`range ${className} ${active ? 'is-dragging' : ''}`}
+        style=${{ '--fill': `${fillPercent(shown, min, max)}%` }}
+        min=${min}
+        max=${max}
+        step=${step}
+        value=${shown}
+        disabled=${disabled}
+        aria-label=${label}
+        aria-valuetext=${valueText ? valueText(shown) : null}
+        onPointerDown=${press}
+        onInput=${move}
+        onChange=${release}
+        onPointerUp=${release}
+        onPointerCancel=${release}
+        onKeyUp=${release}
+        onBlur=${release}
+      />
+      <span class="range-bubble" aria-hidden="true">${bubbleText}</span>
+    </div>
   `;
 }

@@ -22,7 +22,6 @@ import { Icon } from '../icons.js';
 
 const CHUNK_POLL_MS = 4000;
 const MANUAL_SCROLL_SUPPRESS_MS = 8000;
-const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function loadNum(key, fallback) {
   const v = Number(localStorage.getItem(key));
@@ -191,7 +190,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
     const el = paraRefs.current.get(playerState.currentSeq);
     if (!el) return;
     programmaticScroll.current = true;
-    el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     setTimeout(() => (programmaticScroll.current = false), 400);
   }, [playerState.currentSeq, autoScrollSuppressed, isListen]);
 

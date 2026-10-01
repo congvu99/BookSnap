@@ -5,6 +5,7 @@ import { RecordSleeve } from './record-sleeve.js';
 import { VinylDisc } from './vinyl-disc.js';
 import { Icon } from '../icons.js';
 import { libraryLabel, overallPercent, phaseOf } from '../processing-progress.js';
+import { remainingMinutes } from '../library-rails.js';
 
 const BUSY_PHASES = new Set(['ocr', 'tts', 'tail_wait', 'quota']);
 const PHASE_ICON = { ready: 'check', failed: 'alert-circle' };
@@ -29,10 +30,16 @@ function href(book, offline) {
   return book.state === 'ready' ? `#/listen/${book.id}` : `#/book/${book.id}`;
 }
 
-function Record({ book, offline, buildPercents }) {
+/**
+ * Book card shared by crates, rails and the browse grid.
+ * `showRemaining` (continue rail) adds "Còn N phút" under the progress bar.
+ * @param {{ book: any, offline: boolean, buildPercents: Map<any, number>, showRemaining?: boolean }} props
+ */
+export function LibraryBookCard({ book, offline, buildPercents, showRemaining = false }) {
   const info = stateInfo(book);
   const building = !offline && BUSY_PHASES.has(info.phase);
   // Clamp per book so the pressing bar never moves backwards between refreshes.
+  const minutes = showRemaining ? remainingMinutes(book) : null;
   const percent = building ? overallPercent(book, buildPercents.get(book.id) || 0) : 0;
   if (building) buildPercents.set(book.id, percent);
   return html`
@@ -47,6 +54,7 @@ function Record({ book, offline, buildPercents }) {
         ${book.progress && html`<div class="rec-progress"><span style=${{ width: `${progressPercent(book)}%` }}></span></div>`}
         ${building &&
         html`<div class="rec-build-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow=${percent}><span style=${{ width: `${percent}%` }}></span></div>`}
+        ${minutes !== null && html`<div class="rec-remaining">Còn ${minutes} phút</div>`}
         <div class="rec-state rec-state--${info.phase === 'failed' ? 'failed' : book.state}"><${Icon} name=${info.icon} size=${13} /><span>${info.label}</span></div>
       </div>
     </a>
@@ -60,7 +68,7 @@ export function LibraryCrate({ shelf, offline }) {
   return html`
     <section class="crate-wrap" aria-labelledby=${headingId}>
       <div class="crate-head"><h2 class="crate-tab" id=${headingId}>${shelf.name} <small>${shelf.books.length}</small></h2></div>
-      <div class="crate"><div class="crate-row">${shelf.books.map((b) => html`<${Record} key=${b.id} book=${b} offline=${offline} buildPercents=${buildPercents.current} />`)}</div></div>
+      <div class="crate"><div class="crate-row">${shelf.books.map((b) => html`<${LibraryBookCard} key=${b.id} book=${b} offline=${offline} buildPercents=${buildPercents.current} />`)}</div></div>
     </section>
   `;
 }
