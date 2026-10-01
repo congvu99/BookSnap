@@ -1,5 +1,5 @@
 /* Sign-in / sign-up, laid out for one-handed iPhone use: art on top, form and button in the thumb zone.
-   Focusing a field or the submit button collapses the hero (not the login/register tabs: that would move them under the finger mid-tap) so fields + submit stay above the iOS keyboard. */
+   Focusing a field collapses the hero (.is-typing, set in auth-view.js; it re-expands 350ms after the field blurs so a tap on the submit button still lands) so fields + submit stay above the iOS keyboard. */
 .signin { display: flex; flex-direction: column; min-height: 100dvh; padding: max(env(safe-area-inset-top), 12px) max(20px, env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); max-width: 480px; margin: 0 auto; }
 
 .signin-hero { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 250px; padding-top: 12px; transition: min-height 260ms ease-out; }
@@ -15,11 +15,11 @@
 .signin-brand .fleuron-rule { width: 190px; margin: 8px auto; }
 .signin-brand p { font-size: 15px; color: var(--ink-muted); max-width: 26ch; margin: 0 auto; text-wrap: balance; }
 
-.signin:focus-within:not(:has(.signin-segmented :focus)) .signin-hero { flex: 0 0 auto; min-height: 0; }
-.signin:focus-within:not(:has(.signin-segmented :focus)) .signin-art { transform: scale(.52); margin: -36px 0 -36px; }
-.signin:focus-within:not(:has(.signin-segmented :focus)) .signin-brand { margin-top: -6px; }
-.signin:focus-within:not(:has(.signin-segmented :focus)) .signin-brand p, .signin:focus-within:not(:has(.signin-segmented :focus)) .signin-brand .fleuron-rule { display: none; }
-.signin:focus-within:not(:has(.signin-segmented :focus)) .signin-brand h1 { font-size: 28px; }
+.signin.is-typing .signin-hero { flex: 0 0 auto; min-height: 0; }
+.signin.is-typing .signin-art { transform: scale(.52); margin: -36px 0 -36px; }
+.signin.is-typing .signin-brand { margin-top: -6px; }
+.signin.is-typing .signin-brand p, .signin.is-typing .signin-brand .fleuron-rule { display: none; }
+.signin.is-typing .signin-brand h1 { font-size: 28px; }
 
 .signin-segmented { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 3px; margin: 22px 0 14px; background: var(--surface-sunken); border: 1px solid var(--gold-soft); border-radius: var(--radius-md); }
 .signin-segmented::before { content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: var(--radius-sm); background: var(--surface);

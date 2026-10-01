@@ -96,10 +96,8 @@ function App() {
         navStack.pop();
         if (direction !== 'none') direction = 'pop';
       } else navStack.push(nextHash);
-      runRouteTransition(direction, () => new Promise((resolve) => {
-        setHash(nextHash);
-        requestAnimationFrame(() => resolve());
-      })).catch(() => setHash(nextHash));
+      // The transition helper waits for the render itself (no frame waits: see route-transition.js).
+      runRouteTransition(direction, () => setHash(nextHash)).catch(() => setHash(nextHash));
     };
     window.addEventListener('hashchange', onHashChange);
     const unsubAuth = authStore.subscribe((s) => {

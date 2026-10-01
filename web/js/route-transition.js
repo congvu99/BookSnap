@@ -4,7 +4,14 @@
 
 /** @typedef {'push'|'pop'|'tab'|'none'} NavDirection */
 
-const SUPPORTS_VT = typeof document !== 'undefined' && typeof document.startViewTransition === 'function';
+// WebKit (Safari, and every browser on iOS) is left on the CSS fallback: its View Transitions stalled
+// or crashed on our route changes (WebKit 26.6 crashes entering Của tôi), and Safari users saw no motion
+// at all. The fallback animates the entering screen with the same push / pop / tab directions.
+const IS_WEBKIT = typeof navigator !== 'undefined' && /Apple/.test(navigator.vendor || '');
+const SUPPORTS_VT = typeof document !== 'undefined' && typeof document.startViewTransition === 'function' && !IS_WEBKIT;
+/** How long html[data-nav] stays set for the CSS fallback's enter animation. */
+const FALLBACK_MS = 420;
+let fallbackTimer = 0;
 // css/motion.css only plays its own enter animation when View Transitions are unavailable.
 if (SUPPORTS_VT) document.documentElement.dataset.vt = '';
 
@@ -47,7 +54,10 @@ export function directionFor(fromRoute, toRoute) {
   return from.name === to.name && from.bookId === to.bookId ? 'none' : 'push';
 }
 
-const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+// Never wait for animation frames inside the update callback: the browser stops rendering until it
+// resolves, so requestAnimationFrame does not fire and the page freezes until the transition times
+// out (~4s, then no animation). A macrotask is enough for Preact's microtask-batched render to land.
+const afterRender = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** @type {{ skipTransition: () => void } | null} */
 let running = null;
@@ -61,6 +71,13 @@ let running = null;
  */
 export async function runRouteTransition(direction, update) {
   if (!SUPPORTS_VT || direction === 'none') {
+    if (typeof document !== 'undefined' && direction !== 'none') {
+      // CSS fallback: the remounted .route-view picks its enter animation from html[data-nav].
+      const root = document.documentElement;
+      clearTimeout(fallbackTimer);
+      root.dataset.nav = direction;
+      fallbackTimer = setTimeout(() => delete root.dataset.nav, FALLBACK_MS);
+    }
     await update();
     return;
   }
@@ -69,7 +86,7 @@ export async function runRouteTransition(direction, update) {
   root.dataset.nav = direction;
   const transition = document.startViewTransition(async () => {
     await update();
-    await nextFrame();
+    await afterRender();
   });
   running = transition;
   const clear = () => {
@@ -80,6 +97,8 @@ export async function runRouteTransition(direction, update) {
     }
   };
   transition.finished.then(clear, clear);
+  // Skipping a running transition (fast taps) rejects `ready`; that is expected, not an error.
+  transition.ready.catch(() => {});
   // updateCallbackDone rejects when `update` throws: surface it to the caller.
   await transition.updateCallbackDone;
 }

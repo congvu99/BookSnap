@@ -1,7 +1,7 @@
 // Sign-in to the family account (sign-up only until it exists), laid out for one-handed iPhone use:
 // brand art on top, form in the thumb zone.
 // Errors render under the named field (err.field); anything else uses the banner.
-import { html, useEffect, useState } from '../../vendor/preact-htm.module.js';
+import { html, useEffect, useRef, useState } from '../../vendor/preact-htm.module.js';
 import { authApi, ApiError } from '../api-client.js';
 import { authStore, cacheUser, safeLocalStorage } from '../store.js';
 import { Icon } from '../icons.js';
@@ -56,6 +56,24 @@ function Row({ name, id, value, onValue, invalid, extra, ...inputProps }) {
 export function AuthView({ onAuthed }) {
   const [tab, setTab] = useState('login');
   const [busy, setBusy] = useState(false);
+  // Hero collapses while a field is focused (room above the iOS keyboard). It re-expands only after a
+  // short delay: Safari never focuses a tapped button, so expanding on blur moved "Đăng nhập" 300px
+  // down under the finger and the tap was lost.
+  const [typing, setTyping] = useState(false);
+  const typingTimer = useRef(/** @type {any} */ (0));
+  const onFocusIn = (e) => {
+    if (e.target instanceof HTMLInputElement) {
+      clearTimeout(typingTimer.current);
+      setTyping(true);
+    }
+  };
+  const onFocusOut = () => {
+    clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => {
+      if (!(document.activeElement instanceof HTMLInputElement)) setTyping(false);
+    }, 350);
+  };
+  useEffect(() => () => clearTimeout(typingTimer.current), []);
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState(/** @type {string|null} */ (null));
   const [fieldErrors, setFieldErrors] = useState(/** @type {Record<string,string>} */ ({}));
@@ -151,7 +169,7 @@ export function AuthView({ onAuthed }) {
   const row = (name) => ({ name, value: values[name], onValue: set, invalid: errorField === name });
 
   return html`
-    <div class=${`signin ${busy ? 'is-busy' : ''}`}>
+    <div class=${`signin ${busy ? 'is-busy' : ''} ${typing ? 'is-typing' : ''}`} onFocusIn=${onFocusIn} onFocusOut=${onFocusOut}>
       <div class="signin-hero">
         <div class="signin-art" aria-hidden="true">
           <${VinylDisc} book=${BRAND_BOOK} spinning=${busy} />
