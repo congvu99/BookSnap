@@ -69,7 +69,7 @@ export function ProfileManageForm({ profile, defaultAvatar, isCurrent, canDelete
       </fieldset>
       <div class="profile-form-buttons">
         <button type="button" class="btn btn-secondary" onClick=${onCancel} disabled=${busy}>Huỷ</button>
-        <button type="submit" class="btn btn-primary" disabled=${busy || !trimmed}>${profile ? 'Lưu' : 'Thêm hồ sơ'}</button>
+        <button type="submit" class="btn btn-primary" disabled=${busy || !trimmed} aria-busy=${busy ? 'true' : null}>${profile ? 'Lưu' : 'Thêm hồ sơ'}</button>
       </div>
 
       ${profile && !isCurrent && canDelete &&
@@ -94,7 +94,7 @@ export function ProfileManageForm({ profile, defaultAvatar, isCurrent, canDelete
               }}
             />
           </div>
-          <button type="button" class="btn btn-danger btn-block" disabled=${busy || !password} onClick=${remove}>Xoá hồ sơ</button>
+          <button type="button" class="btn btn-danger btn-block" disabled=${busy || !password} aria-busy=${busy ? 'true' : null} onClick=${remove}>Xoá hồ sơ</button>
         </section>
       `}
       ${profile && isCurrent && html`<p class="account-hint">Đang dùng hồ sơ này nên không xoá được — đổi sang hồ sơ khác trước.</p>`}

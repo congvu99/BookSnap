@@ -127,6 +127,7 @@ export function ProfilePickerView({ currentUser, overlay = false, onPicked, onBa
                   aria-current=${currentUser?.id === p.id ? 'true' : null}
                   aria-label=${managing ? `Sửa hồ sơ ${p.display_name}` : `Nghe với hồ sơ ${p.display_name}`}
                   disabled=${busyId !== null}
+                  aria-busy=${busyId === p.id ? 'true' : null}
                   onClick=${() => pick(p)}
                 >
                   <${ProfileAvatar} name=${p.display_name} avatar=${p.avatar} large />

@@ -1,8 +1,9 @@
 // Listen mode of ReaderView: the record slides out of its sleeve while playing, brass tonearm tracks
 // the book position. Purely presentational: all state and handlers come from ReaderView, which keeps
 // the single AudioPlaylist alive across listen <-> read (docs/mockups/vinyl-library-preview.html).
-import { html } from '../../vendor/preact-htm.module.js';
+import { html, useState } from '../../vendor/preact-htm.module.js';
 import { Icon } from '../icons.js';
+import { RangeSlider } from './range-slider.js';
 import { RecordSleeve } from './record-sleeve.js';
 import { VinylDisc } from './vinyl-disc.js';
 import { Tonearm, armAngle } from './tonearm.js';
@@ -24,6 +25,7 @@ export function nextRate(rate) {
  *   onTogglePlay: () => void, onSeekBack: () => void, onSeekForward: () => void,
  *   onSeekAbsolute: (ms:number) => void, onSetRate: (r:number) => void, onOpenSheet: () => void,
  *   readHref: string, bookmarkSlot?: any, pageText?: string|null, onOpenPages?: () => void,
+ *   buffering?: boolean,
  * }} props
  * bookmarkSlot: optional vnode rendered as the last chip (reserved for the bookmark toggle).
  * pageText: "X/N" of the page being heard; without it the eyebrow falls back to chunk numbers.
@@ -49,7 +51,10 @@ export function NowPlayingPanel({
   bookmarkSlot,
   pageText,
   onOpenPages,
+  buffering = false,
 }) {
+  // Finger position while scrubbing: labels preview it, the audio only seeks on release.
+  const [previewMs, setPreviewMs] = useState(/** @type {number|null} */ (null));
   const progress = totalDurationMs > 0 ? Math.min(1, Math.max(0, currentAbsoluteMs / totalDurationMs)) : 0;
   const pct = progress * 100;
 
@@ -79,22 +84,30 @@ export function NowPlayingPanel({
         ${statusLabel && html`<p class="np-status"><${Icon} name="clock" size=${14} /> ${statusLabel}</p>`}
         ${excerpt && html`<p class="np-excerpt">${excerpt}</p>`}
 
-        <input
-          type="range"
-          class="np-seek"
-          style=${{ '--fill': `${pct}%` }}
-          min="0"
-          max="1000"
+        <${RangeSlider}
+          className="np-seek"
+          min=${0}
+          max=${1000}
           value=${Math.round(pct * 10)}
-          aria-label="Tiến độ sách"
-          aria-valuetext=${`${formatTime(currentAbsoluteMs)} trên ${formatTime(totalDurationMs)}`}
-          onInput=${(e) => onSeekAbsolute((Number(e.currentTarget.value) / 1000) * totalDurationMs)}
+          label="Tiến độ sách"
+          valueText=${(v) => `${formatTime((v / 1000) * totalDurationMs)} trên ${formatTime(totalDurationMs)}`}
+          onScrub=${(v) => setPreviewMs((v / 1000) * totalDurationMs)}
+          onCommit=${(v) => {
+            onSeekAbsolute((v / 1000) * totalDurationMs);
+            setPreviewMs(null);
+          }}
         />
-        <div class="np-times"><span>${formatTime(currentAbsoluteMs)}</span><span>${formatTime(totalDurationMs)}</span></div>
+        <div class="np-times"><span>${formatTime(previewMs ?? currentAbsoluteMs)}</span><span>${formatTime(totalDurationMs)}</span></div>
 
         <div class="np-transport">
           <button class="np-skip" aria-label="Lùi 15 giây" onClick=${onSeekBack}><${Icon} name="rotate-ccw" size=${34} /><b>15</b></button>
-          <button class="np-play" aria-label=${playing ? 'Tạm dừng' : 'Phát'} onClick=${onTogglePlay} disabled=${!ready}>
+          <button
+            class=${`np-play ${buffering ? 'is-buffering' : ''}`}
+            aria-label=${playing ? 'Tạm dừng' : 'Phát'}
+            aria-busy=${buffering ? 'true' : null}
+            onClick=${onTogglePlay}
+            disabled=${!ready}
+          >
             <${Icon} name=${playing ? 'pause' : 'play'} size=${30} />
           </button>
           <button class="np-skip" aria-label="Tiến 15 giây" onClick=${onSeekForward}><${Icon} name="rotate-cw" size=${34} /><b>15</b></button>

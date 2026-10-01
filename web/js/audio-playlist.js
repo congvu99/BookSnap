@@ -22,6 +22,8 @@ export class AudioPlaylist {
     this.chunks = [];
     this.rate = 1;
     this.currentSeq = null;
+    /** True while the active element wants to play but is waiting for data. */
+    this._buffering = false;
     // H3: HTMLMediaElement.src reflects the *resolved* URL — once the attribute has ever been
     // set, `el.src` is never falsy again (assigning '' makes it resolve to the page's own URL,
     // and even `removeAttribute('src')` leaves some browsers reporting the last value). Track
@@ -47,10 +49,27 @@ export class AudioPlaylist {
     });
     el.addEventListener('ended', () => {
       if (el !== this.active) return;
+      this._buffering = false;
       this._advance();
     });
     el.addEventListener('play', () => this._emit());
-    el.addEventListener('pause', () => this._emit());
+    el.addEventListener('pause', () => {
+      if (el === this.active) this._buffering = false;
+      this._emit();
+    });
+    // Network starvation: the element wants to play but has no data for the next frame.
+    el.addEventListener('waiting', () => this._setBuffering(el, true));
+    el.addEventListener('stalled', () => this._setBuffering(el, !el.paused));
+    el.addEventListener('playing', () => this._setBuffering(el, false));
+    el.addEventListener('canplay', () => this._setBuffering(el, false));
+  }
+
+  /** Update the buffering flag from the active element only; emits on change. */
+  _setBuffering(el, value) {
+    if (el !== this.active) return;
+    if (this._buffering === value) return;
+    this._buffering = value;
+    this._emit();
   }
 
   /** @param {Chunk[]} chunks */
@@ -91,6 +110,8 @@ export class AudioPlaylist {
     }
     el.playbackRate = this.rate;
     el.currentTime = offsetMs / 1000;
+    // A fresh src or seek has no data yet (readyState < HAVE_FUTURE_DATA): show buffering until `playing`.
+    this._buffering = autoplay && el.readyState < 3;
     if (autoplay) el.play().catch(() => {});
     this._preloadedFor = null;
     this._maybePreloadNext();
@@ -99,8 +120,10 @@ export class AudioPlaylist {
 
   play() {
     this._wantsPlay = true;
-    if (this._loaded[this.activeKey] != null) this.active.play().catch(() => {});
-    else this._emit();
+    if (this._loaded[this.activeKey] != null) {
+      this._buffering = this.active.readyState < 3;
+      this.active.play().catch(() => {});
+    } else this._emit();
   }
 
   pause() {
@@ -155,6 +178,7 @@ export class AudioPlaylist {
       this.currentSeq = next.seq;
       this.active.currentTime = offsetSeconds;
       this.active.playbackRate = this.rate;
+      this._buffering = Boolean(wasPlaying) && this.active.readyState < 3;
       if (wasPlaying) this.active.play().catch(() => {});
       this.standby.pause();
       this.standby.removeAttribute('src');
@@ -194,7 +218,7 @@ export class AudioPlaylist {
     this._preloadedFor = next.seq;
   }
 
-  /** @returns {{currentSeq:number|null, currentTimeMs:number, durationMs:number, playing:boolean, ready:boolean}} */
+  /** @returns {{currentSeq:number|null, currentTimeMs:number, durationMs:number, playing:boolean, ready:boolean, buffering:boolean}} */
   getState() {
     const chunk = this._chunkBySeq(this.currentSeq);
     return {
@@ -203,6 +227,7 @@ export class AudioPlaylist {
       durationMs: chunk && chunk.duration_ms ? chunk.duration_ms : Math.round((this.active.duration || 0) * 1000),
       playing: !this.active.paused && !this.active.ended,
       ready: Boolean(chunk && chunk.audio_url),
+      buffering: this._buffering,
       chunkStatus: chunk ? chunk.status : null,
       rate: this.rate,
     };

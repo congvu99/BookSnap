@@ -42,7 +42,7 @@ export function DisplayNameForm({ user, onSaved }) {
         <input id="acc-display-name" autocomplete="nickname" maxlength=${DISPLAY_NAME_MAX} required value=${value} onInput=${(e) => setValue(e.currentTarget.value)} />
       </div>
       ${message && html`<p class=${message.kind === 'ok' ? 'account-ok' : 'field-error'} role="status">${message.text}</p>`}
-      <button class="btn btn-secondary" type="submit" disabled=${busy || unchanged || !trimmed}>${busy ? 'Đang lưu…' : 'Lưu tên'}</button>
+      <button class="btn btn-secondary" type="submit" disabled=${busy || unchanged || !trimmed} aria-busy=${busy ? 'true' : null}>${busy ? 'Đang lưu…' : 'Lưu tên'}</button>
     </form>
   `;
 }
@@ -107,7 +107,7 @@ export function PasswordForm({ username }) {
       ${error && !['current_password', 'new_password', 'confirm'].includes(error.field) && html`<p class="field-error" role="alert">${error.text}</p>`}
       ${done && html`<p class="account-ok" role="status">${done}</p>`}
       <p class="account-hint">Cả nhà dùng chung mật khẩu này. Mọi thiết bị khác (mọi hồ sơ) sẽ bị đăng xuất; thiết bị này vẫn đăng nhập.</p>
-      <button class="btn btn-secondary" type="submit" disabled=${busy}>${busy ? 'Đang đổi…' : 'Đổi mật khẩu'}</button>
+      <button class="btn btn-secondary" type="submit" disabled=${busy} aria-busy=${busy ? 'true' : null}>${busy ? 'Đang đổi…' : 'Đổi mật khẩu'}</button>
     </form>
   `;
 }

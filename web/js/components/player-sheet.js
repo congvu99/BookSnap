@@ -3,6 +3,7 @@ import { html, useEffect, useState } from '../../vendor/preact-htm.module.js';
 import { Icon } from '../icons.js';
 import { setTheme } from '../store.js';
 import { TopicInput } from './topic-input.js';
+import { RangeSlider } from './range-slider.js';
 import { voiceLabel } from '../voice-labels.js';
 import { AMBIENT_TRACKS } from '../background-music-tracks.js';
 import { MAX_VOLUME } from '../background-music-prefs.js';
@@ -22,7 +23,7 @@ const FONT_SIZES = [16, 18, 20, 22, 24];
  *   fontSize:number, onSetFontSize:(s:number)=>void,
  *   theme:string, sleepMinutes:number|null, onSetSleep:(m:number|null)=>void,
  *   musicTrack:string|null, musicVolume:number,
- *   onSetMusicTrack:(id:string|null)=>void, onSetMusicVolume:(v:number)=>void,
+ *   onSetMusicTrack:(id:string|null)=>void, onSetMusicVolume:(v:number)=>void, onPreviewMusicVolume:(v:number)=>void,
  *   downloadState:{status:string, done:number, total:number}, onDownload:()=>void,
  *   canManage:boolean, book:object, currentVoice:string,
  *   onShelf:boolean, onToggleShelf:()=>void,
@@ -31,9 +32,11 @@ const FONT_SIZES = [16, 18, 20, 22, 24];
  * }} props
  */
 export function PlayerSheet(props) {
-  const { rate, onSetRate, fontSize, onSetFontSize, sleepMinutes, onSetSleep, musicTrack, musicVolume, onSetMusicTrack, onSetMusicVolume, downloadState, onDownload, canManage, book, currentVoice, onChangeTopic, onDelete, exportUrl, onClose, onShelf, onToggleShelf } = props;
+  const { rate, onSetRate, fontSize, onSetFontSize, sleepMinutes, onSetSleep, musicTrack, musicVolume, onSetMusicTrack, onSetMusicVolume, onPreviewMusicVolume, downloadState, onDownload, canManage, book, currentVoice, onChangeTopic, onDelete, exportUrl, onClose, onShelf, onToggleShelf } = props;
   const savedTopic = book.topic ? book.topic.name : '';
   const [topicDraft, setTopicDraft] = useState(savedTopic);
+  // Live % while the volume slider is being dragged (the persisted value only changes on release).
+  const [volumePreview, setVolumePreview] = useState(/** @type {number|null} */ (null));
   // Show the server's spelling after a save ("VĂN HỌC" → "Văn học").
   useEffect(() => setTopicDraft(savedTopic), [savedTopic]);
 
@@ -78,17 +81,26 @@ export function PlayerSheet(props) {
           )}
         </div>
         ${musicTrack != null &&
-        html`<input
-          type="range"
-          class="music-volume"
-          min="0"
-          max=${Math.round(MAX_VOLUME * 100)}
-          step="5"
-          value=${Math.round(musicVolume * 100)}
-          aria-label="Âm lượng nhạc nền"
-          aria-valuetext=${`${Math.round(musicVolume * 100)}%`}
-          onInput=${(e) => onSetMusicVolume(Number(e.currentTarget.value) / 100)}
-        />`}
+        html`<div class="music-volume-row">
+          <${RangeSlider}
+            className="music-volume"
+            min=${0}
+            max=${Math.round(MAX_VOLUME * 100)}
+            step=${5}
+            value=${Math.round(musicVolume * 100)}
+            label="Âm lượng nhạc nền"
+            valueText=${(v) => `${v}%`}
+            onScrub=${(v) => {
+              setVolumePreview(v);
+              onPreviewMusicVolume(v / 100);
+            }}
+            onCommit=${(v) => {
+              onSetMusicVolume(v / 100);
+              setVolumePreview(null);
+            }}
+          />
+          <span class="music-volume-value" aria-hidden="true">${volumePreview ?? Math.round(musicVolume * 100)}%</span>
+        </div>`}
       </div>
 
       <div class="player-sheet-section">

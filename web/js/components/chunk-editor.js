@@ -45,7 +45,7 @@ export function ChunkEditor({ chunk, onClose, onSaved }) {
         <p class="text-muted" style=${{ fontSize: '13px' }}>Lưu sẽ sinh lại audio cho đoạn này; các đoạn khác không đổi.</p>
         <div style=${{ display: 'flex', gap: '12px' }}>
           <button class="btn btn-secondary" style=${{ flex: 1 }} onClick=${onClose} disabled=${busy}>Huỷ</button>
-          <button class="btn btn-primary" style=${{ flex: 1 }} onClick=${save} disabled=${busy}>
+          <button class="btn btn-primary" style=${{ flex: 1 }} onClick=${save} disabled=${busy} aria-busy=${busy ? 'true' : null}>
             ${busy ? 'Đang lưu…' : 'Lưu'}
           </button>
         </div>

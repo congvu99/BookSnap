@@ -6,6 +6,7 @@ import { authErrorKind } from './auth-error-kind.js';
 import { authStore, CACHED_USER_KEY, cacheUser, clearCachedUser, hasUnsavedWork, readCachedUser } from './store.js';
 import { Icon } from './icons.js';
 import { BottomNav } from './components/bottom-nav.js';
+import { TopProgressBar } from './components/top-progress-bar.js';
 import { AuthView } from './views/auth-view.js';
 import { LibraryView } from './views/library-view.js';
 import { CaptureView } from './views/capture-view.js';
@@ -43,6 +44,11 @@ function seqParam(query) {
 // screen and has nothing pinned to the bottom, so it keeps the nav; read mode's mini player owns that edge.
 const NO_NAV_ROUTES = new Set(['auth', 'profiles', 'capture', 'read']);
 const showsNav = (route) => !NO_NAV_ROUTES.has(route.name) || (route.name === 'read' && route.mode === 'listen');
+
+// Transition identity: name + book, never mode, so read↔listen neither animates nor remounts.
+const routeKeyOf = (route) => route.name + (route.bookId || '');
+// Deeper screens slide in from the right a few px; top-level tabs just fade/rise (see motion.css).
+const DEEP_ROUTES = new Set(['book', 'read', 'capture']);
 
 function App() {
   const [hash, setHash] = useState(window.location.hash);
@@ -137,6 +143,12 @@ function App() {
     };
   }, []);
 
+  // New screen → start at the top; read↔listen share a key so the reader keeps its scroll.
+  const routeKey = routeKeyOf(parseRoute(hash));
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [routeKey]);
+
   if (!authReady) {
     return html`<div class="container"><div class="skeleton" style=${{ height: '240px' }}></div></div>`;
   }
@@ -153,7 +165,7 @@ function App() {
   // `user` is only kept while needsProfile when a view holds unsent work (see onProfileRequired):
   // then the view stays mounted under the overlay rendered at the end of the shell.
   if (needsProfile && !user) {
-    return html`<${ProfilePickerView} currentUser=${null} onPicked=${onPicked} />`;
+    return html`<${TopProgressBar} /><${ProfilePickerView} currentUser=${null} onPicked=${onPicked} />`;
   }
   if (!user && route.name !== 'auth') {
     window.location.hash = '#/auth';
@@ -203,7 +215,10 @@ function App() {
       >
         <${Icon} name="clock" size=${14} /> Đang ngoại tuyến
       </div>`}
-      <main class="app-main ${showNav ? 'app-main--with-nav' : ''}" inert=${needsProfile ? true : undefined}>${view}</main>
+      <${TopProgressBar} />
+      <main class="app-main ${showNav ? 'app-main--with-nav' : ''}" inert=${needsProfile ? true : undefined}>
+        <div class="route-view ${DEEP_ROUTES.has(route.name) ? 'route-view--deep' : ''}" key=${routeKey}>${view}</div>
+      </main>
       ${showNav && html`<${BottomNav} currentRoute=${hash || '#/library'} />`}
       ${needsProfile && html`<${ProfilePickerView} currentUser=${user} overlay onPicked=${onPicked} />`}
     </div>

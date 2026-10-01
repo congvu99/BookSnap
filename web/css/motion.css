@@ -1,0 +1,30 @@
+/* Screen-to-screen motion. Everything lives in no-preference (app.css also kills motion globally for
+   reduced-motion users). Enter animations use fill-mode `backwards` so no transform stays applied after
+   they end: a lingering transform would make the wrapper the containing block of position:fixed UI
+   (mini player, sheets, toasts). */
+@media (prefers-reduced-motion: no-preference) {
+  :root { --ease-out: cubic-bezier(.2, .8, .2, 1); }
+
+  /* Clip (not hidden: no scroll container, sticky keeps working) the few px of sideways travel. */
+  .app-shell { overflow-x: clip; }
+
+  .route-view { animation: route-enter 220ms var(--ease-out) backwards; }
+  .route-view--deep { animation-name: route-enter-deep; }
+  @keyframes route-enter { from { opacity: 0; transform: translateY(10px); } }
+  @keyframes route-enter-deep { from { opacity: 0; transform: translate(12px, 6px); } }
+
+  .player-sheet { animation: sheet-up 240ms var(--ease-out) backwards; }
+  .player-sheet-backdrop { animation: fade-in 200ms ease-out backwards; }
+  @keyframes sheet-up { from { transform: translateY(100%); } }
+  @keyframes fade-in { from { opacity: 0; } }
+
+  .profiles-overlay { animation: overlay-in 220ms var(--ease-out) backwards; }
+  @keyframes overlay-in { from { opacity: 0; transform: scale(.98); } }
+
+  /* Toasts toggle via [hidden], so the animation replays each time one appears. */
+  .status-toast, .reader-toast { animation: toast-in 200ms var(--ease-out) backwards; }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(12px); } }
+
+  .profile-tile, .chip, .shelf-toggle { transition: transform 150ms var(--ease-out); }
+  .profile-tile:active, .chip:active, .shelf-toggle:active { transform: scale(.97); }
+}

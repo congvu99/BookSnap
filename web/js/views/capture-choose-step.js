@@ -61,7 +61,7 @@ export function CaptureChooseStep({ voiceOptions, defaultVoice }) {
           </div>
         `}
         <p class="voice-change-note">Mỗi ảnh là 1 trang — chụp lần lượt từng trang.</p>
-        <button type="submit" class="btn btn-primary btn-block" disabled=${!title.trim() || busy}>
+        <button type="submit" class="btn btn-primary btn-block" disabled=${!title.trim() || busy} aria-busy=${busy ? 'true' : null}>
           ${busy ? html`<span class="spinner" aria-hidden="true"></span> Đang tạo…` : 'Bắt đầu chụp'}
         </button>
       <//>

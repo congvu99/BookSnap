@@ -207,7 +207,7 @@ export function AuthView({ onAuthed }) {
         ${errorMessage &&
         html`<p class="signin-error" id=${ERROR_ID} role="alert"><${Icon} name="alert-circle" size=${16} /><span>${errorMessage}</span></p>`}
 
-        <button type="submit" class="btn btn-primary signin-submit" disabled=${busy}>
+        <button type="submit" class="btn btn-primary signin-submit" disabled=${busy} aria-busy=${busy ? 'true' : null}>
           ${busy ? 'Đang mở thư viện…' : isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}
         </button>
         <p class="signin-foot">${FOOT_HINT[tab]}</p>

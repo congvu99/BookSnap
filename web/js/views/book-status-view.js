@@ -181,7 +181,7 @@ export function BookStatusView({ bookId }) {
           <h1 style=${{ fontSize: '20px', margin: 0 }}>${book.title}</h1>
         </div>
         <div class="page-header-actions">
-          <button class="shelf-toggle" aria-pressed=${book.on_shelf ? 'true' : 'false'} disabled=${shelfBusy} onClick=${toggleShelf}>
+          <button class="shelf-toggle" aria-pressed=${book.on_shelf ? 'true' : 'false'} disabled=${shelfBusy} aria-busy=${shelfBusy ? 'true' : null} onClick=${toggleShelf}>
             <${Icon} name="bookmark" size=${16} /> ${book.on_shelf ? 'Trên kệ' : 'Thêm vào kệ'}
           </button>
           ${book.can_manage && html`<button class="icon-btn" aria-label="Xoá sách" onClick=${remove}><${Icon} name="trash" /></button>`}
@@ -203,7 +203,7 @@ export function BookStatusView({ bookId }) {
           </div>
           ${phase === 'tail_wait' &&
           html`<div class="build-progress-actions">
-            <button class="btn btn-secondary" disabled=${sealing} onClick=${sealNow}>
+            <button class="btn btn-secondary" disabled=${sealing} aria-busy=${sealing ? 'true' : null} onClick=${sealNow}>
               ${sealing && html`<span class="spinner" aria-hidden="true"></span> `}Xong rồi, đọc luôn
             </button>
           </div>`}
@@ -225,10 +225,10 @@ export function BookStatusView({ bookId }) {
                 <li key=${p.id} class="card" style=${{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <span>Trang ${p.seq + 1}${p.error ? ` — ${p.error}` : ''}</span>
                   <span style=${{ display: 'flex', gap: '8px' }}>
-                    <button class="btn btn-secondary" disabled=${retrying.has(p.id)} onClick=${() => retryPage(p.id)}>
+                    <button class="btn btn-secondary" disabled=${retrying.has(p.id)} aria-busy=${retrying.has(p.id) ? 'true' : null} onClick=${() => retryPage(p.id)}>
                       <${Icon} name="refresh-cw" size=${16} /> Thử lại
                     </button>
-                    <button class="btn btn-danger" disabled=${discarding.has(p.seq)} onClick=${() => discard(p.seq, false)}>
+                    <button class="btn btn-danger" disabled=${discarding.has(p.seq)} aria-busy=${discarding.has(p.seq) ? 'true' : null} onClick=${() => discard(p.seq, false)}>
                       <${Icon} name="trash" size=${16} /> Bỏ trang này
                     </button>
                   </span>
@@ -239,7 +239,7 @@ export function BookStatusView({ bookId }) {
               (seq) => html`
                 <li key=${`missing-${seq}`} class="card" style=${{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <span>Trang ${seq + 1} chưa được tải lên</span>
-                  <button class="btn btn-danger" disabled=${discarding.has(seq)} onClick=${() => discard(seq, true)}>
+                  <button class="btn btn-danger" disabled=${discarding.has(seq)} aria-busy=${discarding.has(seq) ? 'true' : null} onClick=${() => discard(seq, true)}>
                     <${Icon} name="trash" size=${16} /> Bỏ qua trang này
                   </button>
                 </li>

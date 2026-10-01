@@ -19,7 +19,7 @@ function deviceStorage() {
 /**
  * @param {boolean} playing
  * @returns {{trackId: string|null, volume: number, message: string|null,
- *   setTrack: (id: string|null) => void, setVolume: (v: number) => void, unlock: () => void}}
+ *   setTrack: (id: string|null) => void, setVolume: (v: number) => void, previewVolume: (v: number) => void, unlock: () => void}}
  */
 export function useBackgroundMusic(playing) {
   const [prefs, setPrefs] = useState(() => readPrefs(deviceStorage(), AMBIENT_TRACKS));
@@ -74,9 +74,14 @@ export function useBackgroundMusic(playing) {
     persist({ volume });
   }
 
+  /** Audible while dragging: the engine ramps by itself, nothing is persisted or re-rendered. */
+  function previewVolume(v) {
+    if (engineRef.current) engineRef.current.setVolume(clampVolume(v));
+  }
+
   function unlock() {
     if (engineRef.current) engineRef.current.unlock();
   }
 
-  return { trackId: prefs.track, volume: prefs.volume, message, setTrack, setVolume, unlock };
+  return { trackId: prefs.track, volume: prefs.volume, message, setTrack, setVolume, previewVolume, unlock };
 }

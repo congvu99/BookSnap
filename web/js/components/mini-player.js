@@ -1,6 +1,7 @@
 // Mini player dính đáy: play/pause 56px, ±15s, thanh tiến độ toàn sách, thời gian tabular (§6.3).
-import { html } from '../../vendor/preact-htm.module.js';
+import { html, useState } from '../../vendor/preact-htm.module.js';
 import { Icon } from '../icons.js';
+import { RangeSlider } from './range-slider.js';
 import { RecordSleeve } from './record-sleeve.js';
 import { VinylDisc } from './vinyl-disc.js';
 
@@ -20,7 +21,7 @@ export function formatTime(ms) {
  *   currentAbsoluteMs: number, totalDurationMs: number,
  *   onTogglePlay: () => void, onSeekBack: () => void, onSeekForward: () => void,
  *   onSeekAbsolute: (ms:number) => void, onExpand: () => void,
- *   pageText?: string|null, onOpenPages?: () => void,
+ *   pageText?: string|null, onOpenPages?: () => void, buffering?: boolean,
  * }} props
  */
 export function MiniPlayer({
@@ -38,24 +39,29 @@ export function MiniPlayer({
   onExpand,
   pageText,
   onOpenPages,
+  buffering = false,
 }) {
+  // Finger position while scrubbing: labels preview it, the audio only seeks on release.
+  const [previewMs, setPreviewMs] = useState(/** @type {number|null} */ (null));
   const pct = totalDurationMs > 0 ? Math.min(100, (currentAbsoluteMs / totalDurationMs) * 100) : 0;
 
   return html`
     <div class="mini-player" role="region" aria-label="Trình phát">
-      <input
-        type="range"
-        class="mini-player-progress"
-        style=${{ '--fill': `${pct}%` }}
-        min="0"
-        max="1000"
+      <${RangeSlider}
+        className="mini-player-progress"
+        min=${0}
+        max=${1000}
         value=${Math.round(pct * 10)}
-        aria-label="Tiến độ sách"
-        aria-valuenow=${Math.round(pct)}
-        onInput=${(e) => onSeekAbsolute((Number(e.currentTarget.value) / 1000) * totalDurationMs)}
+        label="Tiến độ sách"
+        valueText=${(v) => `${formatTime((v / 1000) * totalDurationMs)} trên ${formatTime(totalDurationMs)}`}
+        onScrub=${(v) => setPreviewMs((v / 1000) * totalDurationMs)}
+        onCommit=${(v) => {
+          onSeekAbsolute((v / 1000) * totalDurationMs);
+          setPreviewMs(null);
+        }}
       />
       <div class="mini-player-times">
-        <span>${formatTime(currentAbsoluteMs)}</span>
+        <span>${formatTime(previewMs ?? currentAbsoluteMs)}</span>
         ${pageText &&
         html`<button class="mini-page-btn" aria-label=${`Đang ở trang ${pageText.replace('/', ' trên ')}, chọn trang`} onClick=${onOpenPages}>Tr. ${pageText}</button>`}
         <span>${formatTime(totalDurationMs)}</span>
@@ -73,7 +79,13 @@ export function MiniPlayer({
         </a>
         <div class="mini-player-controls">
           <button class="icon-btn" aria-label="Lùi 15 giây" onClick=${onSeekBack}><${Icon} name="rotate-ccw" /></button>
-          <button class="mini-player-play" aria-label=${playing ? 'Tạm dừng' : 'Phát'} onClick=${onTogglePlay} disabled=${!ready}>
+          <button
+            class=${`mini-player-play ${buffering ? 'is-buffering' : ''}`}
+            aria-label=${playing ? 'Tạm dừng' : 'Phát'}
+            aria-busy=${buffering ? 'true' : null}
+            onClick=${onTogglePlay}
+            disabled=${!ready}
+          >
             <${Icon} name=${playing ? 'pause' : 'play'} size=${28} />
           </button>
           <button class="icon-btn" aria-label="Tiến 15 giây" onClick=${onSeekForward}><${Icon} name="rotate-cw" /></button>

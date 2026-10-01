@@ -357,6 +357,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
             readHref=${`#/read/${bookId}`}
             pageText=${pageText}
             onOpenPages=${openPages}
+            buffering=${Boolean(playerState.buffering)}
             bookmarkSlot=${currentSeq != null &&
             html`<button
               class="chip np-bookmark"
@@ -420,6 +421,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         onExpand=${() => setSheetOpen(true)}
         pageText=${pageText}
         onOpenPages=${openPages}
+        buffering=${Boolean(playerState.buffering)}
       />`}
 
       ${pagePickerOpen && anchors &&
@@ -443,6 +445,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         musicVolume=${music.volume}
         onSetMusicTrack=${music.setTrack}
         onSetMusicVolume=${music.setVolume}
+        onPreviewMusicVolume=${music.previewVolume}
         downloadState=${downloadState}
         onDownload=${handleDownload}
         canManage=${book.can_manage}

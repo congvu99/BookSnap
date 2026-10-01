@@ -39,23 +39,15 @@
   font: italic 15px/1.6 var(--font-read); color: var(--ink-muted); margin: 12px auto 0; max-width: 32ch;
   display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.np-seek {
-  --track: linear-gradient(to right, var(--primary) var(--fill, 0%), var(--gold-soft) var(--fill, 0%));
-  --lozenge: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-  display: block; width: 100%; height: 28px; margin: 14px 0 0; background: transparent;
-  -webkit-appearance: none; appearance: none; cursor: pointer;
-}
-.np-seek::-webkit-slider-runnable-track { height: 2px; background: var(--track); }
-.np-seek::-moz-range-track { height: 2px; background: var(--track); }
-.np-seek::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -7px; border: none; background: var(--primary); clip-path: var(--lozenge); }
-.np-seek::-moz-range-thumb { width: 16px; height: 16px; border: none; border-radius: 0; background: var(--primary); clip-path: var(--lozenge); }
+/* Slider look comes from the shared .range rules in reader.css. */
+.np-seek { margin-top: 6px; }
 .np-times { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 .np-transport { display: flex; align-items: center; justify-content: center; gap: 28px; margin: 12px 0 18px; }
 .np-skip { position: relative; width: 52px; height: 52px; border: 0; background: none; color: var(--ink); display: grid; place-items: center; cursor: pointer; }
 .np-skip .icon svg { stroke-width: 1.3; }
 .np-skip b { position: absolute; font: 600 11px var(--font-ui); padding-top: 3px; }
 .np-play {
-  width: 68px; height: 68px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer;
+  position: relative; width: 68px; height: 68px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer;
   background: var(--primary); color: var(--on-primary);
   box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--gold), var(--elevation-sheet);
 }

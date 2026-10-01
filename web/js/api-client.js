@@ -4,6 +4,7 @@
 // profile_mismatch means the device must pick a profile again (deleted, or switched in another tab).
 import { authStore } from './store.js';
 import { PROFILE_REQUIRED_CODES } from './auth-error-kind.js';
+import { begin as beginNetworkActivity } from './network-activity.js';
 
 /** Emitted on window when any request receives 401, so app.js can redirect once. */
 const UNAUTHORIZED_EVENT = 'booksnap:unauthorized';
@@ -29,10 +30,24 @@ export class ApiError extends Error {
 /**
  * @param {string} path e.g. '/api/books'
  * @param {RequestInit} [options]
- * @param {{skipAuthRedirect?: boolean}} [opts]
+ * @param {{skipAuthRedirect?: boolean, foreground?: boolean}} [opts] foreground: show the top progress bar for this (GET) request too
  * @returns {Promise<any>} parsed JSON body, or null for 204
  */
 export async function apiFetch(path, options = {}, opts = {}) {
+  // Requests the user is waiting on feed the top progress bar: mutations, and GETs that opt in.
+  // Page uploads (FormData) are skipped: the capture queue shows its own per-thumbnail state.
+  const method = String(options.method || 'GET').toUpperCase();
+  const isUpload = options.body instanceof FormData;
+  const trackActivity = opts.foreground === true || (method !== 'GET' && !isUpload);
+  const endActivity = trackActivity ? beginNetworkActivity() : null;
+  try {
+    return await apiFetchUntracked(path, options, opts);
+  } finally {
+    if (endActivity) endActivity();
+  }
+}
+
+async function apiFetchUntracked(path, options, opts) {
   const headers = new Headers(options.headers || {});
   // The cookie (and so the selected profile) is shared by every tab: tell the server which profile
   // this tab is showing, so a stale tab gets 409 instead of writing into another profile.

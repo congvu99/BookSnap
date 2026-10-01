@@ -1,0 +1,51 @@
+/* Loading feedback: top progress bar + busy state for buttons that disable while working. */
+
+/* ---- Top progress bar (above the safe area, never blocks taps) ---- */
+.top-progress {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  height: 3px; overflow: hidden; pointer-events: none;
+  opacity: 0; transition: opacity 150ms ease-out;
+}
+.top-progress[data-phase='active'] { opacity: 1; }
+.top-progress[data-phase='done'] { opacity: 0; transition: opacity 250ms ease-out 200ms; }
+.top-progress-bar {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--gold) 85%, var(--primary)) 50%, var(--primary));
+  background-size: 200% 100%;
+  transform-origin: left center;
+}
+.top-progress[data-phase='active'] .top-progress-bar { transform: scaleX(.4); }
+.top-progress[data-phase='done'] .top-progress-bar { transform: scaleX(1); transition: transform 200ms ease-out; }
+
+/* ---- Busy buttons: a ring in currentColor, width unchanged ---- */
+.btn[aria-busy='true'], .shelf-toggle[aria-busy='true'], .profile-tile[aria-busy='true'] { position: relative; cursor: progress; }
+.btn[aria-busy='true'] { opacity: .85; }
+.btn[aria-busy='true']::after, .shelf-toggle[aria-busy='true']::after, .profile-tile[aria-busy='true']::after {
+  content: ''; box-sizing: border-box; flex: none; width: 14px; height: 14px;
+  border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+  background: none; -webkit-mask: none; mask: none;
+}
+/* Absolute so the label (and button width) does not move; primary buttons reuse their trailing lozenge slot. */
+.btn:not(.btn-primary)[aria-busy='true']::after, .shelf-toggle[aria-busy='true']::after {
+  position: absolute; right: 8px; top: calc(50% - 7px);
+}
+.btn-primary[aria-busy='true']::after { margin: -4px; }
+.profile-tile[aria-busy='true']::after { position: absolute; top: 4px; right: 4px; }
+
+/* Reduced motion: a static dot instead of a spinning ring. */
+@media (prefers-reduced-motion: reduce) {
+  .btn[aria-busy='true']::after, .shelf-toggle[aria-busy='true']::after, .profile-tile[aria-busy='true']::after {
+    border: 0; background: currentColor; transform: scale(.5);
+  }
+  .top-progress[data-phase='active'] .top-progress-bar { transform: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .top-progress-bar { transition: transform 400ms cubic-bezier(.2, .8, .2, 1); }
+  .top-progress[data-phase='active'] .top-progress-bar { animation: top-progress-shimmer 1.2s linear infinite; }
+  .btn[aria-busy='true']::after, .shelf-toggle[aria-busy='true']::after, .profile-tile[aria-busy='true']::after {
+    animation: busy-spin .7s linear infinite;
+  }
+}
+@keyframes top-progress-shimmer { to { background-position: -200% 0; } }
+@keyframes busy-spin { to { transform: rotate(360deg); } }
