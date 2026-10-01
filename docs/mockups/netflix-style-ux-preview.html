@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>BookSnap Netflix-style UX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Montserrat:wght@500;600;700;800;900&family=Literata:ital,wght@0,400;1,400&family=Playfair+Display:wght@600;700&display=swap" />
+<style>
+/* Layout: one phone-width app column (centred with a short "try this" guide on wide screens);
+   screens stack inside it and move like a native app: push from the right, tabs crossfade. */
+:root {
+  --bg: #FBF7EF; --surface: #FFFDF8; --sunken: #F3ECDF; --ink: #1F1B16; --muted: #5E554A;
+  --border: #E6DCCB; --primary: #7A2E2E; --on-primary: #FFFDF8; --gold: #B08D57; --gold-ink: #7D6230;
+  --scrim: rgba(31, 27, 22, .42); --shadow: rgba(31, 27, 22, .16); --vinyl: #111111; --vinyl-rim: #3A3A3A;
+  --gold-soft: color-mix(in srgb, var(--gold) 50%, var(--border));
+  --gold-faint: color-mix(in srgb, var(--gold) 28%, transparent);
+  /* Netflix Sans is proprietary: Inter (default) or Montserrat stand in. Headings heavy and tight. */
+  --font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --display-weight: 800; --display-tracking: -.025em;
+  /* Covers and record labels keep the classic serif. */
+  --font-cover: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-read: 'Literata', Georgia, serif;
+  --ease-ios: cubic-bezier(.32, .72, 0, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1C1915; --surface: #26221D; --sunken: #15130F; --ink: #EDE6D8; --muted: #B3A996;
+    --border: #3A342C; --primary: #D98C7F; --on-primary: #1C1915; --gold: #C9A66B; --gold-ink: #D8BC86;
+    --scrim: rgba(0, 0, 0, .55); --shadow: rgba(0, 0, 0, .45); --vinyl-rim: #5A5248; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1C1915; --surface: #26221D; --sunken: #15130F; --ink: #EDE6D8; --muted: #B3A996;
+  --border: #3A342C; --primary: #D98C7F; --on-primary: #1C1915; --gold: #C9A66B; --gold-ink: #D8BC86;
+  --scrim: rgba(0, 0, 0, .55); --shadow: rgba(0, 0, 0, .45); --vinyl-rim: #5A5248; color-scheme: dark;
+}
+
+:root[data-font="montserrat"] { --font-display: 'Montserrat', system-ui, sans-serif; --font-ui: 'Montserrat', system-ui, sans-serif; --display-tracking: -.02em; }
+:root[data-font="classic"] { --font-display: 'Playfair Display', Georgia, serif; --font-ui: 'Inter', system-ui, sans-serif; --display-weight: 700; --display-tracking: 0; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+html, body { height: 100%; }
+body { background: var(--sunken); color: var(--ink); font: 15px/1.5 var(--font-ui); padding-inline: 16px; }
+button { font: inherit; color: inherit; }
+.page { min-height: 100%; display: grid; grid-template-columns: minmax(0, 430px); justify-content: center; gap: 20px; padding-block: 16px; }
+@media (min-width: 900px) { .page { grid-template-columns: minmax(0, 430px) minmax(0, 300px); align-items: start; } }
+
+/* ——— Guide beside the phone ——— */
+.guide { padding: 18px 18px 6px; border: 1px solid var(--gold-soft); border-radius: 4px; background: var(--surface); }
+.guide h2 { margin: 0 0 4px; font: var(--display-weight) 20px/1.25 var(--font-display); letter-spacing: var(--display-tracking); text-wrap: balance; }
+.guide p { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+.guide ol { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
+.guide small { display: block; color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+.font-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 14px; }
+.font-pick span { width: 100%; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-ink); }
+.font-pick button { min-height: 36px; padding: 0 12px; border: 1px solid var(--gold-soft); border-radius: 18px; background: var(--surface); cursor: pointer; font-weight: 600; font-size: 13px; }
+.font-pick button[data-font="montserrat"] { font-family: 'Montserrat', sans-serif; }
+.font-pick button[data-font="classic"] { font-family: 'Playfair Display', serif; }
+.font-pick button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary); color: var(--on-primary); }
+
+/* ——— Phone ——— */
+.phone { position: relative; height: min(860px, calc(100dvh - 32px)); min-height: 620px; overflow: hidden; border-radius: 22px; background: var(--bg); box-shadow: 0 0 0 1px var(--border), 0 24px 60px -24px var(--shadow); isolation: isolate; }
+@media (max-width: 480px) { body { padding-inline: 0; } .page { padding-block: 0; } .phone { height: 100dvh; min-height: 0; border-radius: 0; box-shadow: none; } .guide { margin-inline: 16px; margin-bottom: 16px; } }
+
+.screens { position: absolute; inset: 0 0 64px 0; }
+.screen { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; background: var(--bg); scrollbar-width: none; will-change: transform; }
+.screen::-webkit-scrollbar { display: none; }
+.screen[aria-hidden="true"] { visibility: hidden; }
+
+/* Push / pop and tab crossfade. Always on (decided: effects ignore the OS reduce-motion switch). */
+.screen.enter-push { animation: push-in 380ms var(--ease-ios) both; z-index: 2; box-shadow: -12px 0 24px -12px var(--shadow); }
+.screen.leave-push { animation: push-under 380ms var(--ease-ios) both; z-index: 1; }
+.screen.enter-pop { animation: pop-under 380ms var(--ease-ios) both; z-index: 1; }
+.screen.leave-pop { animation: pop-out 380ms var(--ease-ios) both; z-index: 2; box-shadow: -12px 0 24px -12px var(--shadow); }
+.screen.enter-tab { animation: tab-in 300ms var(--ease-ios) both; z-index: 2; }
+.screen.leave-tab { animation: tab-out 200ms ease-out both; z-index: 1; }
+@keyframes push-in { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes push-under { from { transform: none; filter: brightness(1); } to { transform: translateX(-28%); filter: brightness(.86); } }
+@keyframes pop-under { from { transform: translateX(-28%); filter: brightness(.86); } to { transform: none; filter: brightness(1); } }
+@keyframes pop-out { from { transform: none; } to { transform: translateX(100%); } }
+@keyframes tab-in { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes tab-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* ——— Headers ——— */
+.bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 6px 12px 6px 16px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.bar h1 { flex: 1; min-width: 0; margin: 0; font: var(--display-weight) 26px/1.1 var(--font-display); letter-spacing: var(--display-tracking); }
+.bar .sub { flex: 1; min-width: 0; margin: 0; font: var(--display-weight) 19px/1.2 var(--font-display); letter-spacing: var(--display-tracking); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icon-btn { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: none; cursor: pointer; color: var(--ink); }
+.icon-btn:active { background: var(--sunken); }
+.icon-btn svg, .nav svg, .row svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
+
+/* ——— Avatars ——— */
+.av { --av: #6B2424; display: inline-grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--av); color: #F6ECD6; font: 600 16px/1 var(--font-display); box-shadow: inset 0 0 0 2px var(--av), inset 0 0 0 3px rgba(240, 213, 152, .55); }
+.av-c1 { --av: #6B2424; } .av-c5 { --av: #5B3557; } .av-c6 { --av: #2F5450; } .av-c3 { --av: #34494D; }
+.av.lg { width: 96px; height: 96px; font-size: 42px; box-shadow: inset 0 0 0 3px var(--av), inset 0 0 0 5px rgba(240, 213, 152, .55); }
+.av.md { width: 64px; height: 64px; font-size: 28px; }
+.av-btn { border: 0; padding: 4px; background: none; border-radius: 50%; cursor: pointer; }
+.av-btn:active .av { transform: scale(.94); }
+
+/* ——— Who's listening ——— */
+.who { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px 16px 40px; background: var(--bg); }
+.who.is-leaving { animation: who-out 420ms var(--ease-ios) 260ms both; }
+@keyframes who-out { to { opacity: 0; transform: scale(1.04); } }
+.who .eyebrow { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-ink); }
+.who h1 { margin: 0 0 18px; font: var(--display-weight) 34px/1.15 var(--font-display); letter-spacing: var(--display-tracking); text-align: center; text-wrap: balance; }
+.who-grid { display: grid; grid-template-columns: repeat(2, 128px); gap: 18px 20px; margin: 0; padding: 0; list-style: none; }
+.who-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; padding: 6px; border: 0; background: none; cursor: pointer; border-radius: 6px; }
+.who-tile span { font-weight: 600; }
+.who-grid li { animation: tile-in 520ms var(--ease-spring) both; }
+.who-grid li:nth-child(2) { animation-delay: 70ms; } .who-grid li:nth-child(3) { animation-delay: 140ms; } .who-grid li:nth-child(4) { animation-delay: 210ms; }
+@keyframes tile-in { from { opacity: 0; transform: translateY(18px) scale(.9); } to { opacity: 1; transform: none; } }
+.who-tile:active .av { transform: scale(.95); }
+.who-add .plus { display: grid; place-items: center; width: 96px; height: 96px; border: 1.5px dashed var(--gold-soft); border-radius: 50%; color: var(--muted); font: 300 44px/1 var(--font-ui); }
+.pencil { position: absolute; top: 6px; left: 50%; display: grid; place-items: center; width: 96px; height: 96px; margin-left: -48px; border-radius: 50%; background: rgba(20, 16, 12, .48); color: #F6ECD6; opacity: 0; transform: scale(.8); transition: opacity 200ms, transform 260ms var(--ease-spring); pointer-events: none; }
+.pencil svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.managing .pencil { opacity: 1; transform: none; }
+.who-actions { display: flex; gap: 10px; margin-top: 22px; }
+
+/* ——— Buttons ——— */
+.btn { min-height: 44px; padding: 0 18px; border: 1px solid var(--gold-soft); border-radius: 3px; background: var(--surface); cursor: pointer; font-weight: 600; }
+.btn.primary { border-color: var(--primary); background: var(--primary); color: var(--on-primary); }
+.btn:active { transform: scale(.97); }
+.link { border: 0; background: none; color: var(--primary); font-weight: 600; cursor: pointer; min-height: 44px; padding: 0 4px; }
+
+/* ——— Zoom-in moment (avatar flies to centre, then the library fades in) ——— */
+.zoom-veil { position: absolute; inset: 0; z-index: 40; background: var(--bg); pointer-events: none; }
+.zoom-av { position: absolute; z-index: 41; margin: 0; pointer-events: none; }
+
+/* ——— Library ——— */
+.hero { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 128px; gap: 10px; align-items: center; margin: 4px 16px 6px; padding: 20px 14px 18px 18px; border-radius: 4px; background: var(--surface); box-shadow: 0 0 0 1px var(--gold-soft), inset 0 0 0 4px var(--surface), inset 0 0 0 5px var(--gold-faint); cursor: pointer; text-align: left; border: 0; width: calc(100% - 32px); }
+.hero .eyebrow { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-ink); }
+.hero h2 { margin: 4px 0 2px; font: var(--display-weight) 21px/1.2 var(--font-display); letter-spacing: var(--display-tracking); text-wrap: balance; }
+.hero p { margin: 0; color: var(--muted); font-size: 13px; }
+.hero .bar-progress { margin-top: 12px; }
+.hero-art { position: relative; height: 112px; }
+.hero-art .sleeve { position: absolute; left: 0; top: 4px; width: 98px; z-index: 1; }
+.hero-art .disc { position: absolute; left: 30px; top: 6px; width: 96px; }
+
+.rail { margin-top: 18px; }
+.rail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 16px; }
+.rail-head h3 { margin: 0; font: var(--display-weight) 18px/1.25 var(--font-display); letter-spacing: var(--display-tracking); }
+.rail-head h3 small { margin-left: 6px; color: var(--muted); font: 500 12px/1 var(--font-ui); font-variant-numeric: tabular-nums; }
+.see-all { display: inline-flex; align-items: center; gap: 2px; min-height: 36px; margin-right: -6px; padding: 0 6px; border: 0; border-radius: 4px; background: none; color: var(--gold-ink); font-size: 13px; font-weight: 600; letter-spacing: .02em; cursor: pointer; white-space: nowrap; }
+.see-all svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform 200ms var(--ease-spring); }
+.see-all:hover svg, .see-all:focus-visible svg { transform: translateX(3px); }
+.see-all:active { background: var(--sunken); }
+.rail-row { display: flex; align-items: flex-start; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 16px; padding: 10px 16px 6px; scrollbar-width: none; }
+.rail-row::-webkit-scrollbar { display: none; }
+.card { flex: 0 0 118px; scroll-snap-align: start; border: 0; padding: 0; background: none; text-align: left; cursor: pointer; }
+.card:active .sleeve { transform: scale(.96); }
+.card .sleeve { transition: transform 160ms ease-out; }
+.card b { display: block; margin-top: 7px; font-size: 13px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card small { display: block; color: var(--muted); font-size: 12px; }
+.bar-progress { height: 3px; border-radius: 2px; background: var(--border); overflow: hidden; }
+.bar-progress i { display: block; height: 100%; background: var(--primary); }
+.card .bar-progress { margin-top: 6px; }
+.end-orn { margin: 26px auto 28px; width: 56px; height: 1px; background: var(--gold-soft); }
+
+/* ——— Sleeve + disc: copied from web/css/vinyl.css so the covers look exactly like the app ——— */
+:root {
+  --sleeve-wine-bg: #6B2424; --sleeve-wine-deep: #451616; --sleeve-wine-ornament: #C9A45C; --sleeve-wine-ink: #F6ECD6;
+  --sleeve-moss-bg: #3F4A33; --sleeve-moss-deep: #262E1F; --sleeve-moss-ornament: #CDB57C; --sleeve-moss-ink: #F1E7CE;
+  --sleeve-slate-bg: #34494D; --sleeve-slate-deep: #1F2E32; --sleeve-slate-ornament: #C8AE7A; --sleeve-slate-ink: #EEE7D6;
+  --sleeve-amber-bg: #8C5F2C; --sleeve-amber-deep: #5A3A18; --sleeve-amber-ornament: #F0D598; --sleeve-amber-ink: #FFF4DC;
+  --sleeve-parchment-bg: #C9B388; --sleeve-parchment-deep: #A48C60; --sleeve-parchment-ornament: #5E3F1E; --sleeve-parchment-ink: #33230F;
+}
+.sleeve {
+  position: relative; aspect-ratio: 1; width: 100%; border-radius: 2px; overflow: hidden; container-type: inline-size;
+  background:
+    repeating-linear-gradient(32deg, rgba(0, 0, 0, .045) 0 1px, transparent 1px 3px),
+    radial-gradient(110% 110% at 40% 35%, var(--cover-bg), var(--cover-bg-deep));
+  box-shadow: inset -2px 0 0 rgba(0, 0, 0, .22), inset 1px 1px 0 rgba(255, 255, 255, .11), 0 1px 1px rgba(0, 0, 0, .18), 0 8px 16px -6px rgba(0, 0, 0, .36);
+}
+.sleeve-ornament { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--cover-ornament); }
+.sleeve-ring-wear { fill: none; stroke: currentColor; stroke-opacity: .13; stroke-width: 3; }
+.sleeve-title {
+  position: absolute; inset: 31% 17%;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font-family: var(--font-cover); font-weight: 600; line-height: 1.22; color: var(--cover-ink);
+  font-size: calc(var(--title-scale, 1) * 9.5cqw); text-wrap: balance; overflow-wrap: anywhere;
+}
+.sleeve-title span { padding-top: .12em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.disc { position: relative; aspect-ratio: 1; border-radius: 50%; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .3)); }
+.disc svg { display: block; width: 100%; height: 100%; }
+.disc-vinyl { fill: var(--vinyl); }
+.disc-rim { fill: none; stroke: var(--vinyl-rim); stroke-width: 1.2; }
+.disc-grooves circle { fill: none; stroke: #fff; stroke-opacity: .035; stroke-width: .6; }
+.disc-grooves circle.is-major { stroke-opacity: .075; }
+.disc-gap { fill: none; stroke: #000; stroke-width: 1.6; }
+.disc-label { fill: var(--cover-bg); }
+.disc-label-rule { fill: none; stroke: var(--cover-ornament); stroke-width: .8; }
+.disc-label-rule.is-thin { stroke-width: .3; }
+.disc-label-lozenge { fill: var(--cover-ornament); }
+.disc-label-title { fill: var(--cover-ink); font-family: var(--font-cover); font-weight: 600; }
+.disc-label-small { fill: var(--cover-ornament); font-family: var(--font-ui); }
+.disc-label-ornament { color: var(--cover-ornament); }
+.disc-hole { fill: var(--bg); }
+.disc-sheen { fill: #fff; fill-opacity: .07; }
+.disc-spin { transform-box: fill-box; transform-origin: center; animation: disc-spin 1.8s linear infinite; animation-play-state: paused; }
+.disc.is-spinning .disc-spin { animation-play-state: running; }
+@keyframes disc-spin { to { transform: rotate(360deg); } }
+
+/* ——— Bottom sheet ——— */
+.scrim { position: absolute; inset: 0; z-index: 20; background: var(--scrim); opacity: 0; transition: opacity 260ms; }
+.scrim.open { opacity: 1; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 21; padding: 10px 16px 26px; border-radius: 16px 16px 0 0; background: var(--surface); box-shadow: 0 -10px 30px -10px var(--shadow); transform: translateY(105%); transition: transform 380ms var(--ease-ios); }
+.sheet.open { transform: none; }
+.sheet .grab { width: 38px; height: 5px; margin: 0 auto 12px; border-radius: 3px; background: var(--border); }
+.sheet h2 { margin: 0 0 14px; font: var(--display-weight) 20px/1.2 var(--font-display); letter-spacing: var(--display-tracking); text-align: center; }
+.sheet-profiles { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; }
+.sheet-profiles button { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 84px; padding: 4px; border: 0; background: none; cursor: pointer; font-size: 14px; font-weight: 600; }
+.sheet-profiles .current .av { box-shadow: inset 0 0 0 2px var(--av), 0 0 0 3px var(--surface), 0 0 0 5px var(--gold); }
+.sheet-profiles .current small { color: var(--gold-ink); font-weight: 500; font-size: 11px; margin-top: -6px; }
+.sheet-foot { display: flex; justify-content: center; gap: 8px; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 8px; }
+
+/* ——— Của tôi ——— */
+.me-head { display: flex; align-items: center; gap: 14px; padding: 8px 16px 18px; }
+.me-head h2 { margin: 0; font: var(--display-weight) 24px/1.2 var(--font-display); letter-spacing: var(--display-tracking); }
+.me-head p { margin: 0; color: var(--muted); font-size: 13px; }
+.group { margin: 0 16px 18px; border-radius: 6px; background: var(--surface); box-shadow: 0 0 0 1px var(--border); overflow: hidden; }
+.group-title { margin: 0 16px 6px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-ink); }
+.row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto 16px; align-items: center; gap: 12px; width: 100%; min-height: 54px; padding: 0 14px 0 16px; border: 0; border-top: 1px solid var(--border); background: none; cursor: pointer; text-align: left; }
+.row:first-child { border-top: 0; }
+.row:active { background: var(--sunken); }
+.row .meta { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.row .chev { width: 16px; height: 16px; color: var(--muted); }
+.row.danger { grid-template-columns: 1fr; justify-items: center; color: var(--primary); font-weight: 600; }
+
+.list { margin: 0 16px; display: grid; gap: 10px; }
+.list-item { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px; border-radius: 6px; background: var(--surface); box-shadow: 0 0 0 1px var(--border); }
+.list-item b { display: block; font-size: 14px; }
+.list-item small { color: var(--muted); font-size: 12px; }
+.note { margin: 0 16px 16px; color: var(--muted); font-size: 13px; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0 16px; padding: 3px; border-radius: 6px; background: var(--sunken); box-shadow: 0 0 0 1px var(--border); }
+.seg button { min-height: 40px; border: 0; border-radius: 4px; background: none; cursor: pointer; font-weight: 600; color: var(--muted); transition: background 200ms, color 200ms; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px var(--shadow); }
+.meter { margin: 0 16px 12px; padding: 12px 14px; border-radius: 6px; background: var(--surface); box-shadow: 0 0 0 1px var(--border); }
+.meter b { display: flex; justify-content: space-between; font-size: 14px; }
+.meter b span { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.meter .bar-progress { margin-top: 8px; height: 6px; }
+
+/* ——— Now playing ——— */
+.np { display: flex; flex-direction: column; align-items: center; padding: 6px 20px 28px; text-align: center; }
+.np-stage { position: relative; width: 240px; height: 210px; margin: 6px 0 14px; }
+.np-stage .sleeve { position: absolute; left: 0; top: 10px; width: 180px; z-index: 1; }
+.np-stage .disc { position: absolute; right: 0; top: 14px; width: 172px; }
+.np .eyebrow { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-ink); }
+.np h2 { margin: 4px 0 2px; font: var(--display-weight) 24px/1.2 var(--font-display); letter-spacing: var(--display-tracking); text-wrap: balance; }
+.np .by { margin: 0 0 4px; color: var(--muted); font-size: 13px; }
+.np-excerpt { margin: 10px 0 6px; font: italic 15px/1.55 var(--font-read); color: var(--muted); max-width: 32ch; }
+.times { display: flex; justify-content: space-between; width: 100%; margin-top: -2px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; transition: color 200ms; }
+.times.scrubbing { color: var(--primary); font-weight: 600; }
+.transport { display: flex; align-items: center; justify-content: center; gap: 28px; margin: 14px 0 10px; }
+.play { display: grid; place-items: center; width: 68px; height: 68px; border: 0; border-radius: 50%; background: var(--primary); color: var(--on-primary); cursor: pointer; box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--gold); transition: transform 160ms var(--ease-spring); }
+.play:active { transform: scale(.92); }
+.play svg, .skip svg { width: 28px; height: 28px; fill: currentColor; stroke: none; }
+.skip { display: grid; place-items: center; width: 48px; height: 48px; border: 0; background: none; color: var(--ink); cursor: pointer; border-radius: 50%; }
+.skip svg { fill: none; stroke: currentColor; stroke-width: 1.8; }
+.music { width: 100%; margin-top: 12px; padding: 12px 14px 8px; border-radius: 6px; background: var(--surface); box-shadow: 0 0 0 1px var(--border); text-align: left; }
+.music b { display: flex; justify-content: space-between; font-size: 14px; }
+.music b span { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* ——— Zooming slider: track and thumb grow under the finger, a bubble shows the value,
+   the value is only applied on release. ——— */
+.sl { --p: 0; position: relative; width: 100%; height: 48px; touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.sl-track { position: absolute; left: 0; right: 0; top: 50%; height: 4px; margin-top: -2px; border-radius: 4px; background: var(--border); overflow: hidden; transition: height 260ms var(--ease-spring), margin-top 260ms var(--ease-spring); }
+.sl-fill { position: absolute; inset: 0 auto 0 0; width: calc(var(--p) * 100%); background: var(--primary); }
+.sl-thumb { position: absolute; top: 50%; left: calc(var(--p) * 100%); width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 3px var(--bg), 0 2px 6px var(--shadow); transition: transform 260ms var(--ease-spring); }
+.sl-bubble { position: absolute; bottom: calc(100% - 2px); left: clamp(34px, calc(var(--p) * 100%), calc(100% - 34px)); transform: translate(-50%, 8px) scale(.6); opacity: 0; padding: 5px 10px; border-radius: 6px; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; pointer-events: none; transition: opacity 180ms, transform 260ms var(--ease-spring); }
+.sl.active .sl-track { height: 12px; margin-top: -6px; }
+.sl.active .sl-thumb { transform: scale(1.75); }
+.sl.active .sl-bubble { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+/* ——— Bottom nav ——— */
+.nav { position: absolute; left: 0; right: 0; bottom: 0; z-index: 10; display: grid; grid-template-columns: repeat(4, 1fr); height: 64px; padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--surface); border-top: 1px solid var(--gold-soft); }
+.nav button { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 11px; font-weight: 600; }
+.nav button[aria-current="page"] { color: var(--primary); }
+.nav button[aria-current="page"]::before { content: ''; position: absolute; top: 0; left: 30%; right: 30%; height: 2px; border-radius: 2px; background: var(--primary); animation: tab-dot 300ms var(--ease-spring); }
+@keyframes tab-dot { from { transform: scaleX(0); } to { transform: none; } }
+.nav .cap { width: 48px; height: 48px; margin-top: -22px; display: grid; place-items: center; border-radius: 50%; background: var(--primary); color: var(--on-primary); box-shadow: 0 0 0 3px var(--surface), 0 0 0 4.5px var(--gold); }
+.nav .av { width: 26px; height: 26px; font-size: 12px; }
+.nav button[aria-current="page"] .av { box-shadow: inset 0 0 0 2px var(--av), 0 0 0 2px var(--surface), 0 0 0 3.5px var(--primary); }
+
+/* ——— Toast ——— */
+.toast { position: absolute; left: 50%; bottom: 78px; z-index: 50; max-width: calc(100% - 32px); padding: 10px 14px; border-radius: 6px; background: var(--ink); color: var(--bg); font-size: 14px; font-weight: 500; transform: translate(-50%, 16px); opacity: 0; pointer-events: none; transition: opacity 200ms, transform 300ms var(--ease-spring); }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="phone" id="phone">
+    <div class="screens" id="screens"></div>
+    <nav class="nav" id="nav" aria-label="Điều hướng chính"></nav>
+    <div class="scrim" id="scrim" hidden></div>
+    <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <aside class="guide" aria-label="Hướng dẫn thử">
+    <h2>Bản demo tư duy Netflix</h2>
+    <p>Giữ phong cách đĩa than của BookSnap, đổi cách sắp xếp và chuyển động. Dữ liệu là ví dụ.</p>
+    <ol>
+      <li>Chọn một hồ sơ ở màn <b>Ai đang nghe?</b>: avatar phóng ra giữa rồi mở thư viện của người đó.</li>
+      <li>Chạm avatar góc trên thư viện: bảng đổi hồ sơ trượt lên, đổi chỉ một chạm.</li>
+      <li>Thư viện là các hàng ngang: Nghe tiếp, Kệ của tôi, Mới thêm, rồi theo chủ đề.</li>
+      <li>Tab <b>Của tôi</b>: các nhóm cài đặt, mỗi hàng mở màn con trượt từ phải.</li>
+      <li>Tab <b>Đang nghe</b>: kéo thanh tiến độ và âm lượng nhạc nền. Thanh phình to, bong bóng hiện giá trị, thả tay mới chốt.</li>
+    </ol>
+    <small>Hiệu ứng luôn bật, kể cả khi máy đang tắt "Show animations".</small>
+    <div class="font-pick" role="group" aria-label="Phông chữ">
+      <span>Phông chữ</span>
+      <button type="button" data-font="" aria-pressed="true">Inter</button>
+      <button type="button" data-font="montserrat" aria-pressed="false">Montserrat</button>
+      <button type="button" data-font="classic" aria-pressed="false">Cũ (Playfair)</button>
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  // ——— Example data ———
+  const PROFILES = [
+    { id: 'bo', name: 'Bố', av: 'c1' },
+    { id: 'me', name: 'Mẹ', av: 'c5' },
+    { id: 'na', name: 'Bé Na', av: 'c6' },
+  ];
+  const BOOKS = [
+    { id: 'demen', title: 'Dế Mèn phiêu lưu ký', topic: 'Thiếu nhi', by: 'Mẹ', min: 214, added: 2 },
+    { id: 'hoangtu', title: 'Hoàng tử bé', topic: 'Sách dịch', by: 'Bé Na', min: 96, added: 1 },
+    { id: 'tatden', title: 'Tắt đèn', topic: 'Văn học Việt Nam', by: 'Bố', min: 188, added: 9 },
+    { id: 'sodo', title: 'Số đỏ', topic: 'Văn học Việt Nam', by: 'Bố', min: 251, added: 14 },
+    { id: 'nhagiakim', title: 'Nhà giả kim', topic: 'Sách dịch', by: 'Mẹ', min: 172, added: 3 },
+    { id: 'datrung', title: 'Đất rừng phương Nam', topic: 'Thiếu nhi', by: 'Bố', min: 402, added: 21 },
+    { id: 'chipheo', title: 'Chí Phèo', topic: 'Văn học Việt Nam', by: 'Mẹ', min: 64, added: 30 },
+    { id: 'kieu', title: 'Truyện Kiều', topic: 'Văn học Việt Nam', by: 'Bố', min: 318, added: 40 },
+    { id: 'totto', title: 'Totto-chan bên cửa sổ', topic: 'Sách dịch', by: 'Bé Na', min: 205, added: 6 },
+  ];
+  // Per-profile state: progress (0..1) and shelf, so switching visibly changes the library.
+  const STATE = {
+    bo: { progress: { tatden: .62, sodo: .18, kieu: .05 }, shelf: ['tatden', 'kieu', 'datrung'] },
+    me: { progress: { nhagiakim: .41, chipheo: .88 }, shelf: ['nhagiakim', 'demen'] },
+    na: { progress: { demen: .33, hoangtu: .74, totto: .12 }, shelf: ['hoangtu', 'totto', 'demen'] },
+  };
+  const byId = Object.fromEntries(BOOKS.map((b) => [b.id, b]));
+
+  // Same as web/js/sleeve-palette.js: FNV-1a of the book id picks one of five leather colours.
+  const PALETTES = ['wine', 'moss', 'slate', 'amber', 'parchment'];
+  function palette(id) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return PALETTES[h % PALETTES.length];
+  }
+  const coverVars = (id) => { const p = palette(id); return `--cover-bg:var(--sleeve-${p}-bg);--cover-bg-deep:var(--sleeve-${p}-deep);--cover-ornament:var(--sleeve-${p}-ornament);--cover-ink:var(--sleeve-${p}-ink)`; };
+
+  // Same paths as web/js/components/ornament-shapes.js and record-sleeve.js.
+  const CORNER = '<g fill="none" stroke="currentColor" stroke-linecap="round"><path d="M22 58 V34 Q22 22 34 22 H58" stroke-width="1.3"/><path d="M28 50 C28 36 36 28 50 28" stroke-width=".8"/><path d="M34 22 C30 30 36 36 42 32 C46 29 43 24 39 26" stroke-width=".9"/><path d="M22 34 C30 30 36 36 32 42 C29 46 24 43 26 39" stroke-width=".9"/><path d="M16 16 l4 4 -4 4 -4 -4 z" fill="currentColor" stroke="none"/><circle cx="58" cy="22" r="1.4" fill="currentColor" stroke="none"/><circle cx="22" cy="58" r="1.4" fill="currentColor" stroke="none"/></g>';
+  const FLEURON = '<g fill="none" stroke="currentColor"><path d="M0 0 C-6 -6 -14 -3 -13 3 C-12 8 -5 7 -4 3 C-3 0 -7 -1 -8 1" stroke-width=".9"/><path d="M0 0 C6 -6 14 -3 13 3 C12 8 5 7 4 3 C3 0 7 -1 8 1" stroke-width=".9"/><path d="M0 -5 l3 5 -3 5 -3 -5 z" fill="currentColor" stroke="none"/><path d="M-40 0 H-18 M18 0 H40" stroke-width=".7"/></g>';
+  const CORNERS = ['', 'translate(200 0) scale(-1 1)', 'translate(0 200) scale(1 -1)', 'translate(200 200) scale(-1 -1)'];
+  const SLEEVE_ORNAMENT = `<svg class="sleeve-ornament" viewBox="0 0 200 200" aria-hidden="true" focusable="false"><circle class="sleeve-ring-wear" cx="100" cy="100" r="84"/><rect x="8" y="8" width="184" height="184" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="12.5" y="12.5" width="175" height="175" rx="1.5" fill="none" stroke="currentColor" stroke-width=".6"/>${CORNERS.map((t) => `<g transform="${t}">${CORNER}</g>`).join('')}<g transform="translate(100 50)">${FLEURON}</g><g transform="translate(100 150) scale(1 -1)">${FLEURON}</g></svg>`;
+  function titleScale(title) {
+    const n = title.length;
+    const byLength = n <= 8 ? 1.3 : n <= 22 ? 1 : n <= 40 ? .8 : .66;
+    const widest = Math.max(1, ...title.split(/[\s\-–—]+/).map((w) => [...w].reduce((a, ch) => a + (ch !== ch.toLowerCase() ? 1.35 : 1), 0)));
+    return Math.max(.5, Math.min(byLength, 11 / widest));
+  }
+  const GROOVES = Array.from({ length: 27 }, (_, i) => +(40 + i * 2.1).toFixed(1));
+  const sector = (r, a0, a1) => { const pt = (a) => [100 + r * Math.cos(a * Math.PI / 180), 100 + r * Math.sin(a * Math.PI / 180)].map((v) => v.toFixed(1)).join(' '); return `M100 100 L${pt(a0)} A${r} ${r} 0 0 1 ${pt(a1)} Z`; };
+  function labelLines(title) {
+    const lines = []; let cur = '';
+    for (const w of title.split(/\s+/)) { const next = cur ? `${cur} ${w}` : w; if (next.length > 12 && cur) { lines.push(cur); cur = w; } else cur = next; }
+    if (cur) lines.push(cur);
+    const clip = (x) => (x.length > 12 ? `${x.slice(0, 11).trimEnd()}…` : x);
+    return lines.length <= 2 ? lines.map(clip) : [clip(lines[0]), clip(lines.slice(1).join(' '))];
+  }
+  function disc(b, { spinning = false, detailed = false, id = '' } = {}) {
+    const lines = labelLines(b.title);
+    const label = detailed
+      ? `<text class="disc-label-small" x="100" y="78" text-anchor="middle" font-size="4.2" letter-spacing=".8">BOOKSNAP</text><text class="disc-label-title" text-anchor="middle" font-size="7">${lines.map((l, i) => `<tspan x="100" y="${lines.length === 1 ? 93 : 87 + i * 8}">${l}</tspan>`).join('')}</text><g class="disc-label-ornament"><g transform="translate(100 107) scale(.26)">${FLEURON}</g></g><text class="disc-label-small" x="100" y="118" text-anchor="middle" font-size="4" letter-spacing=".8">MẶT A · 33⅓</text>`
+      : '<path class="disc-label-lozenge" d="M100 83 l3 5 -3 5 -3 -5z"/>';
+    return `<div class="disc ${spinning ? 'is-spinning' : ''}" ${id ? `id="${id}"` : ''} aria-hidden="true" style="${coverVars(b.id)}"><svg viewBox="0 0 200 200" focusable="false"><g class="disc-spin"><circle class="disc-vinyl" cx="100" cy="100" r="99"/><circle class="disc-rim" cx="100" cy="100" r="98.3"/><g class="disc-grooves">${GROOVES.map((r, i) => `<circle cx="100" cy="100" r="${r}" class="${i % 3 === 0 ? 'is-major' : ''}"/>`).join('')}</g><circle class="disc-gap" cx="100" cy="100" r="62"/><circle class="disc-gap" cx="100" cy="100" r="80"/><circle class="disc-label" cx="100" cy="100" r="34"/><circle class="disc-label-rule" cx="100" cy="100" r="31.5"/><circle class="disc-label-rule is-thin" cx="100" cy="100" r="29.5"/>${label}<circle class="disc-hole" cx="100" cy="100" r="2.6"/></g><path class="disc-sheen" d="${sector(96, 205, 245)}"/><path class="disc-sheen" d="${sector(96, 25, 65)}"/></svg></div>`;
+  }
+
+  const ICON = {
+    search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+    back: '<svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>',
+    chev: '<svg class="chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>',
+    lib: '<svg viewBox="0 0 24 24"><path d="M4 4v16M9 4v16M14 4l5 16"/></svg>',
+    cam: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+    disc: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>',
+    shelf: '<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
+    mark: '<svg viewBox="0 0 24 24"><path d="M5 5h14M5 12h14M5 19h9"/></svg>',
+    down: '<svg viewBox="0 0 24 24"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>',
+    people: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 4.5a3.5 3.5 0 0 1 0 7M21 20c0-3-1.8-5.2-4.5-5.8"/></svg>',
+    key: '<svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9m-4 4 3 3"/></svg>',
+    gauge: '<svg viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0M12 16l4-5"/></svg>',
+    theme: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg>',
+    note: '<svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>',
+    pencil: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
+    play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>',
+    rw: '<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/></svg>',
+    ff: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg>',
+  };
+
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const phone = $('#phone');
+  const screensEl = $('#screens');
+  let profile = null;
+  let tab = 'library';
+  const stack = []; // sub screens pushed on top of the current tab
+
+  const av = (p, size = '') => `<span class="av av-${p.av} ${size}" aria-hidden="true">${p.name.charAt(0)}</span>`;
+  const sleeve = (b) => `<div class="sleeve" aria-hidden="true" style="${coverVars(b.id)};--title-scale:${titleScale(b.title)}">${SLEEVE_ORNAMENT}<div class="sleeve-title"><span>${b.title}</span></div></div>`;
+  const fmt = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+
+  let toastTimer = 0;
+  function toast(text) {
+    const t = $('#toast');
+    t.textContent = text;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // ——— Screens ———
+  function libraryScreen() {
+    const st = STATE[profile.id];
+    const continuing = Object.keys(st.progress).sort((a, b) => st.progress[b] - st.progress[a]).map((id) => byId[id]);
+    const hero = continuing[0];
+    const card = (b, withProgress) => `
+      <button class="card" data-open="${b.id}">
+        ${sleeve(b)}
+        ${withProgress ? `<div class="bar-progress"><i style="width:${Math.round(st.progress[b.id] * 100)}%"></i></div>` : ''}
+        <b>${b.title}</b><small>${withProgress ? `Còn ${Math.round(b.min * (1 - st.progress[b.id]))} phút` : `Chụp bởi ${b.by}`}</small>
+      </button>`;
+    const rail = (title, books, withProgress = false) => books.length === 0 ? '' : `
+      <section class="rail" aria-label="${title}">
+        <div class="rail-head">
+          <h3>${title}<small>${books.length}</small></h3>
+          <button class="see-all" data-toast="Mở toàn bộ: ${title}" aria-label="Xem tất cả ${title}">Xem tất cả<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+        </div>
+        <div class="rail-row">${books.map((b) => card(b, withProgress)).join('')}</div>
+      </section>`;
+    const topics = [...new Set(BOOKS.map((b) => b.topic))].sort((a, b) => a.localeCompare(b, 'vi'));
+    return `
+      <header class="bar">
+        <h1>Thư viện</h1>
+        <button class="icon-btn" aria-label="Tìm sách" data-toast="Ô tìm kiếm mở toàn màn hình">${ICON.search}</button>
+        <button class="av-btn" id="avatar-btn" aria-label="Đổi hồ sơ (đang là ${profile.name})">${av(profile)}</button>
+      </header>
+      ${hero ? `
+      <button class="hero" data-open="${hero.id}">
+        <div>
+          <p class="eyebrow">Nghe tiếp</p>
+          <h2>${hero.title}</h2>
+          <p>${Math.round(st.progress[hero.id] * 100)}% · còn ${Math.round(hero.min * (1 - st.progress[hero.id]))} phút</p>
+          <div class="bar-progress"><i style="width:${Math.round(st.progress[hero.id] * 100)}%"></i></div>
+        </div>
+        <div class="hero-art">${sleeve(hero)}${disc(hero, { spinning: true })}</div>
+      </button>` : ''}
+      ${rail(`Nghe tiếp của ${profile.name}`, continuing, true)}
+      ${rail('Kệ của tôi', st.shelf.map((id) => byId[id]))}
+      ${rail('Mới thêm', [...BOOKS].sort((a, b) => a.added - b.added).slice(0, 6))}
+      ${topics.map((t) => rail(t, BOOKS.filter((b) => b.topic === t))).join('')}
+      <div class="end-orn" aria-hidden="true"></div>`;
+  }
+
+  const ME_ROWS = {
+    shelf: { title: 'Kệ của tôi', icon: 'shelf' },
+    marks: { title: 'Đánh dấu', icon: 'mark' },
+    downloads: { title: 'Đã tải để nghe offline', icon: 'down' },
+    profiles: { title: 'Quản lý hồ sơ', icon: 'people' },
+    password: { title: 'Mật khẩu gia đình', icon: 'key' },
+    quota: { title: 'Hạn mức dịch vụ', icon: 'gauge' },
+    theme: { title: 'Giao diện', icon: 'theme' },
+    music: { title: 'Nhạc nền mặc định', icon: 'note' },
+  };
+
+  function meScreen() {
+    const st = STATE[profile.id];
+    const row = (key, meta = '') => `<button class="row" data-push="${key}">${ICON[ME_ROWS[key].icon]}<span>${ME_ROWS[key].title}</span><span class="meta">${meta}</span>${ICON.chev}</button>`;
+    return `
+      <header class="bar"><h1>Của tôi</h1></header>
+      <div class="me-head">
+        <button class="av-btn" id="avatar-btn" aria-label="Đổi hồ sơ">${av(profile, 'md')}</button>
+        <div><h2>${profile.name}</h2><p>Tài khoản gia đình @nhaminh</p><button class="link" id="switch-link">Đổi hồ sơ ›</button></div>
+      </div>
+      <p class="group-title">Của ${profile.name}</p>
+      <div class="group">${row('shelf', `${st.shelf.length} cuốn`)}${row('marks', '7 đoạn')}${row('downloads', '2 cuốn')}</div>
+      <p class="group-title">Gia đình</p>
+      <div class="group">${row('profiles', `${PROFILES.length} hồ sơ`)}${row('password')}${row('quota', 'Còn 63%')}</div>
+      <p class="group-title">Ứng dụng</p>
+      <div class="group">${row('theme', 'Theo máy')}${row('music', 'Mưa nhẹ')}</div>
+      <div class="group"><button class="row danger" data-toast="Đã đăng xuất (demo)">Đăng xuất tài khoản gia đình</button></div>
+      <div class="end-orn" aria-hidden="true"></div>`;
+  }
+
+  function subScreen(key) {
+    const st = STATE[profile.id];
+    const head = `<header class="bar"><button class="icon-btn" data-pop aria-label="Quay lại">${ICON.back}</button><h2 class="sub">${ME_ROWS[key].title}</h2></header>`;
+    const items = (ids, line) => `<div class="list">${ids.map((id) => `<div class="list-item">${sleeve(byId[id])}<div><b>${byId[id].title}</b><small>${line(byId[id])}</small></div></div>`).join('')}</div>`;
+    if (key === 'shelf') return head + `<p class="note">Sách ${profile.name} giữ lại để nghe sau. Mỗi hồ sơ có kệ riêng.</p>` + items(st.shelf, (b) => b.topic);
+    if (key === 'marks') return head + `<p class="note">Đoạn đã đánh dấu khi nghe.</p>` + items(Object.keys(st.progress), () => '“…tiếng dế gáy râm ran khắp bãi cỏ…”');
+    if (key === 'downloads') return head + `<p class="note">Nghe được khi không có mạng. Dung lượng 38 MB.</p>` + items(Object.keys(st.progress).slice(0, 2), (b) => `${b.min} phút · đã tải đủ`);
+    if (key === 'profiles') return head + `<p class="note">Chạm vào hồ sơ để đổi tên hoặc màu. Xoá hồ sơ cần mật khẩu gia đình.</p><div class="who-grid managing" style="margin:0 auto;justify-content:center">${PROFILES.map((p) => `<button class="who-tile" data-toast="Sửa hồ sơ ${p.name}">${av(p, 'lg')}<span>${p.name}</span><i class="pencil">${ICON.pencil}</i></button>`).join('')}</div>`;
+    if (key === 'password') return head + `<p class="note">Cả nhà dùng chung mật khẩu này. Đổi xong, mọi thiết bị khác phải đăng nhập lại.</p><div class="list"><button class="btn primary" data-toast="Mở form đổi mật khẩu">Đổi mật khẩu gia đình</button></div>`;
+    if (key === 'quota') return head + `<p class="note">Dùng chung cả nhà, đếm trong ứng dụng.</p>
+      <div class="meter"><b>Nhận dạng chữ (Gemini)<span>94 / 250 hôm nay</span></b><div class="bar-progress"><i style="width:38%"></i></div></div>
+      <div class="meter"><b>Giọng đọc (Gemini)<span>37 / 100 hôm nay</span></b><div class="bar-progress"><i style="width:37%"></i></div></div>`;
+    if (key === 'theme') return head + `<p class="note">Áp dụng cho thiết bị này.</p><div class="seg" role="group" aria-label="Giao diện">
+      <button aria-pressed="false" data-theme-set="light">Sáng</button><button aria-pressed="true" data-theme-set="">Theo máy</button><button aria-pressed="false" data-theme-set="dark">Tối</button></div>`;
+    return head + `<p class="note">Bản nhạc phát nhỏ phía sau giọng đọc.</p><div class="list"><div class="list-item">${disc(byId.hoangtu)}<div><b>Mưa nhẹ</b><small>Đang chọn</small></div></div></div>`;
+  }
+
+  let playing = false;
+  let position = 1840; // seconds into the book
+  const DURATION = 12840;
+  let musicVolume = .45;
+  let playTimer = 0;
+  function nowPlayingScreen() {
+    const st = STATE[profile.id];
+    const id = Object.keys(st.progress).sort((a, b) => st.progress[b] - st.progress[a])[0] || 'demen';
+    const b = byId[id];
+    return `
+      <header class="bar"><h1>Đang nghe</h1></header>
+      <div class="np">
+        <div class="np-stage">${sleeve(b)}${disc(b, { spinning: playing, detailed: true, id: 'np-disc' })}</div>
+        <p class="eyebrow">Mặt A · Trang 12/48</p>
+        <h2>${b.title}</h2>
+        <p class="by">Chụp bởi ${b.by}</p>
+        <p class="np-excerpt">“Tôi sống độc lập từ thuở bé. Ấy là tục lệ lâu đời trong họ nhà dế chúng tôi.”</p>
+        <div class="sl" id="seek" role="slider" tabindex="0" aria-label="Tiến độ sách" aria-valuemin="0" aria-valuemax="${DURATION}">
+          <div class="sl-track"><div class="sl-fill"></div></div><div class="sl-thumb"></div><div class="sl-bubble"></div>
+        </div>
+        <div class="times" id="times"><span id="t-now"></span><span>${fmt(DURATION)}</span></div>
+        <div class="transport">
+          <button class="skip" id="rw" aria-label="Lùi 15 giây">${ICON.rw}</button>
+          <button class="play" id="play" aria-label="${playing ? 'Tạm dừng' : 'Phát'}">${playing ? ICON.pause : ICON.play}</button>
+          <button class="skip" id="ff" aria-label="Tiến 15 giây">${ICON.ff}</button>
+        </div>
+        <div class="music">
+          <b>Nhạc nền · Mưa nhẹ<span id="vol-label">${Math.round(musicVolume * 100)}%</span></b>
+          <div class="sl" id="vol" role="slider" tabindex="0" aria-label="Âm lượng nhạc nền" aria-valuemin="0" aria-valuemax="100">
+            <div class="sl-track"><div class="sl-fill"></div></div><div class="sl-thumb"></div><div class="sl-bubble"></div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ——— Zooming slider ———
+  function makeSlider(el, { value, max, format, onPreview, onCommit, step }) {
+    let current = value;
+    let active = false;
+    const bubble = el.querySelector('.sl-bubble');
+    const paint = (v) => {
+      el.style.setProperty('--p', String(v / max));
+      el.setAttribute('aria-valuenow', String(Math.round(v)));
+      el.setAttribute('aria-valuetext', format(v));
+      bubble.textContent = format(v);
+    };
+    const fromX = (x) => {
+      const r = el.getBoundingClientRect();
+      return Math.min(max, Math.max(0, ((x - r.left) / r.width) * max));
+    };
+    el.addEventListener('pointerdown', (e) => {
+      active = true;
+      el.setPointerCapture(e.pointerId);
+      el.classList.add('active');
+      current = fromX(e.clientX);
+      paint(current);
+      onPreview?.(current);
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!active) return;
+      current = fromX(e.clientX);
+      paint(current);
+      onPreview?.(current);
+    });
+    const end = () => {
+      if (!active) return;
+      active = false;
+      el.classList.remove('active');
+      onCommit(current);
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener('keydown', (e) => {
+      const d = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? step : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -step : 0;
+      if (!d) return;
+      e.preventDefault();
+      current = Math.min(max, Math.max(0, current + d));
+      paint(current);
+      onCommit(current);
+    });
+    paint(current);
+    return { set: (v) => { if (!active) { current = v; paint(v); } }, isActive: () => active };
+  }
+
+  function wireNowPlaying(root) {
+    const tNow = $('#t-now', root);
+    const times = $('#times', root);
+    const seek = makeSlider($('#seek', root), {
+      value: position, max: DURATION, step: 15,
+      format: (v) => `${fmt(v)} / ${fmt(DURATION)}`,
+      onPreview: (v) => { tNow.textContent = fmt(v); times.classList.add('scrubbing'); },
+      onCommit: (v) => { position = v; tNow.textContent = fmt(v); times.classList.remove('scrubbing'); toast(`Đã tua đến ${fmt(v)}`); },
+    });
+    tNow.textContent = fmt(position);
+    const volLabel = $('#vol-label', root);
+    makeSlider($('#vol', root), {
+      value: musicVolume * 100, max: 100, step: 5,
+      format: (v) => `${Math.round(v)}%`,
+      onPreview: (v) => { volLabel.textContent = `Nghe thử ${Math.round(v)}%`; },
+      onCommit: (v) => { musicVolume = v / 100; volLabel.textContent = `${Math.round(v)}%`; toast(`Đã lưu âm lượng ${Math.round(v)}%`); },
+    });
+    const playBtn = $('#play', root);
+    const disc = $('#np-disc', root);
+    const tick = () => {
+      if (!seek.isActive()) { position = Math.min(DURATION, position + 1); seek.set(position); tNow.textContent = fmt(position); }
+    };
+    const setPlaying = (on) => {
+      playing = on;
+      playBtn.innerHTML = on ? ICON.pause : ICON.play;
+      playBtn.setAttribute('aria-label', on ? 'Tạm dừng' : 'Phát');
+      disc.classList.toggle('is-spinning', on);
+      clearInterval(playTimer);
+      if (on) playTimer = setInterval(tick, 1000);
+    };
+    playBtn.addEventListener('click', () => setPlaying(!playing));
+    $('#rw', root).addEventListener('click', () => { position = Math.max(0, position - 15); seek.set(position); tNow.textContent = fmt(position); });
+    $('#ff', root).addEventListener('click', () => { position = Math.min(DURATION, position + 15); seek.set(position); tNow.textContent = fmt(position); });
+    setPlaying(playing);
+  }
+
+  // ——— Navigation with motion ———
+  function render(key) {
+    if (key === 'library') return libraryScreen();
+    if (key === 'me') return meScreen();
+    if (key === 'playing') return nowPlayingScreen();
+    return subScreen(key);
+  }
+
+  function mount(key, enterClass, leaving, leaveClass) {
+    const el = document.createElement('section');
+    el.className = 'screen';
+    el.dataset.key = key;
+    el.innerHTML = render(key);
+    screensEl.appendChild(el);
+    if (key === 'playing') wireNowPlaying(el);
+    if (leaving) {
+      leaving.classList.add(leaveClass);
+      leaving.addEventListener('animationend', () => leaving.remove(), { once: true });
+    }
+    if (enterClass) {
+      el.classList.add(enterClass);
+      el.addEventListener('animationend', () => el.classList.remove(enterClass), { once: true });
+    }
+    return el;
+  }
+
+  const top = () => screensEl.lastElementChild;
+
+  function switchTab(next) {
+    if (next === 'capture') { toast('Mở camera chụp trang (không có trong demo)'); return; }
+    clearInterval(playTimer);
+    stack.length = 0;
+    const leaving = [...screensEl.children];
+    tab = next;
+    mount(next, 'enter-tab', null);
+    leaving.forEach((el) => { el.classList.add('leave-tab'); el.addEventListener('animationend', () => el.remove(), { once: true }); });
+    renderNav();
+  }
+
+  function push(key) {
+    stack.push(key);
+    mount(key, 'enter-push', top(), 'leave-push');
+  }
+
+  function pop() {
+    if (!stack.length) return;
+    stack.pop();
+    const leaving = top();
+    const under = mount(stack.length ? stack[stack.length - 1] : tab, 'enter-pop');
+    screensEl.appendChild(leaving); // keep the leaving screen on top while it slides away
+    leaving.classList.add('leave-pop');
+    leaving.addEventListener('animationend', () => leaving.remove(), { once: true });
+    void under;
+  }
+
+  function renderNav() {
+    const items = [
+      ['library', 'Thư viện', ICON.lib],
+      ['capture', 'Chụp', `<span class="cap">${ICON.cam}</span>`],
+      ['playing', 'Đang nghe', ICON.disc],
+      ['me', 'Của tôi', av(profile)],
+    ];
+    $('#nav').innerHTML = items.map(([key, label, icon]) => `<button data-tab="${key}" ${key === tab ? 'aria-current="page"' : ''} aria-label="${label}">${icon}${key === 'capture' ? '' : `<span>${label}</span>`}</button>`).join('');
+  }
+
+  // ——— Profile switch sheet ———
+  const sheet = $('#sheet');
+  const scrim = $('#scrim');
+  function openSheet() {
+    sheet.innerHTML = `<div class="grab" aria-hidden="true"></div><h2 id="sheet-title">Đổi hồ sơ</h2>
+      <div class="sheet-profiles">${PROFILES.map((p) => `<button data-pick="${p.id}" class="${p.id === profile.id ? 'current' : ''}">${av(p, 'md')}<span>${p.name}</span>${p.id === profile.id ? '<small>Đang dùng</small>' : ''}</button>`).join('')}</div>
+      <div class="sheet-foot"><button class="link" data-manage>Quản lý hồ sơ</button><button class="link" data-close>Đóng</button></div>`;
+    sheet.hidden = false;
+    scrim.hidden = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => { sheet.classList.add('open'); scrim.classList.add('open'); }));
+    $('[data-pick]', sheet).focus({ preventScroll: true });
+  }
+  function closeSheet() {
+    sheet.classList.remove('open');
+    scrim.classList.remove('open');
+    setTimeout(() => { sheet.hidden = true; scrim.hidden = true; }, 380);
+  }
+
+  // Avatar flies from where it was tapped to the centre, grows, then the new library fades in.
+  function zoomInto(p, fromEl, done) {
+    const ph = phone.getBoundingClientRect();
+    const r = fromEl.getBoundingClientRect();
+    const veil = document.createElement('div');
+    veil.className = 'zoom-veil';
+    const ghost = document.createElement('div');
+    ghost.className = 'zoom-av';
+    ghost.innerHTML = av(p, 'lg');
+    const size = 96;
+    ghost.style.left = `${r.left - ph.left + r.width / 2 - size / 2}px`;
+    ghost.style.top = `${r.top - ph.top + r.height / 2 - size / 2}px`;
+    const startScale = r.width / size;
+    phone.append(veil, ghost);
+    const dx = ph.width / 2 - (r.left - ph.left + r.width / 2);
+    const dy = ph.height * 0.42 - (r.top - ph.top + r.height / 2);
+    veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, fill: 'forwards', easing: 'ease-out' });
+    ghost.animate([
+      { transform: `translate(0,0) scale(${startScale})` },
+      { transform: `translate(${dx}px,${dy}px) scale(1.3)`, offset: .6 },
+      { transform: `translate(${dx}px,${dy}px) scale(1.15)` },
+    ], { duration: 560, fill: 'forwards', easing: 'cubic-bezier(.32,.72,0,1)' }).finished.then(() => {
+      done();
+      ghost.animate([{ opacity: 1, transform: `translate(${dx}px,${dy}px) scale(1.15)` }, { opacity: 0, transform: `translate(${dx}px,${dy}px) scale(1.6)` }], { duration: 300, fill: 'forwards', easing: 'ease-in' });
+      veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 380, delay: 120, fill: 'forwards', easing: 'ease-out' }).finished.then(() => { veil.remove(); ghost.remove(); });
+    });
+  }
+
+  function choose(p, fromEl) {
+    zoomInto(p, fromEl, () => {
+      profile = p;
+      $('.who')?.remove();
+      screensEl.innerHTML = '';
+      stack.length = 0;
+      tab = 'library';
+      mount('library', 'enter-tab');
+      renderNav();
+    });
+  }
+
+  // ——— Who's listening ———
+  function showWho() {
+    const who = document.createElement('div');
+    who.className = 'who';
+    who.setAttribute('role', 'dialog');
+    who.setAttribute('aria-labelledby', 'who-title');
+    who.innerHTML = `<p class="eyebrow">BookSnap · Thư phòng gia đình</p><h1 id="who-title">Ai đang nghe?</h1>
+      <ul class="who-grid">${PROFILES.map((p) => `<li><button class="who-tile" data-who="${p.id}">${av(p, 'lg')}<span>${p.name}</span><i class="pencil">${ICON.pencil}</i></button></li>`).join('')}
+      <li><button class="who-tile who-add" data-toast="Thêm hồ sơ mới"><span class="plus" aria-hidden="true">+</span><span>Thêm hồ sơ</span></button></li></ul>
+      <div class="who-actions"><button class="btn" data-manage-who>Quản lý hồ sơ</button></div>`;
+    phone.appendChild(who);
+  }
+
+  // ——— Events ———
+  phone.addEventListener('click', (e) => {
+    const t = e.target.closest('button');
+    if (!t) { if (e.target === scrim) closeSheet(); return; }
+    if (t.dataset.who) {
+      const who = t.closest('.who');
+      if (who.classList.contains('managing')) { toast(`Sửa hồ sơ ${PROFILES.find((p) => p.id === t.dataset.who).name}`); return; }
+      choose(PROFILES.find((p) => p.id === t.dataset.who), t.querySelector('.av'));
+      return;
+    }
+    if (t.hasAttribute('data-manage-who')) {
+      const who = t.closest('.who');
+      const on = who.classList.toggle('managing');
+      t.textContent = on ? 'Xong' : 'Quản lý hồ sơ';
+      $('#who-title', who).textContent = on ? 'Quản lý hồ sơ' : 'Ai đang nghe?';
+      return;
+    }
+    if (t.id === 'avatar-btn' || t.id === 'switch-link') { openSheet(); return; }
+    if (t.dataset.pick) {
+      const p = PROFILES.find((x) => x.id === t.dataset.pick);
+      if (p.id === profile.id) { closeSheet(); return; }
+      const from = t.querySelector('.av');
+      closeSheet();
+      choose(p, from);
+      return;
+    }
+    if (t.hasAttribute('data-close')) { closeSheet(); return; }
+    if (t.hasAttribute('data-manage')) { closeSheet(); if (tab !== 'me') switchTab('me'); setTimeout(() => push('profiles'), 320); return; }
+    if (t.dataset.tab) { if (t.dataset.tab !== tab || stack.length) switchTab(t.dataset.tab); return; }
+    if (t.dataset.push) { push(t.dataset.push); return; }
+    if (t.hasAttribute('data-pop')) { pop(); return; }
+    if (t.dataset.open) { switchTab('playing'); return; }
+    if (t.dataset.themeSet !== undefined) {
+      const v = t.dataset.themeSet;
+      if (v) document.documentElement.setAttribute('data-theme', v); else document.documentElement.removeAttribute('data-theme');
+      t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t)));
+      return;
+    }
+    if (t.dataset.toast) toast(t.dataset.toast);
+  });
+  scrim.addEventListener('click', closeSheet);
+  document.querySelector('.font-pick').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.font) document.documentElement.setAttribute('data-font', b.dataset.font);
+    else document.documentElement.removeAttribute('data-font');
+    b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !sheet.hidden) closeSheet();
+    if (e.key === 'Escape' && stack.length) pop();
+  });
+
+  // Start like the real app does after login: behind "Ai đang nghe?", with the library of the
+  // first profile ready underneath (so a thumbnail of the page still shows something real).
+  profile = PROFILES[0];
+  mount('library');
+  renderNav();
+  showWho();
+})();
+</script>
+</body>
+</html>
