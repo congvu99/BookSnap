@@ -1,27 +1,27 @@
 # BookSnap MVP — Project Overview & Product Development Requirements
 
-**Last updated:** 2026-09-29
+**Last updated:** 2026-10-01
 
 ## Project Purpose
 
-BookSnap is a personal/family audiobook application that captures book pages via browser camera (no storage in device library), converts them to text via Gemini OCR, synthesizes audio via TTS (Gemini or Azure), and provides synchronized reading + listening across family members with individual progress tracking.
+BookSnap is a family audiobook application that captures book pages via browser camera (no storage in device library), converts them to text via Gemini OCR, synthesizes audio via TTS (Gemini or Azure), and provides shared library with per-profile progress tracking and personal shelf ("Kệ của tôi"). 1 family account per server with up to 8 profiles (Netflix-style).
 
-**Key philosophy:** Lightweight, battery-efficient, Vietnamese-focused, privacy-respecting (no personal data collection beyond username).
+**Key philosophy:** Lightweight, battery-efficient, Vietnamese-focused, privacy-respecting (no personal data collection beyond username). Single sign-on for family members via shared account; individual reading progress + shelf.
 
-## Users & Permissions
+## Users & Permissions (Family Profiles)
 
 | User Type | Capabilities |
 |-----------|---|
-| Any registered user | Read library books, listen to shared audio, track personal progress |
-| Book creator | Capture pages, change voice, delete book, discard failed pages |
-| Family members (logged in) | Share one library, see each other's books, maintain separate progress |
+| Family account owner | Create account via invite code; add/manage up to 8 profiles; change family password; view all books + audio |
+| Any family profile | Read shared library, listen to audio, track personal progress, maintain personal shelf ("Kệ của tôi"), create/delete their own books |
+| Book creator (profile) | Capture pages, change voice, delete book, discard failed pages |
 
-**Registration:** Username + display name + password (no email). Requires invite code. 180-day session cookie.
+**Account & Profiles:** 1 family login (username + password) + 1–8 profiles (display name + avatar color c1..c8). Login → select profile → access personal progress/shelf. Session stores account_id + selected profile_id. Password change per account, revokes all sessions. Profile deletion requires family password; books reassigned to oldest remaining profile.
 
 ## MVP Scope — Implemented Features
 
 ### Core MVP
-- [x] Multi-user accounts, shared library, per-user progress
+- [x] Family account with profiles, shared library, per-profile progress + personal shelf
 - [x] PWA camera capture (no photos in device library; D3 — `getUserMedia` + canvas + Blob)
 - [x] Gemini OCR (2.5-flash), configurable model/voice
 - [x] TTS synthesis: Gemini (8 voices) or Azure F0 (2 voices); fixed provider + voice per book

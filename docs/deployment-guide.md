@@ -172,12 +172,12 @@
 railway run bash
 ```
 
-**Reset password:**
+**Reset family account password:**
 ```bash
-python -m app.cli reset-password <username>
-# Prints: "Password reset. Use temporary token: <token>"
-# User logs in with username + temporary password
-# Then changes to permanent password in settings
+python -m app.cli reset-password <family-account-username>
+# Prompts for the new password twice (6-128 chars)
+# Revokes every session of the account (all devices, all profiles)
+# Everyone then signs in with the family username + new password
 ```
 
 **Check current status:**

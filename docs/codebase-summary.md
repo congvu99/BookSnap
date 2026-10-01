@@ -1,6 +1,6 @@
 # Codebase Summary — Module Map
 
-**Last updated:** 2026-09-30 | **LOC:** ~8K (app ~2.7K, web ~3.3K, tests ~1.5K)
+**Last updated:** 2026-10-01 | **LOC:** ~9K (app ~3.2K, web ~3.5K, tests ~2K)
 
 ## Directory Structure
 
@@ -12,13 +12,13 @@ BookSnap/
 │   ├── db.py                            [181 LOC] SQLite connection, migrations (2), transaction lock
 │   ├── app_context.py                   [~20 LOC] AppContext: repos + worker DI
 │   ├── api_errors.py                    [~30 LOC] ApiError exception, error handlers
-│   ├── cli.py                           [~15 LOC] CLI reset-password command
+│   ├── cli.py                           [~20 LOC] CLI: python -m app.cli reset-password <family-account-username>
 │   ├── request_size_limit.py            [73 LOC] ASGI middleware: Content-Length + streaming byte count
 │   ├── storage_health.py                [19 LOC] Railway volume durability check
 │   ├── file_paths.py                    [~5 LOC] is_within() path traversal guard
 │   │
 │   ├── auth/                            Auth & session management
-│   │   ├── auth_routes.py               [~80 LOC] POST /register, /login, /logout, GET /me
+│   │   ├── auth_routes.py               [~165 LOC] GET /status, POST /register, /login, /logout, GET /me; LoginOut, MeOut
 │   │   ├── session_service.py           [~40 LOC] Create/verify session token, SHA-256 hashing
 │   │   ├── password_service.py          [~20 LOC] Argon2 hash/verify (async on thread)
 │   │   ├── rate_limiter.py              [~25 LOC] Per-IP login/register rate limit (10/min)
@@ -27,21 +27,25 @@ BookSnap/
 │   ├── api/                             HTTP routes & serializers
 │   │   ├── books_routes.py              [~100 LOC] POST/GET/PATCH/PUT/DELETE /books, seal-tail, voice change
 │   │   ├── pages_routes.py              [98 LOC] POST /pages (upload JPEG/PNG/WebP), retry, discard
+│   │   ├── profiles_routes.py           [~110 LOC] GET/POST/PATCH/DELETE /profiles, select, create
+│   │   ├── shelf_routes.py              [~30 LOC] GET/PUT/DELETE /me/shelf/{book_id}
 │   │   ├── bookmarks_routes.py          [~46 LOC] GET/PUT/DELETE /bookmarks, per-user bookmarks
 │   │   ├── audio_routes.py              [~45 LOC] GET /chunks/{id}/audio (Range request via Starlette)
-│   │   ├── voices_routes.py             [68 LOC] GET /voices (list + configured), GET /voices/{provider}/{voice}/preview
+│   │   ├── voices_routes.py             [70 LOC] GET /voices (family rate limit), GET /voices/{provider}/{voice}/preview
 │   │   ├── export_routes.py             [104 LOC] GET /books/{id}/export (ZIP stream: MP3 + text.json)
-│   │   └── serializers.py               [113 LOC] book_out, page_out, chunk_out (contract shapes), tail_waiting, tail_wait_seconds
+│   │   └── serializers.py               [~130 LOC] book_out (on_shelf field), page_out, chunk_out
 │   │
 │   ├── repositories/                    Data access layer (pure SQL)
 │   │   ├── book_repository.py           [~90 LOC] CRUD books, get_summary (denormalized counts)
 │   │   ├── page_repository.py           [~130 LOC] CRUD pages, claim_next_uploaded, resume_processing
 │   │   ├── chunk_repository.py          [~160 LOC] CRUD chunks, claim_next_pending (sealing logic), tail ops
 │   │   ├── bookmark_repository.py       [~63 LOC] CRUD bookmarks, list per-user, per-book; idempotent add
-│   │   ├── user_repository.py           [~35 LOC] CRUD users, lookup by username
-│   │   ├── session_repository.py        [~35 LOC] CRUD sessions, lookup by token_hash
+│   │   ├── shelf_repository.py          [~40 LOC] CRUD shelf items (per-profile per-book; list, add, remove, check on_shelf)
+│   │   ├── user_repository.py           [~60 LOC] CRUD profiles: list, add, update, delete_with_heir (reassign books)
+│   │   ├── account_repository.py        [~35 LOC] CRUD accounts (minimal: lookup by username)
+│   │   ├── session_repository.py        [~45 LOC] CRUD sessions (with account_id + user_id), lookup by token_hash, revoke others per account
 │   │   ├── progress_repository.py       [~20 LOC] Upsert progress (per user_id + book_id)
-│   │   └── row_mapping.py               [~25 LOC] new_id() (UUID), dataclass constructors from rows
+│   │   └── row_mapping.py               [~30 LOC] new_id() (UUID), dataclass constructors for Account, User (Profile), LoginOut
 │   │
 │   ├── tts_voices.py                    [25 LOC] GEMINI_VOICES, AZURE_VOICES, allowed_voices, provider_configured
 │   ├── page_anchors.py                  [~110 LOC] Compute page ↔ chunk mapping (on-read, pure fn, no DB)
@@ -185,15 +189,15 @@ BookSnap/
 
 | Metric | Value |
 |--------|-------|
-| Python LOC | ~2,850 |
-| JavaScript LOC | ~3,550 |
-| Test LOC | ~1,700 |
-| Tests | 220 Python (pytest) + 77 JS (node --test) |
-| API endpoints | 23 (including page-anchors, voice preview, seal-tail, PUT /voice) |
-| DB tables | 7 (users, sessions, books, pages, chunks, progress, bookmarks) |
-| DB migrations | 2 (append-only, PRAGMA user_version) |
-| Python modules | 38+ |
-| JS modules | 38+ |
+| Python LOC | ~3,200 |
+| JavaScript LOC | ~3,800 |
+| Test LOC | ~2,200 |
+| Tests | 270+ Python (pytest) + 85+ JS (node --test) |
+| API endpoints | 30+ (auth with /status, profiles CRUD, shelf, voices family-shared, account password, 401/409 dependencies) |
+| DB tables | 9 (accounts, users, sessions, books, pages, chunks, progress, bookmarks, shelf_items, topics) |
+| DB migrations | 6 (append-only, PRAGMA user_version; v6 = family accounts + profiles) |
+| Python modules | 42+ |
+| JS modules | 42+ |
 | External deps (production) | 10 (fastapi, aiosqlite, google-genai, httpx, lameenc, etc.) |
 | External deps (dev) | 5 (pytest, playwright, etc.) |
 

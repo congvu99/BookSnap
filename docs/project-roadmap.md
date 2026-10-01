@@ -1,6 +1,6 @@
 # Project Roadmap — MVP & Next Steps
 
-**Last updated:** 2026-09-30 | **Status:** MVP phase 1–7 complete + page position feature, phase 8 (docs) in progress, ready for device QA
+**Last updated:** 2026-10-01 | **Status:** MVP phase 1–7 complete + page position + family profiles, phase 8 (docs) complete
 
 ## MVP Status
 
@@ -40,7 +40,7 @@
 - [x] Volume: `/data` persistence, DB + audio
 - [x] Env vars: all settings externalized
 - [x] Export ZIP: per-book MP3 + text.json
-- [x] CLI: `python -m app.cli reset-password <username>`
+- [x] CLI: `python -m app.cli reset-password <family-account-username>`
 
 ### Unverified (Still Manual)
 
@@ -235,6 +235,7 @@
 
 | Date | Version | Status | Notes |
 |------|---------|--------|-------|
+| 2026-10-01 | — | Feature + Docs | **Family profiles (Netflix-style):** Schema v6 migration; 1 family account per server, up to 8 profiles per account, shared library, per-profile progress/bookmarks/shelf. Session = account_id + user_id (nullable). GET /api/auth/status, GET/POST/PATCH/DELETE /api/profiles, POST /api/profiles/{id}/select, GET/PUT/DELETE /api/me/shelf/{book_id}. Downgrade guard in app startup. Web: profile picker (#/profiles), account menu "Đổi hồ sơ", shelf toggle on book page + library filter, sign-out keeps per-profile progress. Voice preview rate limit per account. Password reset: per account, revokes all sessions. CLI: `reset-password <family-account-username>`. Migration v6 runner: FK off, run ALTERs, check FK constraint, rollback on error. Docs updated (system-architecture, codebase-summary, deployment guides, README). |
 | 2026-09-30 | — | Feature + Bugfix | **Page position + picker:** GET /api/books/{id}/page-anchors maps each page → (chunk_seq, frac); "Trang X/N" label in NowPlayingPanel + MiniPlayer; sheet to jump to page. Pure on-read computation (no DB); offline cache; SHELL_CACHE bumped to v21. **Voice endpoint:** chunk_out now returns effective voice. PUT /voice provider change unparks waiting_quota chunks. Docs updated. |
 | 2026-09-29 | MVP 1.0 | Phase 1–7 complete, phase 8 docs in progress | All backend + frontend features done. Voice preview, tail seal, PUT /voice, status views, capture flow, live polling, voice labels. M1 (Azure SSML) fixed. Default voice Charon (Gate 0 PoC done). Docs updated. Pending: device QA (iOS/Android), Railway env check for `GEMINI_TTS_VOICE`. |
 

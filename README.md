@@ -1,6 +1,6 @@
 # BookSnap
 
-Chụp trang sách bằng camera trình duyệt → Gemini OCR → TTS tiếng Việt → vừa đọc vừa nghe. App cá nhân/gia đình: nhiều tài khoản dùng chung 1 thư viện, mỗi người có tiến độ nghe riêng.
+Chụp trang sách bằng camera trình duyệt → Gemini OCR → TTS tiếng Việt → vừa đọc vừa nghe. App gia đình: 1 tài khoản gia đình, nhiều hồ sơ, thư viện chung, mỗi người có tiến độ nghe riêng.
 
 - Backend: Python 3.12, FastAPI, SQLite (aiosqlite, WAL), worker asyncio chạy trong cùng process.
 - Frontend: PWA không build step (Preact + htm vendored) dưới `web/`, FastAPI serve static.
@@ -28,7 +28,8 @@ cd D:\project\BookSnap
 .venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 ```
 
-- Mở http://localhost:8000 → lần đầu bấm **Đăng ký** và nhập mã mời = giá trị `INVITE_CODE` trong `.env`; các lần sau chỉ cần **Đăng nhập**.
+- Mở http://localhost:8000 → lần đầu bấm **Tạo tài khoản gia đình** và nhập mã mời = giá trị `INVITE_CODE` trong `.env` (tab này chỉ hiện khi server chưa có tài khoản); các lần sau chỉ cần **Đăng nhập** bằng tài khoản gia đình.
+- Thêm hồ sơ (thành viên gia đình): chạm avatar góc trên thư viện → **Đổi hồ sơ** → **Thêm hồ sơ** → nhập tên, chọn màu. Có từ 2 hồ sơ trở lên thì sau mỗi lần đăng nhập app hỏi **Ai đang nghe?**
 - Dừng server: `Ctrl+C` trong cửa sổ đang chạy.
 - App tự đọc `.env`, tự nâng cấp DB (migration) khi khởi động. Dữ liệu (DB, audio) nằm trong `data/` — giữ nguyên giữa các lần chạy; xoá thư mục này = bắt đầu lại từ đầu.
 - Sau khi `git pull` có đổi `requirements*.txt`: chạy lại `.venv\Scripts\python -m pip install -r requirements-dev.txt`.
@@ -42,7 +43,7 @@ cd D:\project\BookSnap
 | Đăng nhập trên Safari xong vẫn bị đá ra | Đặt `COOKIE_SECURE=false` trong `.env` (Safari không nhận cookie `Secure` trên `http://localhost`) |
 | `address already in use` / cổng 8000 bận | Đổi cổng `--port 8001`, hoặc tìm và tắt tiến trình cũ: `netstat -ano \| findstr :8000` → `taskkill /PID <pid> /F` |
 | Chưa có API key, chỉ muốn xem giao diện | Thêm `WORKER_ENABLED=false` vào `.env` (tắt pipeline OCR/TTS; thư viện, đăng nhập, player vẫn chạy) |
-| Không đăng ký được | `INVITE_CODE` trong `.env` đang trống, hoặc gõ sai mã |
+| Không đăng ký được | `INVITE_CODE` trong `.env` đang trống, hoặc gõ sai mã; hoặc server đã có tài khoản gia đình → đăng ký chỉ mở lần đầu |
 
 ### Mở trên iPhone
 
@@ -87,7 +88,7 @@ app/
   usage_quota.py     cửa sổ reset + tổng hợp hạn mức provider (đo cục bộ, xem /api/usage)
   repositories/      SQL thuần, trả dataclass
   pipeline/          worker OCR → chunker → TTS, retry/quota, dọn ảnh tạm
-  cli.py             python -m app.cli reset-password <username>
+  cli.py             python -m app.cli reset-password <family-account-username>
 web/                 PWA: camera, thư viện, reader + player, service worker
 scripts/voice_poc.py Nghe thử giọng: `--text "..." --voices Charon,Orus --style "..."` (cần API key thật)
 tests/
@@ -95,6 +96,6 @@ tests/
 
 ## Vận hành
 
-- Đặt lại mật khẩu: `python -m app.cli reset-password <username>` (qua `railway ssh`), đồng thời đăng xuất mọi thiết bị của user.
+- Đặt lại mật khẩu tài khoản gia đình: `python -m app.cli reset-password <family-account-username>` (qua `railway ssh`), đồng thời đăng xuất mọi thiết bị.
 - Backup: nút "Tải bản sao" trong cài đặt sách → ZIP (MP3 + `text.json`), endpoint `GET /api/books/{id}/export`.
 - `/health` trả 503 nếu DB lỗi, `DATA_DIR` không ghi được, hoặc chạy trên Railway mà `DATA_DIR` không nằm trên Volume.

@@ -1,6 +1,6 @@
 # Code Standards & Conventions
 
-**Last updated:** 2026-09-29
+**Last updated:** 2026-10-01
 
 ## Overview
 
@@ -16,10 +16,10 @@ app/
 ├── config.py                     # Pydantic Settings (env vars)
 ├── db.py                         # Database connection, migrations, transaction context
 ├── app_context.py               # AppContext: repositories + worker injected into request.state
-├── cli.py                        # CLI: python -m app.cli reset-password <username>
+├── cli.py                        # CLI: python -m app.cli reset-password <family-account-username>
 ├── api_errors.py                # ApiError exception + error handlers
 ├── auth/
-│   ├── auth_routes.py           # POST /register, /login, /logout, GET /me
+│   ├── auth_routes.py           # GET /status, POST /register, /login, /logout, GET /me; LoginOut, MeOut
 │   ├── session_service.py       # Session create/verify/touch
 │   ├── password_service.py      # Argon2 hashing (async on thread)
 │   ├── rate_limiter.py          # Per-IP login/register rate limit
@@ -27,18 +27,22 @@ app/
 ├── api/
 │   ├── books_routes.py          # POST/GET/PATCH/DELETE /books
 │   ├── pages_routes.py          # POST /books/{id}/pages, /pages/{id}/retry
+│   ├── profiles_routes.py       # GET/POST/PATCH/DELETE /profiles, POST /profiles/{id}/select
+│   ├── shelf_routes.py          # GET/PUT/DELETE /me/shelf/{book_id}
 │   ├── audio_routes.py          # GET /chunks/{id}/audio (Range requests)
-│   ├── voices_routes.py         # GET /voices (provider list)
+│   ├── voices_routes.py         # GET /voices (family rate limit), preview endpoint
 │   ├── export_routes.py         # GET /books/{id}/export (ZIP stream)
-│   └── serializers.py           # book_out, page_out, chunk_out JSON shapes
+│   └── serializers.py           # book_out (on_shelf), page_out, chunk_out
 ├── repositories/                 # Pure SQL, return dataclasses (no mutation)
 │   ├── book_repository.py
 │   ├── page_repository.py
 │   ├── chunk_repository.py
-│   ├── user_repository.py
-│   ├── session_repository.py
+│   ├── user_repository.py       # Profiles: list_for_account, add_to_account, update_in_account, delete_with_heir
+│   ├── account_repository.py    # Accounts: minimal (lookup by username)
+│   ├── shelf_repository.py      # Shelf items: CRUD, check on_shelf, list per-profile
+│   ├── session_repository.py    # Sessions with account_id + user_id, revoke_all_others_for_account
 │   ├── progress_repository.py
-│   └── row_mapping.py           # new_id(), dataclass constructors
+│   └── row_mapping.py           # new_id(), dataclass constructors for Account, User (Profile), LoginOut
 ├── pipeline/                     # Worker loops: OCR → chunker → TTS
 │   ├── worker.py                # Main event loop, claim/retry logic
 │   ├── chunker_worker.py        # Fold pages → chunks (ordering invariant)

@@ -1,6 +1,6 @@
 # System Architecture — BookSnap MVP
 
-**Last updated:** 2026-09-30
+**Last updated:** 2026-10-01
 
 ## Component Overview
 
@@ -155,35 +155,50 @@ Gemini quota hits at chunk 5
 
 ## Database Schema
 
-**SQLite, WAL mode, foreign keys=ON. User version (migrations) tracks schema version.**
+**SQLite, WAL mode, foreign keys=ON. User version (migrations) tracks schema version. Migration v6: family accounts (1 per server) with multiple profiles (max 8).**
 
-### Users & Sessions
+### Accounts & Profiles
 ```sql
-CREATE TABLE users (
+CREATE TABLE accounts (
   id TEXT PRIMARY KEY,
-  username TEXT NOT NULL UNIQUE COLLATE NOCASE,
-  display_name TEXT NOT NULL,
+  username TEXT NOT NULL UNIQUE COLLATE NOCASE,  -- Family login (shared password)
   password_hash TEXT NOT NULL,           -- Argon2, hashed async
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE users (
+  id TEXT PRIMARY KEY,                   -- Profile id
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  display_name TEXT NOT NULL,
+  avatar TEXT NOT NULL DEFAULT 'c1',     -- c1..c8 (preset colors)
   created_at TEXT NOT NULL
 );
 
 CREATE TABLE sessions (
   token_hash TEXT PRIMARY KEY,           -- SHA-256(32-byte random token)
-  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,  -- Selected profile (nullable)
   created_at TEXT NOT NULL,
   last_seen_at TEXT NOT NULL,            -- For sliding expiry (cookie reissue not implemented; L2)
   expires_at TEXT NOT NULL               -- 180 days from creation
 );
+CREATE INDEX idx_sessions_account ON sessions(account_id);
 ```
+
+**Schema invariants:**
+- 1 server = 1 family account (no multi-tenancy)
+- Max 8 profiles (enforced by `add_to_account`)
+- `user_id` throughout the schema (progress, bookmarks, books.created_by, topics.created_by, shelf_items) now refers to profile id, not family login
+- Downgrade guard: app refuses to start if `DB user_version > code's migrations count` (prevents running old code on new schema)
 
 ### Books & Pages
 ```sql
 CREATE TABLE books (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
-  created_by TEXT NOT NULL REFERENCES users(id),
+  created_by TEXT NOT NULL REFERENCES users(id),  -- Profile id (user_id = profile)
   tts_provider TEXT NOT NULL,            -- "gemini" or "azure"
-  tts_voice TEXT NOT NULL,               -- e.g. "Kore", "vi-VN-HoaiMyNeural" (not validated; M1)
+  tts_voice TEXT NOT NULL,               -- e.g. "Charon", "vi-VN-HoaiMyNeural" (validated against tts_voices.py)
   topic_id TEXT REFERENCES topics(id),   -- v3; NULL = "Chưa phân loại"
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL               -- Touched on every relevant change (for tail-seal grace)
@@ -231,7 +246,7 @@ CREATE TABLE chunks (
 );
 
 CREATE TABLE progress (
-  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,  -- Profile id (user_id = profile)
   book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
   chunk_seq INTEGER NOT NULL,            -- Current chunk index (0-based)
   offset_ms INTEGER NOT NULL,            -- Within-chunk offset (for resume mid-chunk)
@@ -240,7 +255,7 @@ CREATE TABLE progress (
 );
 
 CREATE TABLE bookmarks (
-  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,  -- Profile id (user_id = profile)
   book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
   chunk_seq INTEGER NOT NULL,            -- Chunk sequence (unsealed tail can be replaced; seq survives)
   created_at TEXT NOT NULL,
@@ -278,7 +293,18 @@ CREATE TABLE topics (id TEXT PRIMARY KEY, name TEXT NOT NULL, name_key TEXT NOT 
                      created_by TEXT REFERENCES users(id), created_at TEXT NOT NULL);
 ALTER TABLE books ADD COLUMN topic_id TEXT REFERENCES topics(id);
 CREATE INDEX idx_books_topic ON books(topic_id);
+-- v6: family accounts with profiles (1 account per server, up to 8 profiles)
+-- Two-phase: phase 1 deploy guard that refuses old code on v6+ DB
+-- Earliest user's username + password_hash become family login; all users become profiles; live sessions stay on their profile
+CREATE TABLE accounts (id, username UNIQUE, password_hash, created_at);
+ALTER TABLE users ADD COLUMN account_id, avatar DEFAULT 'c1';
+ALTER TABLE sessions ADD COLUMN account_id, RENAME COLUMN user_id TO user_id;
+ALTER TABLE sessions ADD COLUMN user_id, RENAME user_id (nullable profile);
+CREATE TABLE shelf_items (account_id, user_id, book_id PRIMARY KEY);
+-- Migration runner: FK off outside txn, run ALTER/INSERT, PRAGMA foreign_key_check, rollback on error
 ```
+
+**Downgrade guard:** App refuses to start if `DB user_version > code's migrations count`. This prevents running old code on a DB that's been migrated forward (could cause data corruption). Error message: "Database schema version X is newer than app version Y; please upgrade the application."
 
 **Single aiosqlite connection (async), one write lock (asyncio.Lock) around all mutations. Reads don't lock.**
 
@@ -291,19 +317,27 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 | Method | Path | Auth | Status | Returns |
 |--------|------|------|--------|---------|
 | **Auth** ||||
-| POST | `/auth/register` | — | 201 | `{id, username, display_name}` + cookie; cần `invite_code` |
-| POST | `/auth/login` | — | 200 | `{id, username, display_name}` + cookie |
+| POST | `/auth/register` | — | 201 | `LoginOut` + cookie (tạo tài khoản gia đình); cần `invite_code`, chỉ mở nếu chưa có account |
+| POST | `/auth/login` | — | 200 | `LoginOut` + cookie (đăng nhập tài khoản gia đình) |
 | POST | `/auth/logout` | — | 204 | xoá session nếu có (idempotent) |
-| GET | `/me` | ✓ | 200 | `{id, username, display_name}` |
-| GET | `/me/continue` | ✓ | 200 | `[book_out]` sách user đang nghe dở, mới nhất trước |
-| **Account** ||||
-| GET | `/me/profile` | ✓ | 200 | `{id, username, display_name, created_at, stats: {books_created, pages_captured, books_listening, bookmarks}}` |
-| PATCH | `/me` | ✓ | 200 | `{id, username, display_name}`; body `{display_name}` (1–40 ký tự) |
-| POST | `/me/password` | ✓ | 200 | `{other_sessions_revoked}`; body `{current_password, new_password}`; giữ session hiện tại, xoá mọi session khác; rate limit theo user |
-| GET | `/usage` | ✓ | 200 | `{as_of, services: [{service, label, unit, window, status, used, limit, remaining, window_start, resets_at, quota_hits, last_quota_at, paused_until, waiting_chunks}]}` — dùng chung cả nhà |
+| GET | `/auth/status` | — | 200 | `{registration_open}` (true nếu chưa có account) |
+| GET | `/me` | ✓ | 200 | `{id, username, display_name, avatar}` (hồ sơ hiện tại, 409 nếu chưa chọn) |
+| GET | `/me/continue` | ✓ | 200 | `[book_out]` sách profile đang nghe dở, mới nhất trước |
+| **Account & Profiles** ||||
+| GET | `/profiles` | ✓ account | 200 | `[{id, display_name, avatar}]` (toàn bộ hồ sơ của tài khoản gia đình) |
+| POST | `/profiles` | ✓ account | 201 | `{id, display_name, avatar}`; body `{display_name, avatar?}` (tạo hồ sơ, tối đa 8) |
+| POST | `/profiles/{id}/select` | ✓ account | 200 | `LoginOut`; chọn hồ sơ để dùng, session cập nhật |
+| PATCH | `/profiles/{id}` | ✓ account | 200 | `{id, display_name, avatar}`; sửa tên/màu hồ sơ |
+| DELETE | `/profiles/{id}` | ✓ account | 204 | Xoá hồ sơ (cần mật khẩu gia đình); sách chuyển cho hồ sơ tạo sớm nhất còn lại; 409 nếu đang dùng |
+| POST | `/me/password` | ✓ account | 200 | `{other_sessions_revoked}`; body `{current_password, new_password}`; đổi mật khẩu gia đình, xoá tất cả session khác; rate limit theo account |
+| GET | `/usage` | ✓ account | 200 | `{as_of, services: [{…}]}` — dùng chung cả nhà, rate limit voice preview per account |
+| **Shelf (Kệ của tôi)** ||||
+| GET | `/me/shelf` | ✓ user | 200 | `[book_id]` (sách trên kệ của profile hiện tại) |
+| PUT | `/me/shelf/{book_id}` | ✓ user | 204 | Thêm sách vào kệ (idempotent) |
+| DELETE | `/me/shelf/{book_id}` | ✓ user | 204 | Xoá sách khỏi kệ (idempotent) |
 | **Books** ||||
-| POST | `/books` | ✓ | 201 | `book_detail`; body `{title, topic?, tts_provider?, tts_voice?}` |
-| GET | `/books` | ✓ | 200 | `[book_out]` (thư viện chung, tiến độ của user hiện tại) |
+| POST | `/books` | ✓ user | 201 | `book_detail`; body `{title, topic?, tts_provider?, tts_voice?}` |
+| GET | `/books` | ✓ user | 200 | `[book_out]` (thư viện chung, tiến độ + `on_shelf` của profile hiện tại) |
 | GET | `/books/{id}` | ✓ | 200 | `book_detail` = `book_out` + `page_list` + `pages.missing_seqs` + `chunks.tail_wait_seconds` |
 | PATCH | `/books/{id}` | ✓ người tạo | 200 | `book_detail`; legacy: `title?`, `topic?`, `tts_provider?`, `tts_voice?` (đổi giọng → mọi chunk về `pending`) |
 | PUT | `/books/{id}/voice` | ✓ người tạo | 200 | `book_detail`; body `{tts_provider, tts_voice}` (đổi giọng cho đoạn chưa có audio; không reset grace). Đổi provider (vd. gemini→azure) → các đoạn `waiting_quota` của sách về `pending` ngay; cùng provider thì vẫn chờ quota |
@@ -347,7 +381,7 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 }
 ```
 
-**Error codes:** `invalid_request` (400), `username_invalid` / `display_name_invalid` / `password_invalid` / `title_invalid` / `topic_invalid` / `text_invalid` (400), `current_password_invalid` / `password_unchanged` (400), `unauthorized` / `invalid_credentials` (401), `forbidden` / `invite_invalid` (403), `not_found` (404), `page_seq_taken` / `username_taken` / `page_not_discardable` / `page_not_retryable` / `chunk_not_retryable` (409), `unknown_voice` (400 khi tên giọng lạ), `provider_unavailable` (409 khi provider không cấu hình API key), `image_too_large` / `request_too_large` (413), `image_type_invalid` (415), `rate_limited` (429, có `Retry-After`).
+**Error codes:** `invalid_request` (400), `username_invalid` / `display_name_invalid` / `avatar_invalid` / `password_invalid` / `title_invalid` / `topic_invalid` / `text_invalid` (400), `current_password_invalid` / `password_unchanged` (400), `unauthorized` / `invalid_credentials` (401), `forbidden` / `invite_invalid` / `registration_closed` / `password_invalid` (403, mật khẩu gia đình sai khi xoá hồ sơ), `not_found` (404), `profile_required` / `profile_mismatch` (409, client chuyển sang màn chọn hồ sơ), `page_seq_taken` / `page_not_discardable` / `page_not_retryable` / `chunk_not_retryable` / `profile_limit` / `profile_active` (409), `unknown_voice` (400 khi tên giọng lạ), `provider_unavailable` (409 khi provider không cấu hình API key), `image_too_large` / `request_too_large` (413), `image_type_invalid` (415), `rate_limited` (429, có `Retry-After`).
 
 ### Page Anchor Computation (On-Read Mapping)
 
@@ -470,8 +504,8 @@ ocr_processing
 
 | Layer | Mechanism |
 |-------|-----------|
-| **Authn** | Session token (32 bytes random) → SHA-256 in DB. Cookie httpOnly, Secure, SameSite=Lax, 180 days. |
-| **Authz** | `CurrentUser` dependency on all `/api/*` (except register/login/logout). Creator check on delete/voice. `load_book` verifies book exists; user not checked (owner-only enforced per endpoint). |
+| **Authn** | Account session: account_id + optional user_id (profile). Cookie session token (32 bytes random) → SHA-256 in DB. Cookie httpOnly, Secure, SameSite=Lax, 180 days. Client header `X-Profile-Id` checked against session.user_id → 409 `profile_mismatch` if mismatch (missing header is accepted for older clients). |
+| **Authz** | Dependencies: `CurrentAccount` (401 if session missing), `CurrentUser` (409 `profile_required` if profile not selected, 409 `profile_mismatch` if X-Profile-Id disagrees). Family-wide endpoints (voices, usage, profiles, password, auth/status) use `CurrentAccount`. Per-profile endpoints (books, progress, bookmarks, shelf) use `CurrentUser`. Creator check on delete/voice. `load_book` verifies book exists; user not checked (owner-only enforced per endpoint). Shelf operations: only profile owner can add/remove from their shelf. Profile deletion: requires family password (not enforced per-profile). |
 | **Body size** | Middleware fast-path (Content-Length) + streamed byte count. Rejects ≥ 5.256 MB before parsing. |
 | **Image** | MIME sniff (magic bytes) + declared type match. Whitelist: JPEG/PNG/WebP. |
 | **Paths** | Files served only from `/data/library/` (audio) or ZIP stream (export); checked via `is_within(path, base)`. |
@@ -479,6 +513,7 @@ ocr_processing
 | **XSS** | All user text in htm text nodes (not HTML). Static SVG icons only. |
 | **CSRF** | SameSite=Lax prevents cross-site POST/PATCH/DELETE; GET is side-effect free. (Assumes `up.railway.app` on PSL.) |
 | **SQL** | Parameterized queries only. Foreign keys enabled. |
+| **Ownership (anti-mistake)** | `ensure_book_owner` checks that DELETE/PUT /voice request matches `books.created_by`. **Not a security boundary** (all profiles in same family can read/progress any book; one profile deleting another's book is acceptable family operation). Enforced per endpoint for UX clarity. |
 
 **Known gaps (post-review):**
 - H4: Pre-auth multipart parsing unbounded (Starlette limits files to 1 MB non-file parts; file parts unlimited). **Mitigation:** RequestSizeLimitMiddleware fast-path on Content-Length.

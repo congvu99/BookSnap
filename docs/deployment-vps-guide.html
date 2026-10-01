@@ -572,7 +572,7 @@ docker compose up -d --force-recreate</code></pre></div>
   <tr><td>Trạng thái</td><td><code>docker compose ps</code></td></tr>
   <tr><td>Log trực tiếp</td><td><code>docker compose logs -f app</code></td></tr>
   <tr><td>Restart</td><td><code>docker compose restart app</code></td></tr>
-  <tr><td>Đặt lại mật khẩu user</td><td><code>docker compose exec app python -m app.cli reset-password &lt;username&gt;</code></td></tr>
+  <tr><td>Đặt lại mật khẩu tài khoản gia đình</td><td><code>docker compose exec app python -m app.cli reset-password &lt;family-account-username&gt;</code></td></tr>
   <tr><td>Vào shell trong container</td><td><code>docker compose exec app bash</code></td></tr>
   <tr><td>RAM/CPU mọi container</td><td><code>docker stats</code></td></tr>
   <tr><td>Dung lượng đĩa</td><td><code>df -h /</code> · <code>docker system df</code></td></tr>
@@ -611,6 +611,58 @@ docker compose start app</code></pre></div>
 <ul class="explain">
   <li>Dừng app → dùng container tạm (alpine) gắn vào volume dữ liệu → xoá dữ liệu hiện tại, giải nén bản backup, đổi tên file DB, trả quyền cho user <code>app</code> (uid 10001) trong container.</li>
   <li>Thay tên file bằng bản muốn khôi phục (<code>ls /srv/backups/booksnap/</code>).</li>
+</ul>
+
+<h3>9.4 Rollout migration (cập nhật schema DB)</h3>
+<div class="box info"><strong>Ví dụ:</strong> Migration v6 (family accounts + profiles) là một chiều → không quay lại bản cũ được sau khi DB nâng cấp. Bản cũ sẽ refuse to start.</div>
+<p><strong>Trước khi deploy (ngày hôm trước):</strong></p>
+<ol>
+  <li><b>Guard đã chạy trên prod:</b> bản đang chạy phải có downgrade guard (app từ chối khởi động khi DB mới hơn code). Nếu chưa, deploy riêng bản có guard trước, đợi <code>Up … (healthy)</code>. Nhờ vậy nếu <code>deploy.sh</code> tự quay về image cũ trên DB đã nâng cấp, image cũ sẽ dừng hẳn (log <code>rollback ALSO unhealthy</code>) thay vì chạy sai âm thầm.</li>
+  <li><b>Kiểm SQLite của image mới</b> (cần ≥ 3.26):
+    <div class="cmd"><span class="where">Server</span><pre><code>cd /srv/apps/booksnap
+git fetch &amp;&amp; git merge --ff-only
+IMAGE_TAG=check docker compose build
+docker run --rm booksnap:check python -c "import sqlite3;print(sqlite3.sqlite_version)"</code></pre></div>
+  </li>
+  <li><b>Tập dượt trên bản sao:</b> lấy bản backup mới nhất, giải nén <code>.backup-snapshot.db</code>, chạy migration bằng image mới và kiểm khoá ngoại:
+    <div class="cmd"><span class="where">Server</span><pre><code>mkdir -p /tmp/booksnap-rehearsal &amp;&amp; tar -xzf "$(ls -t /srv/backups/booksnap/booksnap-*.tar.gz | head -1)" -C /tmp/booksnap-rehearsal .backup-snapshot.db
+mv /tmp/booksnap-rehearsal/.backup-snapshot.db /tmp/booksnap-rehearsal/booksnap.db
+docker run --rm -v /tmp/booksnap-rehearsal:/data -e DATA_DIR=/data booksnap:check python -c "
+import asyncio, sqlite3
+from pathlib import Path
+from app.db import Database
+async def m():
+    db = Database(Path('/data/booksnap.db')); await db.connect(); await db.close()
+asyncio.run(m())
+c = sqlite3.connect('/data/booksnap.db')
+print('version', c.execute('PRAGMA user_version').fetchone()[0])
+print('fk_check', c.execute('PRAGMA foreign_key_check').fetchall())
+for t in ('accounts','users','progress','bookmarks','books'): print(t, c.execute(f'SELECT count(*) FROM {t}').fetchone()[0])"</code></pre></div>
+    <code>fk_check</code> phải là <code>[]</code>, <code>accounts</code> = 1, số <code>users/progress/bookmarks/books</code> bằng trước khi nâng cấp. Có dòng mồ côi cũ → migration sẽ từ chối chạy: sửa dữ liệu trước.
+  </li>
+</ol>
+<p><strong>Ngày deploy:</strong></p>
+<div class="cmd"><span class="where">Server</span><pre><code>cd /srv/apps/booksnap
+bash deploy/deploy.sh                    # tự backup trước khi thay image
+docker compose logs --tail 50 app | grep db_migrate      # phải có "db_migrate version=6"
+docker compose ps                                       # Up … (healthy)</code></pre></div>
+<ul class="explain">
+  <li>Thiết bị đang đăng nhập vẫn vào thẳng thư viện (giữ nguyên hồ sơ).</li>
+  <li>Báo cả nhà: từ giờ đăng nhập bằng <b>tên đăng nhập + mật khẩu của người tạo tài khoản đầu tiên</b>; mật khẩu riêng cũ hết hiệu lực. Mở lại app 2 lần để cập nhật giao diện. Không ai nhớ mật khẩu đó → <code>docker compose exec app python -m app.cli reset-password &lt;tên đăng nhập gia đình&gt;</code>.</li>
+</ul>
+<p><strong>Nếu phải restore</strong> (dữ liệu ghi sau lúc backup sẽ mất):</p>
+<div class="cmd"><span class="where">Server</span><pre><code>cd /srv/apps/booksnap
+docker compose stop app
+backup="$(ls -t /srv/backups/booksnap/booksnap-*.tar.gz | head -1)"   # bản deploy.sh vừa tạo
+# ghi đè DB trong volume booksnap_data bằng snapshot, xoá WAL/SHM cũ (thư mục library/ giữ nguyên)
+docker run --rm -v booksnap_data:/data -v "$backup":/backup.tar.gz:ro alpine sh -c \
+  'cd /data &amp;&amp; tar -xzf /backup.tar.gz .backup-snapshot.db &amp;&amp; mv .backup-snapshot.db booksnap.db &amp;&amp; rm -f booksnap.db-wal booksnap.db-shm'
+git reset --hard &lt;tag-cũ&gt;                     # tag trước đó: xem log deploy.sh ("was …")
+IMAGE_TAG=&lt;tag-cũ&gt; docker compose up -d
+docker compose ps                              # Up … (healthy)</code></pre></div>
+<ul class="explain">
+  <li><b>Không dùng deploy.sh</b> để restore: script luôn fast-forward theo <code>origin</code>, không quay về tag cũ.</li>
+  <li>Tên volume <code>booksnap_data</code> = tên project <code>booksnap</code> + volume <code>data</code> trong <code>compose.yml</code>; kiểm bằng <code>docker volume ls</code>.</li>
 </ul>
 
 <!-- ============================================================ -->
