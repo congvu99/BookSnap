@@ -6,7 +6,7 @@
 // Background music (/audio/ambient/*) has its own cache that survives SHELL_CACHE bumps so ~15MB
 // is not re-downloaded on every deploy. To replace one track, ship it under a new file name; bump
 // AMBIENT_CACHE only when every track changes (that forces all of them to download again).
-const SHELL_CACHE = 'booksnap-shell-v28';
+const SHELL_CACHE = 'booksnap-shell-v29';
 const AUDIO_CACHE = 'booksnap-audio-v1';
 const AMBIENT_CACHE = 'booksnap-ambient-v2'; // v2: tracks re-normalised to -18 LUFS
 const KEPT_CACHES = [SHELL_CACHE, AUDIO_CACHE, AMBIENT_CACHE];
@@ -43,6 +43,7 @@ const SHELL_ASSETS = [
   '/js/book-prefetch-core.js',
   '/js/book-prefetch.js',
   '/js/camera-capture.js',
+  '/js/connection-warmup.js',
   '/js/auth-error-kind.js',
   '/js/icons.js',
   '/js/library-cache.js',
@@ -226,6 +227,8 @@ async function cacheFirstShell(request) {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET') return; // Let non-GET (POST/PATCH/DELETE) pass through untouched.
+  // Connection warm-up ping (js/connection-warmup.js) must reach the network, never a cache.
+  if (url.pathname === '/health') return;
 
   if (isChunkAudio(url)) {
     event.respondWith(handleChunkAudio(event.request));

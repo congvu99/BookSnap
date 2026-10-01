@@ -53,3 +53,14 @@ html[data-nav='tab']::view-transition-old(root) { animation-name: vt-tab-out; an
 
 .profile-tile, .chip, .shelf-toggle { transition: transform 150ms var(--ease-out); }
 .profile-tile:active, .chip:active, .shelf-toggle:active { transform: scale(.97); }
+
+/* Pressed states: instant feedback under the finger (iOS needs the touchstart listener in app.js for
+   :active to apply). Press is quick (90ms), release springs back. */
+.rec .rec-art, .ornate.hero, .bottom-nav a svg, .bottom-nav a .profile-avatar, .row, .icon-btn, .see-all, .me-link, .btn {
+  transition: transform 220ms var(--ease-spring), opacity 160ms ease-out, background-color 160ms ease-out;
+}
+.rec:active .rec-art { transform: scale(.94); transition-duration: 90ms; }
+.ornate.hero:active { transform: scale(.985); transition-duration: 90ms; }
+.bottom-nav a:active svg, .bottom-nav a:active .profile-avatar { transform: scale(.86); transition-duration: 90ms; }
+.row:active, .icon-btn:active, .see-all:active, .me-link:active { opacity: .55; transition-duration: 60ms; }
+.btn:active { transform: scale(.97); transition-duration: 90ms; }

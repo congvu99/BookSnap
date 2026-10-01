@@ -4,6 +4,7 @@
 // profile_mismatch means the device must pick a profile again (deleted, or switched in another tab).
 import { authStore } from './store.js';
 import { PROFILE_REQUIRED_CODES } from './auth-error-kind.js';
+import { noteNetworkUse } from './connection-warmup.js';
 import { begin as beginNetworkActivity } from './network-activity.js';
 
 /** Emitted on window when any request receives 401, so app.js can redirect once. */
@@ -48,6 +49,7 @@ export async function apiFetch(path, options = {}, opts = {}) {
 }
 
 async function apiFetchUntracked(path, options, opts) {
+  noteNetworkUse();
   const headers = new Headers(options.headers || {});
   // The cookie (and so the selected profile) is shared by every tab: tell the server which profile
   // this tab is showing, so a stale tab gets 409 instead of writing into another profile.

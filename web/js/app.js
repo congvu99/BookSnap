@@ -21,6 +21,7 @@ import { LibraryBrowseView } from './views/library-browse-view.js';
 import { ProfilePickerView } from './views/profile-picker-view.js';
 import { ProfileSwitchSheet } from './components/profile-switch-sheet.js';
 import { directionFor, runRouteTransition } from './route-transition.js';
+import { startConnectionWarmup } from './connection-warmup.js';
 
 /** Parse the current location hash into a {name, params} route. */
 function parseRoute(hash) {
@@ -271,6 +272,11 @@ function App() {
 }
 
 render(html`<${App} />`, document.getElementById('app'));
+
+// iOS Safari only applies :active (our pressed states) when the page listens to touchstart; without
+// it a tap shows nothing until the next screen appears, which reads as lag.
+document.addEventListener('touchstart', () => {}, { passive: true });
+startConnectionWarmup();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
