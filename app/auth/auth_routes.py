@@ -106,6 +106,9 @@ async def status(ctx: Ctx) -> dict:
 async def register(body: RegisterIn, request: Request, response: Response, ctx: Ctx) -> LoginOut:
     """Create the family account with its first profile. One account per server: closed afterwards."""
     _enforce_rate_limit(ctx, request)
+    # Cheap early answer (the check inside the transaction below is the authoritative one).
+    if await ctx.accounts.any_exists():
+        raise ApiError(403, "registration_closed", "Gia đình đã có tài khoản, hãy đăng nhập")
     username = body.username.strip().lower()
     if not USERNAME_RE.fullmatch(username):
         raise ApiError(400, "username_invalid", "Tên đăng nhập 3–32 ký tự: chữ thường, số, dấu . hoặc _", "username")

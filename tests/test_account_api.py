@@ -78,8 +78,8 @@ async def test_change_password_signs_out_every_profile_but_the_current_device(ap
 
 
 async def test_change_password_rate_limit_is_shared_by_the_family(app, alice):
-    app.state.ctx.auth_limiter.max_hits = 2
     kid, _ = await add_profile(app, alice, "Con")
+    app.state.ctx.auth_limiter.max_hits = 2
     body = {"current_password": "sai-roi-1", "new_password": "moi-hon-123"}
     statuses = [
         (await alice.post("/api/me/password", json=body)).status_code,

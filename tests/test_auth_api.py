@@ -134,6 +134,14 @@ async def test_rate_limit_returns_429(app, anon):
         ("get", "/api/chunks/x/audio"),
         ("post", "/api/pages/x/retry"),
         ("get", "/api/voices"),
+        ("get", "/api/usage"),
+        ("get", "/api/profiles"),
+        ("post", "/api/profiles"),
+        ("post", "/api/profiles/x/select"),
+        ("patch", "/api/profiles/x"),
+        ("delete", "/api/profiles/x"),
+        ("post", "/api/me/password"),
+        ("put", "/api/me/shelf/x"),
     ],
 )
 async def test_protected_routes_require_session(anon, method, path):
@@ -157,4 +165,17 @@ async def test_cli_reset_password_unknown_user(app, monkeypatch):
     monkeypatch.setattr("app.cli.get_settings", lambda: ctx_of(app).settings)
     with pytest.raises(LookupError):
         await reset_password("ghost", "whatever1")
+
+
+def test_cli_unknown_user_message_points_to_the_family_login(app, monkeypatch, capsys):
+    from app import cli
+
+    async def missing(username, password):
+        raise LookupError(username)
+
+    monkeypatch.setattr(cli, "_prompt_password", lambda: "whatever1")
+    monkeypatch.setattr(cli, "reset_password", missing)
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["reset-password", "me"])
+    assert "tài khoản gia đình" in str(exc.value)
 

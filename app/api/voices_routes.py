@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from fastapi.responses import FileResponse
 
 from app.api_errors import ApiError, not_found
-from app.auth.current_user import Ctx, CurrentAccount, CurrentUser
+from app.auth.current_user import Ctx, CurrentAccount
 from app.tts_voices import allowed_voices, provider_configured
 from app.voice_preview import PreviewError
 
@@ -43,7 +43,7 @@ async def list_voices(ctx: Ctx, session: CurrentAccount) -> dict:
 
 
 @router.get("/voices/{provider}/{voice}/preview")
-async def voice_preview(provider: str, voice: str, ctx: Ctx, user: CurrentUser) -> FileResponse:
+async def voice_preview(provider: str, voice: str, ctx: Ctx, session: CurrentAccount) -> FileResponse:
     """MP3 of the fixed preview sentence. The `?v=` query from /api/voices versions the URL, so
     it can be cached immutably; the path itself is only a whitelisted provider/voice pair."""
     if provider not in PROVIDERS or voice not in allowed_voices(ctx.settings, provider):  # type: ignore[arg-type]
@@ -52,16 +52,18 @@ async def voice_preview(provider: str, voice: str, ctx: Ctx, user: CurrentUser) 
     if not service.is_configured(provider):
         raise ApiError(409, "provider_unavailable", "Giọng đọc này chưa được cấu hình trên máy chủ")
 
+    # Rate-limited per family account: extra profiles must not multiply the paid preview budget.
+    requester = session.account.id
     started = time.monotonic()
     try:
-        path, cache_hit = await service.get(provider, voice, user.id)
+        path, cache_hit = await service.get(provider, voice, requester)
     except PreviewError as exc:
         status, message = _PREVIEW_ERRORS[exc.code]
-        log.info("voice_preview user_id=%s provider=%s voice=%s outcome=%s", user.id, provider, voice, exc.code)
+        log.info("voice_preview account_id=%s provider=%s voice=%s outcome=%s", requester, provider, voice, exc.code)
         headers = {"Retry-After": exc.retry_after_header} if exc.retry_after_header else None
         raise ApiError(status, exc.code, message, headers=headers) from exc
     log.info(
-        "voice_preview user_id=%s provider=%s voice=%s cache_hit=%s ms=%d outcome=ok",
-        user.id, provider, voice, cache_hit, (time.monotonic() - started) * 1000,
+        "voice_preview account_id=%s provider=%s voice=%s cache_hit=%s ms=%d outcome=ok",
+        requester, provider, voice, cache_hit, (time.monotonic() - started) * 1000,
     )
     return FileResponse(path, media_type="audio/mpeg", headers={"Cache-Control": "private, max-age=31536000, immutable"})

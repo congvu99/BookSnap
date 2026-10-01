@@ -140,6 +140,22 @@ async def test_family_wide_routes_work_before_picking_a_profile(app, alice, bob,
         assert (await device.request(method.upper(), path)).status_code == 200
 
 
+async def test_chunk_audio_streams_before_picking_a_profile(app, alice, bob):
+    ctx = ctx_of(app)
+    book = (await alice.post("/api/books", json={"title": "Sách"})).json()
+    ctx.settings.library_dir.mkdir(parents=True, exist_ok=True)
+    audio = ctx.settings.library_dir / "c0.mp3"
+    audio.write_bytes(b"ID3fake")
+    await ctx.db.execute(
+        "INSERT INTO chunks(id, book_id, seq, text, status, audio_path, sealed, updated_at) VALUES ('c0',?,0,'x','done',?,1,'t')",
+        (book["id"], str(audio)),
+    )
+    async with make_client(app) as device:
+        await _login(device)
+        r = await device.get("/api/chunks/c0/audio")
+        assert r.status_code == 200 and r.content == b"ID3fake"
+
+
 async def test_deleted_profile_request_gets_409_not_500(app, alice, bob):
     book = (await alice.post("/api/books", json={"title": "Sách"})).json()
     bob_id = await profile_id_of(app, "Bob Trần")

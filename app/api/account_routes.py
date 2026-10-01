@@ -47,7 +47,8 @@ async def update_profile(body: ProfilePatchIn, ctx: Ctx, session: CurrentAccount
     await ctx.users.update_display_name(user.id, display_name)
     log.info("account_update outcome=ok profile_id=%s", user.id)
     updated = await ctx.users.get(user.id)
-    assert updated is not None
+    if updated is None:  # deleted from another device meanwhile
+        raise ApiError(409, "profile_required", "Hồ sơ không còn, hãy chọn hồ sơ khác")
     return MeOut.of(session.account, updated)
 
 

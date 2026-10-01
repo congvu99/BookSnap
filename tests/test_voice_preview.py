@@ -112,13 +112,14 @@ async def test_slow_provider_times_out_without_cancelling_the_synthesis(alice, a
     assert len(fake.calls) == 1
 
 
-async def test_per_user_cap_on_provider_calls(alice, bob, use_fake):
+async def test_family_cap_on_provider_calls(alice, bob, use_fake):
     use_fake(FakePreviewTts())
     voices = ["Charon", "Orus", "Fenrir", "Puck", "Kore", "Aoede", "Leda"]
     codes = [(await alice.get(f"/api/voices/gemini/{v}/preview")).status_code for v in voices]
     assert codes == [200] * 6 + [429]
     assert (await alice.get(URL)).status_code == 200, "cache hits are not capped"
-    assert (await bob.get("/api/voices/gemini/Leda/preview")).status_code == 200
+    # Profiles share the family's budget: switching profile doesn't buy more paid previews.
+    assert (await bob.get("/api/voices/gemini/Leda/preview")).status_code == 429
 
 
 async def test_cache_key_follows_provider_style(app, use_fake):
