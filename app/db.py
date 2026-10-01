@@ -176,6 +176,12 @@ class Database:
         async with self.conn.execute("PRAGMA user_version") as cur:
             row = await cur.fetchone()
         current = row[0] if row else 0
+        if current > len(MIGRATIONS):
+            # An older release (e.g. an automatic deploy rollback) must not serve a schema it can't read.
+            raise RuntimeError(
+                f"Database schema v{current} is newer than this code (v{len(MIGRATIONS)}): "
+                "deploy the newer release or restore the pre-migration backup"
+            )
         for version, script in enumerate(MIGRATIONS[current:], start=current + 1):
             log.info("db_migrate version=%d", version)
             await self.conn.executescript(f"BEGIN;\n{script}\nPRAGMA user_version={version};\nCOMMIT;")
