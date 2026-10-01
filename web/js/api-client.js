@@ -70,6 +70,11 @@ export function onUnauthorized(handler) {
   return () => window.removeEventListener(UNAUTHORIZED_EVENT, handler);
 }
 
+/** @param {string|null|undefined} profileId */
+function profileHeader(profileId) {
+  return profileId ? { 'X-Profile-Id': profileId } : {};
+}
+
 export function onProfileRequired(handler) {
   window.addEventListener(PROFILE_REQUIRED_EVENT, handler);
   return () => window.removeEventListener(PROFILE_REQUIRED_EVENT, handler);
@@ -136,8 +141,9 @@ export const booksApi = {
   chunks: (id) => apiFetch(`/api/books/${id}/chunks`),
   /** Where each captured page starts in the chunks: [{page_seq, status, chunk_seq, chunk_frac, excerpt}]. */
   pageAnchors: (id) => apiFetch(`/api/books/${id}/page-anchors`),
-  getProgress: (id) => apiFetch(`/api/books/${id}/progress`),
-  putProgress: (id, body) => apiFetch(`/api/books/${id}/progress`, { method: 'PUT', body }),
+  /** profileId pins the request to that profile (a stale tab must not write into another one). */
+  getProgress: (id, profileId) => apiFetch(`/api/books/${id}/progress`, { headers: profileHeader(profileId) }),
+  putProgress: (id, body, profileId) => apiFetch(`/api/books/${id}/progress`, { method: 'PUT', body, headers: profileHeader(profileId) }),
   exportUrl: (id) => `/api/books/${id}/export`,
 };
 

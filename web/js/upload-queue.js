@@ -7,6 +7,7 @@
 // Items after a blocked one stay 'queued' (rendered as "Đang chờ trang trước" by the caller);
 // a manual retry() of the blocking item resumes the queue from there.
 import { pagesApi } from './api-client.js';
+import { PROFILE_REQUIRED_CODES } from './auth-error-kind.js';
 
 const MAX_ATTEMPTS = 3;
 const BACKOFF_MS = [500, 1500, 3500];
@@ -92,12 +93,19 @@ export class UploadQueue {
     return last ? last.seq + 1 : fallback;
   }
 
+  /** A profile was picked again: resume the upload that was waiting for one. */
+  resumeAfterProfilePicked() {
+    const item = this.items.find((i) => i.status === 'error' && i.waitingForProfile);
+    if (item) this.retry(item.uploadId);
+  }
+
   retry(uploadId) {
     const item = this.items.find((i) => i.uploadId === uploadId);
     if (!item || item.status !== 'error') return;
     item.status = 'queued';
     item.attempts = 0;
     item.error = undefined;
+    item.waitingForProfile = false;
     this._emit();
     this._run();
   }
@@ -133,6 +141,15 @@ export class UploadQueue {
         return;
       } catch (err) {
         item.attempts += 1;
+        if (err && PROFILE_REQUIRED_CODES.has(err.code)) {
+          // No profile picked any more (deleted / switched elsewhere): hold the page, don't burn
+          // retries; resumeAfterProfilePicked() restarts the queue from here.
+          item.status = 'error';
+          item.error = 'Chọn hồ sơ để tiếp tục tải trang này';
+          item.waitingForProfile = true;
+          this._emit();
+          return;
+        }
         if (err && err.code === 'page_seq_taken') {
           // Another device added pages concurrently — caller must refetch the book and
           // reassign seq for remaining queued items (see handleSeqConflict()).

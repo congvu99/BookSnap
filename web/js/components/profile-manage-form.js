@@ -10,10 +10,10 @@ const DISPLAY_NAME_MAX = 40;
 
 /**
  * @param {{ profile: {id:string, display_name:string, avatar:string}|null, defaultAvatar: string,
- *   isCurrent: boolean, onDone: () => void, onCancel: () => void }} props
- *   profile null = create a new one.
+ *   isCurrent: boolean, canDelete: boolean, onDone: (saved?: any) => void, onCancel: () => void }} props
+ *   profile null = create a new one; canDelete false while no profile is picked on this device.
  */
-export function ProfileManageForm({ profile, defaultAvatar, isCurrent, onDone, onCancel }) {
+export function ProfileManageForm({ profile, defaultAvatar, isCurrent, canDelete, onDone, onCancel }) {
   const [name, setName] = useState(profile ? profile.display_name : '');
   const [avatar, setAvatar] = useState(profile ? profile.avatar : defaultAvatar);
   const [password, setPassword] = useState('');
@@ -26,8 +26,7 @@ export function ProfileManageForm({ profile, defaultAvatar, isCurrent, onDone, o
     setBusy(true);
     setError(null);
     try {
-      await action();
-      onDone();
+      onDone(await action());
     } catch (err) {
       setError(err.message || 'Có lỗi xảy ra, thử lại sau.');
     } finally {
@@ -73,19 +72,33 @@ export function ProfileManageForm({ profile, defaultAvatar, isCurrent, onDone, o
         <button type="submit" class="btn btn-primary" disabled=${busy || !trimmed}>${profile ? 'Lưu' : 'Thêm hồ sơ'}</button>
       </div>
 
-      ${profile && !isCurrent &&
+      ${profile && !isCurrent && canDelete &&
       html`
         <section class="profile-danger" aria-labelledby="profile-danger-title">
           <h2 id="profile-danger-title">Xoá hồ sơ</h2>
           <p>Mất tiến độ nghe, đánh dấu và kệ của hồ sơ này. Sách hồ sơ này đã chụp chuyển cho hồ sơ tạo đầu tiên.</p>
           <div class="field">
             <label for="profile-delete-password">Mật khẩu gia đình</label>
-            <input id="profile-delete-password" type="password" autocomplete="current-password" value=${password} onInput=${(e) => setPassword(e.currentTarget.value)} />
+            <input
+              id="profile-delete-password"
+              type="password"
+              autocomplete="off"
+              value=${password}
+              onInput=${(e) => setPassword(e.currentTarget.value)}
+              onKeyDown=${(e) => {
+                // Enter here means "delete", never the form's rename submit.
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  remove();
+                }
+              }}
+            />
           </div>
           <button type="button" class="btn btn-danger btn-block" disabled=${busy || !password} onClick=${remove}>Xoá hồ sơ</button>
         </section>
       `}
       ${profile && isCurrent && html`<p class="account-hint">Đang dùng hồ sơ này nên không xoá được — đổi sang hồ sơ khác trước.</p>`}
+      ${profile && !isCurrent && !canDelete && html`<p class="account-hint">Chọn một hồ sơ trước, rồi vào Quản lý hồ sơ để xoá hồ sơ khác.</p>`}
     </form>
   `;
 }

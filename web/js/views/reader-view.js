@@ -1,6 +1,6 @@
 // Reader + player: text (Literata), highlight đoạn đang đọc, phát liên tục, nhớ vị trí, offline.
 import { html, useEffect, useMemo, useRef, useState } from '../../vendor/preact-htm.module.js';
-import { booksApi, chunksApi } from '../api-client.js';
+import { booksApi, chunksApi, shelfApi } from '../api-client.js';
 import { authStore } from '../store.js';
 import { AudioPlaylist } from '../audio-playlist.js';
 import { PlaybackProgress } from '../playback-progress.js';
@@ -267,6 +267,17 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
   }
 
   /** @returns {Promise<boolean>} false when the server rejected the topic (the sheet then reverts). */
+  /** Add/remove this book on the current profile's shelf ("Kệ của tôi"). */
+  async function handleToggleShelf() {
+    const next = !book.on_shelf;
+    try {
+      await (next ? shelfApi.add(bookId) : shelfApi.remove(bookId));
+      setBook((b) => (b ? { ...b, on_shelf: next } : b));
+    } catch {
+      // Offline or profile lost: leave the toggle as it was; the 409 handler routes to the picker.
+    }
+  }
+
   async function handleChangeTopic(name) {
     try {
       setBook(await booksApi.patch(bookId, { topic: name || null }));
@@ -440,6 +451,8 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         onChangeTopic=${handleChangeTopic}
         onDelete=${handleDelete}
         exportUrl=${booksApi.exportUrl(bookId)}
+        onShelf=${Boolean(book.on_shelf)}
+        onToggleShelf=${handleToggleShelf}
         onClose=${() => setSheetOpen(false)}
       />`}
 

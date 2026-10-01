@@ -25,12 +25,13 @@ const FONT_SIZES = [16, 18, 20, 22, 24];
  *   onSetMusicTrack:(id:string|null)=>void, onSetMusicVolume:(v:number)=>void,
  *   downloadState:{status:string, done:number, total:number}, onDownload:()=>void,
  *   canManage:boolean, book:object, currentVoice:string,
+ *   onShelf:boolean, onToggleShelf:()=>void,
  *   onChangeTopic:(name:string)=>Promise<boolean>, onDelete:()=>void, exportUrl:string,
  *   onClose:()=>void,
  * }} props
  */
 export function PlayerSheet(props) {
-  const { rate, onSetRate, fontSize, onSetFontSize, sleepMinutes, onSetSleep, musicTrack, musicVolume, onSetMusicTrack, onSetMusicVolume, downloadState, onDownload, canManage, book, currentVoice, onChangeTopic, onDelete, exportUrl, onClose } = props;
+  const { rate, onSetRate, fontSize, onSetFontSize, sleepMinutes, onSetSleep, musicTrack, musicVolume, onSetMusicTrack, onSetMusicVolume, downloadState, onDownload, canManage, book, currentVoice, onChangeTopic, onDelete, exportUrl, onClose, onShelf, onToggleShelf } = props;
   const savedTopic = book.topic ? book.topic.name : '';
   const [topicDraft, setTopicDraft] = useState(savedTopic);
   // Show the server's spelling after a save ("VĂN HỌC" → "Văn học").
@@ -104,6 +105,13 @@ export function PlayerSheet(props) {
           <button class="chip" aria-pressed=${String(theme === 'dark')} onClick=${() => setTheme('dark')}><${Icon} name="moon" size=${16} /> Tối</button>
           <button class="chip" aria-pressed=${String(theme === 'auto')} onClick=${() => setTheme('auto')}>Theo máy</button>
         </div>
+      </div>
+
+      <div class="player-sheet-section">
+        <h3>Kệ của tôi</h3>
+        <button class="shelf-toggle" aria-pressed=${onShelf ? 'true' : 'false'} onClick=${onToggleShelf}>
+          <${Icon} name="bookmark" size=${16} /> ${onShelf ? 'Trên kệ của bạn' : 'Thêm vào kệ'}
+        </button>
       </div>
 
       <div class="player-sheet-section">

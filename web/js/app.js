@@ -52,7 +52,17 @@ function App() {
   const [needsProfile, setNeedsProfile] = useState(authStore.get().needsProfile);
 
   useEffect(() => {
-    const onHashChange = () => setHash(window.location.hash);
+    let shownHash = window.location.hash;
+    const onHashChange = () => {
+      // Under the picker overlay the capture view holds unsent pages: back/swipe must not unmount it.
+      const s = authStore.get();
+      if (s.needsProfile && s.user && hasUnsavedWork()) {
+        window.history.replaceState(null, '', shownHash);
+        return;
+      }
+      shownHash = window.location.hash;
+      setHash(window.location.hash);
+    };
     window.addEventListener('hashchange', onHashChange);
     const unsubAuth = authStore.subscribe((s) => {
       setUser(s.user);
@@ -86,7 +96,12 @@ function App() {
       } catch {
         return;
       }
-      if (!current || !next || next.id === current.id) return;
+      if (!current) {
+        // Sitting on the forced picker: another tab picked a profile, follow it.
+        if (next && authStore.get().needsProfile) window.location.reload();
+        return;
+      }
+      if (!next || next.id === current.id) return;
       if (hasUnsavedWork()) authStore.set({ needsProfile: true });
       else window.location.reload();
     };
@@ -188,7 +203,7 @@ function App() {
       >
         <${Icon} name="clock" size=${14} /> Đang ngoại tuyến
       </div>`}
-      <main class="app-main ${showNav ? 'app-main--with-nav' : ''}">${view}</main>
+      <main class="app-main ${showNav ? 'app-main--with-nav' : ''}" inert=${needsProfile ? true : undefined}>${view}</main>
       ${showNav && html`<${BottomNav} currentRoute=${hash || '#/library'} />`}
       ${needsProfile && html`<${ProfilePickerView} currentUser=${user} overlay onPicked=${onPicked} />`}
     </div>

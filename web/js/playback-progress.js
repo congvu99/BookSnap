@@ -22,7 +22,7 @@ export class PlaybackProgress {
     const local = this._readLocal();
     let server = null;
     try {
-      server = await booksApi.getProgress(this.bookId);
+      server = await booksApi.getProgress(this.bookId, this.userId);
     } catch {
       // Offline or server error — fall back to local only.
     }
@@ -78,7 +78,7 @@ export class PlaybackProgress {
   _pushServer() {
     if (!this._lastValue) return;
     const { chunkSeq, offsetMs } = this._lastValue;
-    booksApi.putProgress(this.bookId, { chunk_seq: chunkSeq, offset_ms: offsetMs }).catch(() => {
+    booksApi.putProgress(this.bookId, { chunk_seq: chunkSeq, offset_ms: offsetMs }, this.userId).catch(() => {
       // Network failure — local copy already has the latest position, retried on next track().
     });
   }

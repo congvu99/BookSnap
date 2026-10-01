@@ -104,7 +104,8 @@ export function LibraryView() {
   // "Kệ của tôi" narrows to this profile's picks, then search; topic options keep every topic of that
   // set but show counts for the search result.
   const { options, shelves, visibleCount, activeTopic } = useMemo(() => {
-    const all = (books || []).filter((b) => !shelfOnly || b.on_shelf);
+    // Offline lists come from the download cache (no shelf info): the filter only applies online.
+    const all = (books || []).filter((b) => !shelfOnly || isOffline || b.on_shelf);
     const searched = all.filter((b) => matchesQuery(b.title, query));
     const searchedCounts = new Map(groupIntoShelves(searched).map((s) => [shelfKey(s), s.books.length]));
     const opts = [
@@ -115,7 +116,7 @@ export function LibraryView() {
     const active = opts.some((o) => o.key === topic) ? topic : ALL;
     const shown = groupIntoShelves(searched).filter((s) => active === ALL || shelfKey(s) === active);
     return { options: opts, activeTopic: active, shelves: shown, visibleCount: shown.reduce((n, s) => n + s.books.length, 0) };
-  }, [books, query, topic, shelfOnly]);
+  }, [books, query, topic, shelfOnly, isOffline]);
 
   const hero = !isOffline && continuing.length > 0 ? continuing[0] : null;
   const hasBooks = books !== null && books.length > 0;
@@ -177,8 +178,8 @@ export function LibraryView() {
               <p>
                 ${query.trim()
                   ? html`Không có sách nào khớp “${query.trim()}”.`
-                  : shelfOnly
-                    ? 'Kệ của bạn chưa có sách. Mở một cuốn và chọn “Thêm vào kệ”.'
+                  : shelfOnly && !isOffline
+                    ? 'Kệ của bạn chưa có sách. Khi nghe, mở ⋮ Tuỳ chọn và chọn “Thêm vào kệ”.'
                     : 'Không có sách nào trong chủ đề này.'}
               </p>
               <button class="btn btn-secondary" onClick=${clearFilters}>Xoá tìm kiếm và bộ lọc</button>
