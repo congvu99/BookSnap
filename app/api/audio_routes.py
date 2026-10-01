@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from app.api.serializers import chunk_out
 from app.api_errors import ApiError, not_found
-from app.auth.current_user import Ctx, CurrentUser
+from app.auth.current_user import Ctx, CurrentAccount, CurrentUser
 from app.file_paths import is_within
 
 router = APIRouter(prefix="/api", tags=["chunks"])
@@ -50,7 +50,8 @@ async def retry_chunk(chunk_id: str, ctx: Ctx, user: CurrentUser) -> dict:
 
 
 @router.get("/chunks/{chunk_id}/audio")
-async def chunk_audio(chunk_id: str, ctx: Ctx, user: CurrentUser) -> FileResponse:
+async def chunk_audio(chunk_id: str, ctx: Ctx, session: CurrentAccount) -> FileResponse:
+    # Shared audio: works before a profile is picked, so offline prefetch never trips the picker.
     chunk = await ctx.chunks.get(chunk_id)
     if chunk is None or not chunk.audio_path:
         raise not_found("Đoạn chưa có audio")

@@ -63,6 +63,7 @@ def book_out(b: BookSummary, user: User) -> dict:
         "created_by": b.created_by,
         "created_by_name": b.created_by_name,
         "can_manage": b.created_by == user.id,
+        "on_shelf": bool(b.on_shelf),
         "tts_provider": b.tts_provider,
         "tts_voice": b.tts_voice,
         "topic": {"id": b.topic_id, "name": b.topic_name} if b.topic_id else None,

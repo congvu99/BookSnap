@@ -7,7 +7,7 @@ from app.pipeline.ocr_provider import OcrError, PageText
 from app.pipeline.tts_provider import SynthResult, TtsError
 from app.pipeline.worker import Worker
 from app.usage_quota import PACIFIC, window_bounds
-from tests.conftest import ctx_of
+from tests.conftest import ctx_of, profile_id_of
 
 FAST = (0.01, 0.01, 0.01)
 
@@ -56,8 +56,8 @@ async def _usage_rows(app) -> list[tuple[str, str, int]]:
 
 async def _book_with_chunk(app, text: str = "Xin chào cả nhà."):
     ctx = ctx_of(app)
-    user = await ctx.users.get_by_username("alice")
-    book = await ctx.books.create("Sách", user.id, "gemini", "Kore")
+    user_id = await profile_id_of(app, "Alice Nguyễn")
+    book = await ctx.books.create("Sách", user_id, "gemini", "Kore")
     await ctx.db.execute(
         "INSERT INTO chunks(id, book_id, seq, text, status, provider, voice, sealed, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
         ("c0", book.id, 0, text, "pending", "gemini", "Kore", 1, now_iso()),
@@ -83,8 +83,8 @@ def test_utc_month_window_rolls_over_year():
 
 async def test_ocr_attempts_are_metered_including_quota_retry(app, alice):
     ctx = ctx_of(app)
-    user = await ctx.users.get_by_username("alice")
-    book = await ctx.books.create("Sách", user.id, "gemini", "Kore")
+    user_id = await profile_id_of(app, "Alice Nguyễn")
+    book = await ctx.books.create("Sách", user_id, "gemini", "Kore")
     ctx.settings.tmp_dir.mkdir(parents=True, exist_ok=True)
     image = ctx.settings.tmp_dir / "p0.jpg"
     image.write_bytes(b"img")

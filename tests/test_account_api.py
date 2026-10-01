@@ -1,4 +1,4 @@
-from tests.conftest import make_client
+from tests.conftest import add_profile, make_client
 
 
 async def test_profile_returns_identity_and_stats(alice):
@@ -66,3 +66,25 @@ async def test_change_password_is_rate_limited(app, alice):
     body = {"current_password": "sai-roi-1", "new_password": "moi-hon-123"}
     statuses = [(await alice.post("/api/me/password", json=body)).status_code for _ in range(3)]
     assert statuses == [400, 400, 429]
+
+
+async def test_change_password_signs_out_every_profile_but_the_current_device(app, alice, bob):
+    r = await alice.post("/api/me/password", json={"current_password": "secret123", "new_password": "moi-hon-123"})
+    assert r.status_code == 200
+    # bob's device is the only other session of the family account.
+    assert r.json()["other_sessions_revoked"] == 1
+    assert (await bob.get("/api/me")).status_code == 401
+    assert (await alice.get("/api/me")).status_code == 200
+
+
+async def test_change_password_rate_limit_is_shared_by_the_family(app, alice):
+    app.state.ctx.auth_limiter.max_hits = 2
+    kid, _ = await add_profile(app, alice, "Con")
+    body = {"current_password": "sai-roi-1", "new_password": "moi-hon-123"}
+    statuses = [
+        (await alice.post("/api/me/password", json=body)).status_code,
+        (await kid.post("/api/me/password", json=body)).status_code,
+        (await kid.post("/api/me/password", json=body)).status_code,
+    ]
+    assert statuses == [400, 400, 429]
+    await kid.aclose()

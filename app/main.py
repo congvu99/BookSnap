@@ -14,6 +14,8 @@ from app.api import (
     books_routes,
     export_routes,
     pages_routes,
+    profiles_routes,
+    shelf_routes,
     topics_routes,
     usage_routes,
     voices_routes,
@@ -91,6 +93,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(bookmarks_routes.router)
     app.include_router(topics_routes.router)
     app.include_router(account_routes.router)
+    app.include_router(profiles_routes.router)
+    app.include_router(shelf_routes.router)
     app.include_router(usage_routes.router)
 
     @app.get("/health", include_in_schema=False)

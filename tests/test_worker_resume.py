@@ -11,7 +11,7 @@ from app.pipeline.ocr_provider import OcrProvider, PageText
 from app.pipeline.tts_provider import SynthResult, TtsProvider
 from app.pipeline.worker import Worker
 from app.repositories.row_mapping import new_id
-from tests.conftest import ctx_of
+from tests.conftest import ctx_of, profile_id_of
 
 FAST = (0.01, 0.01, 0.01)
 
@@ -53,8 +53,8 @@ def _worker(app, ocr: OcrProvider, tts: dict[str, TtsProvider]) -> Worker:
 
 async def _make_book(app, provider="gemini"):
     ctx = ctx_of(app)
-    user = await ctx.users.get_by_username("alice")
-    return await ctx.books.create("Sách worker", user.id, provider, ctx.settings.gemini_tts_voice)
+    user_id = await profile_id_of(app, "Alice Nguyễn")
+    return await ctx.books.create("Sách worker", user_id, provider, ctx.settings.gemini_tts_voice)
 
 
 async def _write_tmp_image(app, name: str, content: bytes):

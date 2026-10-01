@@ -37,6 +37,7 @@ async def anon(app) -> AsyncIterator[httpx.AsyncClient]:
 
 
 async def register(app, username: str, display_name: str | None = None, password: str = "secret123") -> httpx.AsyncClient:
+    """Create the (single) family account; the client is signed in on its first profile."""
     client = make_client(app)
     r = await client.post(
         "/api/auth/register",
@@ -44,6 +45,30 @@ async def register(app, username: str, display_name: str | None = None, password
     )
     assert r.status_code == 201, r.text
     return client
+
+
+async def login_and_select(app, profile_id: str, username: str = "alice", password: str = "secret123") -> httpx.AsyncClient:
+    """A fresh device: sign in to the family account, then pick a profile."""
+    client = make_client(app)
+    r = await client.post("/api/auth/login", json={"username": username, "password": password})
+    assert r.status_code == 200, r.text
+    r = await client.post(f"/api/profiles/{profile_id}/select")
+    assert r.status_code == 200, r.text
+    return client
+
+
+async def add_profile(app, owner: httpx.AsyncClient, display_name: str) -> tuple[httpx.AsyncClient, str]:
+    """Add a profile to the owner's family and return a separate device signed in on it."""
+    r = await owner.post("/api/profiles", json={"display_name": display_name})
+    assert r.status_code == 201, r.text
+    profile_id = r.json()["id"]
+    return await login_and_select(app, profile_id), profile_id
+
+
+async def profile_id_of(app, display_name: str) -> str:
+    row = await ctx_of(app).db.fetchone("SELECT id FROM users WHERE display_name=?", (display_name,))
+    assert row is not None, display_name
+    return row["id"]
 
 
 @pytest.fixture
@@ -54,8 +79,9 @@ async def alice(app) -> AsyncIterator[httpx.AsyncClient]:
 
 
 @pytest.fixture
-async def bob(app) -> AsyncIterator[httpx.AsyncClient]:
-    c = await register(app, "bob", "Bob Trần")
+async def bob(app, alice) -> AsyncIterator[httpx.AsyncClient]:
+    """Second profile in Alice's family: a different user_id, same login."""
+    c, _ = await add_profile(app, alice, "Bob Trần")
     yield c
     await c.aclose()
 

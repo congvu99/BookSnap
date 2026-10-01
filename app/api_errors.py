@@ -1,5 +1,7 @@
 """Uniform error body for every /api response: {"error": {"code", "message", "field"}}."""
 
+import sqlite3
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -36,6 +38,16 @@ def install_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             _body("invalid_request", "Dữ liệu không hợp lệ", loc[-1] if loc else None), status_code=400
         )
+
+    @app.exception_handler(sqlite3.IntegrityError)
+    async def _integrity(request: Request, exc: sqlite3.IntegrityError) -> JSONResponse:
+        # A profile deleted (from another device) after this request resolved it makes every write
+        # keyed by it fail its foreign key: tell the client to pick a profile instead of a bare 500.
+        user = getattr(request.state, "user", None)
+        if user is not None and "FOREIGN KEY" in str(exc):
+            if await request.app.state.ctx.users.get(user.id) is None:
+                return JSONResponse(_body("profile_required", "Hồ sơ không còn, hãy chọn hồ sơ khác"), status_code=409)
+        raise exc
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(_: Request, exc: StarletteHTTPException) -> JSONResponse:

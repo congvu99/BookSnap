@@ -7,20 +7,26 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel
 
 from app.api_errors import ApiError
-from app.auth.current_user import Ctx, CurrentUser
+from app.auth.current_user import Ctx, CurrentAccount, CurrentUser
 from app.auth.password_hashing import hash_password, needs_rehash, verify_password
 from app.auth.rate_limiter import client_ip
 from app.auth.session_service import COOKIE_NAME
-from app.repositories.user_repository import User, UsernameTakenError
+from app.repositories.account_repository import Account
+from app.repositories.user_repository import User
 
 log = logging.getLogger(__name__)
 
 USERNAME_RE = re.compile(r"^[a-z0-9_.]{3,32}$")
 PASSWORD_MIN, PASSWORD_MAX = 6, 128
 DISPLAY_NAME_MAX = 40
+FIRST_PROFILE_AVATAR = "c1"
 
 public_router = APIRouter(prefix="/api/auth", tags=["auth"])
 router = APIRouter(prefix="/api", tags=["auth"])
+
+
+class RegistrationClosedError(Exception):
+    pass
 
 
 class RegisterIn(BaseModel):
@@ -35,14 +41,51 @@ class LoginIn(BaseModel):
     password: str
 
 
+class AccountOut(BaseModel):
+    id: str
+    username: str
+
+
 class MeOut(BaseModel):
+    """The selected profile; `username` is the family login it belongs to."""
+
     id: str
     username: str
     display_name: str
+    avatar: str
 
     @classmethod
-    def of(cls, user: User) -> "MeOut":
-        return cls(id=user.id, username=user.username, display_name=user.display_name)
+    def of(cls, account: Account, user: User) -> "MeOut":
+        return cls(id=user.id, username=account.username, display_name=user.display_name, avatar=user.avatar)
+
+
+class LoginOut(BaseModel):
+    """Profile fields at the top level (null until one is picked) so older cached clients keep working."""
+
+    id: str | None
+    username: str
+    display_name: str | None
+    avatar: str | None
+    account: AccountOut
+    profile_required: bool
+
+    @classmethod
+    def of(cls, account: Account, user: User | None) -> "LoginOut":
+        return cls(
+            id=user.id if user else None,
+            username=account.username,
+            display_name=user.display_name if user else None,
+            avatar=user.avatar if user else None,
+            account=AccountOut(id=account.id, username=account.username),
+            profile_required=user is None,
+        )
+
+
+def validate_display_name(raw: str) -> str:
+    display_name = raw.strip()
+    if not 1 <= len(display_name) <= DISPLAY_NAME_MAX:
+        raise ApiError(400, "display_name_invalid", f"Tên hiển thị 1–{DISPLAY_NAME_MAX} ký tự", "display_name")
+    return display_name
 
 
 def _enforce_rate_limit(ctx: Ctx, request: Request) -> None:
@@ -53,43 +96,58 @@ def _enforce_rate_limit(ctx: Ctx, request: Request) -> None:
         )
 
 
+@public_router.get("/status")
+async def status(ctx: Ctx) -> dict:
+    """Whether this server still accepts creating the family account (only the first time)."""
+    return {"registration_open": bool(ctx.settings.invite_code) and not await ctx.accounts.any_exists()}
+
+
 @public_router.post("/register", status_code=201)
-async def register(body: RegisterIn, request: Request, response: Response, ctx: Ctx) -> MeOut:
+async def register(body: RegisterIn, request: Request, response: Response, ctx: Ctx) -> LoginOut:
+    """Create the family account with its first profile. One account per server: closed afterwards."""
     _enforce_rate_limit(ctx, request)
     username = body.username.strip().lower()
-    display_name = body.display_name.strip()
     if not USERNAME_RE.fullmatch(username):
         raise ApiError(400, "username_invalid", "Tên đăng nhập 3–32 ký tự: chữ thường, số, dấu . hoặc _", "username")
-    if not 1 <= len(display_name) <= DISPLAY_NAME_MAX:
-        raise ApiError(400, "display_name_invalid", f"Tên hiển thị 1–{DISPLAY_NAME_MAX} ký tự", "display_name")
+    display_name = validate_display_name(body.display_name)
     if not PASSWORD_MIN <= len(body.password) <= PASSWORD_MAX:
         raise ApiError(400, "password_invalid", f"Mật khẩu tối thiểu {PASSWORD_MIN} ký tự", "password")
     expected = ctx.settings.invite_code.encode()
     if not expected or not hmac.compare_digest(body.invite_code.strip().encode(), expected):
         log.info("auth_register outcome=bad_invite ip=%s", client_ip(request))
         raise ApiError(403, "invite_invalid", "Mã mời không đúng", "invite_code")
+    password_hash = await asyncio.to_thread(hash_password, body.password)
     try:
-        user = await ctx.users.create(username, display_name, await asyncio.to_thread(hash_password, body.password))
-    except UsernameTakenError:
-        raise ApiError(409, "username_taken", "Tên đăng nhập đã có người dùng", "username") from None
-    ctx.session_service.set_cookie(response, await ctx.session_service.create(user.id))
-    log.info("auth_register outcome=ok user_id=%s", user.id)
-    return MeOut.of(user)
+        # Account, first profile and session commit together: a failure leaves registration open.
+        async with ctx.db.transaction() as conn:
+            if await ctx.accounts.any_exists(conn):
+                raise RegistrationClosedError
+            account = await ctx.accounts.create(conn, username, password_hash)
+            user = await ctx.users.create(conn, account.id, display_name, FIRST_PROFILE_AVATAR)
+            token = await ctx.session_service.create(account.id, user.id, conn=conn)
+    except RegistrationClosedError:
+        raise ApiError(403, "registration_closed", "Gia đình đã có tài khoản, hãy đăng nhập") from None
+    ctx.session_service.set_cookie(response, token)
+    log.info("auth_register outcome=ok account_id=%s profile_id=%s", account.id, user.id)
+    return LoginOut.of(account, user)
 
 
 @public_router.post("/login")
-async def login(body: LoginIn, request: Request, response: Response, ctx: Ctx) -> MeOut:
+async def login(body: LoginIn, request: Request, response: Response, ctx: Ctx) -> LoginOut:
     _enforce_rate_limit(ctx, request)
-    user = await ctx.users.get_by_username(body.username.strip())
-    valid = await asyncio.to_thread(verify_password, user.password_hash if user else None, body.password)
-    if not valid or user is None:
+    account = await ctx.accounts.get_by_username(body.username.strip())
+    valid = await asyncio.to_thread(verify_password, account.password_hash if account else None, body.password)
+    if not valid or account is None:
         log.info("auth_login outcome=denied ip=%s", client_ip(request))
         raise ApiError(401, "invalid_credentials", "Sai tên đăng nhập hoặc mật khẩu")
-    if needs_rehash(user.password_hash):
-        await ctx.users.update_password_hash(user.id, await asyncio.to_thread(hash_password, body.password))
-    ctx.session_service.set_cookie(response, await ctx.session_service.create(user.id))
-    log.info("auth_login outcome=ok user_id=%s", user.id)
-    return MeOut.of(user)
+    if needs_rehash(account.password_hash):
+        await ctx.accounts.update_password_hash(account.id, await asyncio.to_thread(hash_password, body.password))
+    profiles = await ctx.users.list_for_account(account.id)
+    # A single profile needs no picker; with several, the device chooses after login.
+    user = profiles[0] if len(profiles) == 1 else None
+    ctx.session_service.set_cookie(response, await ctx.session_service.create(account.id, user.id if user else None))
+    log.info("auth_login outcome=ok account_id=%s profile_id=%s", account.id, user.id if user else None)
+    return LoginOut.of(account, user)
 
 
 @public_router.post("/logout", status_code=204)
@@ -99,5 +157,5 @@ async def logout(request: Request, response: Response, ctx: Ctx) -> None:
 
 
 @router.get("/me")
-async def me(user: CurrentUser) -> MeOut:
-    return MeOut.of(user)
+async def me(session: CurrentAccount, user: CurrentUser) -> MeOut:
+    return MeOut.of(session.account, user)

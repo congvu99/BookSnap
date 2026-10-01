@@ -59,12 +59,10 @@ async def test_register_missing_field_is_400(anon):
 
 async def test_username_is_case_insensitive_and_stored_lowercase(app, anon):
     assert (await _register(anon, username="Carol.Le")).status_code == 201
+    assert (await anon.get("/api/me")).json()["username"] == "carol.le"
     async with make_client(app) as other:
-        r = await _register(other, username="carol.le")
-        assert r.status_code == 409
-        assert r.json()["error"]["code"] == "username_taken"
-    me = await anon.get("/api/me")
-    assert me.json()["username"] == "carol.le"
+        r = await other.post("/api/auth/login", json={"username": "CAROL.LE", "password": "secret123"})
+        assert r.status_code == 200
 
 
 async def test_login_success_and_generic_failure(app, alice):
@@ -107,8 +105,8 @@ async def test_session_token_not_stored_in_plaintext(app, alice):
     token = alice.cookies.get(COOKIE_NAME)
     rows = await ctx_of(app).db.fetchall("SELECT token_hash FROM sessions")
     assert all(r["token_hash"] != token for r in rows)
-    user = await ctx_of(app).db.fetchone("SELECT password_hash FROM users WHERE username='alice'")
-    assert user["password_hash"].startswith("$argon2")
+    account = await ctx_of(app).db.fetchone("SELECT password_hash FROM accounts WHERE username='alice'")
+    assert account["password_hash"].startswith("$argon2")
 
 
 async def test_rate_limit_returns_429(app, anon):
@@ -143,11 +141,13 @@ async def test_protected_routes_require_session(anon, method, path):
     assert r.status_code == 401, (path, r.status_code)
 
 
-async def test_cli_reset_password_changes_password_and_revokes_sessions(app, alice, monkeypatch):
+async def test_cli_reset_password_changes_password_and_revokes_sessions(app, alice, bob, monkeypatch):
     monkeypatch.setattr("app.cli.get_settings", lambda: ctx_of(app).settings)
     revoked = await reset_password("alice", "newpass456")
-    assert revoked >= 1
+    # Every device of the family is signed out, whatever profile it was on.
+    assert revoked >= 2
     assert (await alice.get("/api/me")).status_code == 401
+    assert (await bob.get("/api/me")).status_code == 401
     async with make_client(app) as c:
         assert (await c.post("/api/auth/login", json={"username": "alice", "password": "secret123"})).status_code == 401
         assert (await c.post("/api/auth/login", json={"username": "alice", "password": "newpass456"})).status_code == 200

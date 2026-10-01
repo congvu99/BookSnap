@@ -15,7 +15,7 @@ from app.pipeline.tts_provider import SynthResult, TtsError, TtsProvider
 from app.pipeline.tts_router import content_hash
 from app.pipeline.worker import Worker
 from app.repositories.row_mapping import new_id
-from tests.conftest import ctx_of
+from tests.conftest import ctx_of, profile_id_of
 
 FAST_BACKOFF = (0.01, 0.01, 0.01)
 
@@ -45,8 +45,8 @@ class ScriptedTts(TtsProvider):
 
 async def _make_book(app, provider="gemini", voice="Kore") -> dict:
     ctx = ctx_of(app)
-    user = await ctx.users.get_by_username("alice")
-    book = await ctx.books.create("Sách test", user.id, provider, voice)
+    user_id = await profile_id_of(app, "Alice Nguyễn")
+    book = await ctx.books.create("Sách test", user_id, provider, voice)
     return book
 
 

@@ -43,6 +43,7 @@ class BookSummary(Book):
     progress_chunk_seq: int | None
     progress_offset_ms: int | None
     progress_updated_at: str | None
+    on_shelf: bool  # in the current profile's "Kệ của tôi"
 
 
 _SUMMARY_SQL = """
@@ -67,7 +68,8 @@ SELECT b.*, u.display_name AS created_by_name, t.name AS topic_name,
        COALESCE(cs.duration_ms, 0) AS duration_ms,
        pr.chunk_seq AS progress_chunk_seq,
        pr.offset_ms AS progress_offset_ms,
-       pr.updated_at AS progress_updated_at
+       pr.updated_at AS progress_updated_at,
+       (si.user_id IS NOT NULL) AS on_shelf
 FROM books b
 JOIN users u ON u.id = b.created_by
 LEFT JOIN topics t ON t.id = b.topic_id
@@ -101,7 +103,8 @@ LEFT JOIN (
            SUM(CASE WHEN status = 'done' THEN duration_ms ELSE 0 END) AS duration_ms
     FROM chunks GROUP BY book_id
 ) cs ON cs.book_id = b.id
-LEFT JOIN progress pr ON pr.book_id = b.id AND pr.user_id = ?
+LEFT JOIN progress pr ON pr.book_id = b.id AND pr.user_id = :u
+LEFT JOIN shelf_items si ON si.book_id = b.id AND si.user_id = :u
 """
 
 
@@ -128,17 +131,17 @@ class BookRepository:
         return row_to(Book, await self.db.fetchone("SELECT * FROM books WHERE id=?", (book_id,)))
 
     async def get_summary(self, book_id: str, user_id: str) -> BookSummary | None:
-        row = await self.db.fetchone(_SUMMARY_SQL + " WHERE b.id = ?", (user_id, book_id))
+        row = await self.db.fetchone(_SUMMARY_SQL + " WHERE b.id = :book_id", {"u": user_id, "book_id": book_id})
         return row_to(BookSummary, row)
 
     async def list_summaries(self, user_id: str) -> list[BookSummary]:
-        rows = await self.db.fetchall(_SUMMARY_SQL + " ORDER BY b.updated_at DESC", (user_id,))
+        rows = await self.db.fetchall(_SUMMARY_SQL + " ORDER BY b.updated_at DESC", {"u": user_id})
         return rows_to(BookSummary, rows)
 
     async def list_in_progress_for_user(self, user_id: str, limit: int = 10) -> list[BookSummary]:
         rows = await self.db.fetchall(
-            _SUMMARY_SQL + " WHERE pr.user_id IS NOT NULL ORDER BY pr.updated_at DESC LIMIT ?",
-            (user_id, limit),
+            _SUMMARY_SQL + " WHERE pr.user_id IS NOT NULL ORDER BY pr.updated_at DESC LIMIT :limit",
+            {"u": user_id, "limit": limit},
         )
         return rows_to(BookSummary, rows)
 

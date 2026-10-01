@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from fastapi.responses import FileResponse
 
 from app.api_errors import ApiError, not_found
-from app.auth.current_user import Ctx, CurrentUser
+from app.auth.current_user import Ctx, CurrentAccount, CurrentUser
 from app.tts_voices import allowed_voices, provider_configured
 from app.voice_preview import PreviewError
 
@@ -25,7 +25,7 @@ _PREVIEW_ERRORS: dict[str, tuple[int, str]] = {
 
 
 @router.get("/voices")
-async def list_voices(ctx: Ctx, user: CurrentUser) -> dict:
+async def list_voices(ctx: Ctx, session: CurrentAccount) -> dict:
     s = ctx.settings
     preview = ctx.voice_preview
     return {

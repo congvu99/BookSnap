@@ -8,6 +8,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator, Iterable, Sequence
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -16,7 +17,19 @@ import aiosqlite
 
 log = logging.getLogger(__name__)
 
-MIGRATIONS: list[str] = [
+
+@dataclass(frozen=True)
+class TableRebuild:
+    """A migration that recreates tables (SQLite's create-copy-drop-rename procedure).
+
+    It runs with foreign keys OFF: dropping a referenced table with them ON would cascade-delete
+    every child row. The runner checks foreign keys before committing instead.
+    """
+
+    sql: str
+
+
+MIGRATIONS: list[str | TableRebuild] = [
     """
     CREATE TABLE users (
         id TEXT PRIMARY KEY,
@@ -126,6 +139,60 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX idx_provider_usage_service_time ON provider_usage(service, created_at);
     """,
+    # One family account (the login) owning several profiles. `users` rows become the profiles, so
+    # every existing user_id (progress, bookmarks, created_by) now means "profile id". Existing
+    # members are merged into the earliest member's login; signed-in devices keep their profile.
+    TableRebuild(
+        """
+        CREATE TABLE accounts (
+            id TEXT PRIMARY KEY,
+            username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        INSERT INTO accounts(id, username, password_hash, created_at)
+            SELECT lower(hex(randomblob(16))), username, password_hash, created_at
+            FROM users ORDER BY created_at, id LIMIT 1;
+
+        CREATE TABLE users_new (
+            id TEXT PRIMARY KEY,
+            account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+            display_name TEXT NOT NULL,
+            avatar TEXT NOT NULL DEFAULT 'c1',
+            created_at TEXT NOT NULL
+        );
+        INSERT INTO users_new(id, account_id, display_name, avatar, created_at)
+            SELECT id, (SELECT id FROM accounts), display_name,
+                   'c' || ((ROW_NUMBER() OVER (ORDER BY created_at, id) - 1) % 8 + 1), created_at
+            FROM users ORDER BY created_at, id;  -- rowid then follows creation order
+        DROP TABLE users;
+        ALTER TABLE users_new RENAME TO users;
+        CREATE INDEX idx_users_account ON users(account_id);
+
+        CREATE TABLE sessions_new (
+            token_hash TEXT PRIMARY KEY,
+            account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+            user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+            created_at TEXT NOT NULL,
+            last_seen_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        );
+        INSERT INTO sessions_new(token_hash, account_id, user_id, created_at, last_seen_at, expires_at)
+            SELECT token_hash, (SELECT id FROM accounts), user_id, created_at, last_seen_at, expires_at
+            FROM sessions;
+        DROP TABLE sessions;
+        ALTER TABLE sessions_new RENAME TO sessions;
+        CREATE INDEX idx_sessions_account ON sessions(account_id);
+        CREATE INDEX idx_sessions_user ON sessions(user_id);
+
+        CREATE TABLE shelf_items (
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+            added_at TEXT NOT NULL,
+            PRIMARY KEY(user_id, book_id)
+        );
+        """
+    ),
 ]
 
 
@@ -182,9 +249,42 @@ class Database:
                 f"Database schema v{current} is newer than this code (v{len(MIGRATIONS)}): "
                 "deploy the newer release or restore the pre-migration backup"
             )
-        for version, script in enumerate(MIGRATIONS[current:], start=current + 1):
+        for version, migration in enumerate(MIGRATIONS[current:], start=current + 1):
             log.info("db_migrate version=%d", version)
-            await self.conn.executescript(f"BEGIN;\n{script}\nPRAGMA user_version={version};\nCOMMIT;")
+            if isinstance(migration, TableRebuild):
+                await self._apply_table_rebuild(migration.sql, version)
+            else:
+                await self._apply(migration, version)
+
+    async def _apply(self, script: str, version: int) -> None:
+        # BEGIN goes inside the script: executescript() commits any transaction already open.
+        try:
+            await self.conn.executescript(f"BEGIN;\n{script}\nPRAGMA user_version={version};")
+            await self.conn.execute("COMMIT")
+        except BaseException:
+            if self.conn.in_transaction:
+                await self.conn.execute("ROLLBACK")
+            raise
+
+    async def _apply_table_rebuild(self, script: str, version: int) -> None:
+        # PRAGMA foreign_keys is a no-op inside a transaction: switch it off before BEGIN and back on
+        # only after COMMIT/ROLLBACK, then verify it really is on again.
+        await self.conn.execute("PRAGMA foreign_keys=OFF")
+        try:
+            await self.conn.executescript(f"BEGIN;\n{script}")
+            violations = await self.fetchall("PRAGMA foreign_key_check")
+            if violations:
+                raise RuntimeError(f"Migration v{version} broke foreign keys: {[tuple(v) for v in violations[:5]]}")
+            await self.conn.execute(f"PRAGMA user_version={version}")
+            await self.conn.execute("COMMIT")
+        except BaseException:
+            if self.conn.in_transaction:
+                await self.conn.execute("ROLLBACK")
+            raise
+        finally:
+            await self.conn.execute("PRAGMA foreign_keys=ON")
+            if (await self.fetchone("PRAGMA foreign_keys"))[0] != 1:  # type: ignore[index]
+                raise RuntimeError("Foreign keys could not be re-enabled after migration")
 
     async def fetchone(self, sql: str, params: Sequence[Any] = ()) -> aiosqlite.Row | None:
         async with self.conn.execute(sql, params) as cur:
