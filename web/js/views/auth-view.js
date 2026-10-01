@@ -3,10 +3,11 @@
 // Errors render under the named field (err.field); anything else uses the banner.
 import { html, useEffect, useState } from '../../vendor/preact-htm.module.js';
 import { authApi, ApiError } from '../api-client.js';
-import { authStore, cacheUser } from '../store.js';
+import { authStore, cacheUser, safeLocalStorage } from '../store.js';
 import { Icon } from '../icons.js';
 import { RecordSleeve } from '../components/record-sleeve.js';
 import { VinylDisc } from '../components/vinyl-disc.js';
+import { readRegistrationOpen, writeRegistrationOpen } from '../registration-status-cache.js';
 
 // Limits mirror app/auth/auth_routes.py (USERNAME_RE, PASSWORD_MIN/MAX, DISPLAY_NAME_MAX).
 const USERNAME_MIN = 3;
@@ -59,14 +60,27 @@ export function AuthView({ onAuthed }) {
   const [formError, setFormError] = useState(/** @type {string|null} */ (null));
   const [fieldErrors, setFieldErrors] = useState(/** @type {Record<string,string>} */ ({}));
   const [values, setValues] = useState({ username: '', display_name: '', password: '', invite_code: '' });
-  // Unknown (null) until /api/auth/status answers; the tab stays hidden unless registration is open.
-  const [registrationOpen, setRegistrationOpen] = useState(/** @type {boolean|null} */ (null));
+  // Seeded from the last known answer so the layout is final on first paint; null = never seen.
+  const [registrationOpen, setRegistrationOpen] = useState(() => readRegistrationOpen(safeLocalStorage()));
 
   useEffect(() => {
+    let alive = true;
     authApi
       .status()
-      .then((s) => setRegistrationOpen(Boolean(s.registration_open)))
-      .catch(() => setRegistrationOpen(false));
+      .then((s) => {
+        if (!alive) return;
+        const open = Boolean(s.registration_open);
+        writeRegistrationOpen(safeLocalStorage(), open);
+        setRegistrationOpen((prev) => (prev === open ? prev : open));
+        // Tapped "Tạo tài khoản" from a stale cache, then the server said closed: back to login,
+        // otherwise the register form would stay with no tabs to leave it.
+        if (!open) setTab('login');
+      })
+      // Keep a cached answer on failure; only fall back to "closed" when nothing is known.
+      .catch(() => alive && setRegistrationOpen((prev) => (prev === null ? false : prev)));
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const isLogin = tab === 'login';
@@ -150,10 +164,21 @@ export function AuthView({ onAuthed }) {
         </div>
       </div>
 
-      ${registrationOpen &&
-      html`<div class="signin-segmented" data-value=${tab} role="tablist" aria-label="Chọn đăng nhập hoặc đăng ký">
-        <button type="button" role="tab" aria-selected=${String(isLogin)} onClick=${() => switchTab('login')}>Đăng nhập</button>
-        <button type="button" role="tab" aria-selected=${String(!isLogin)} onClick=${() => switchTab('register')}>Tạo tài khoản gia đình</button>
+      ${/* While status is unknown (no cache) the control is rendered invisibly: same box, same height,
+          so the form never moves when the answer is "open"; it then just fades in. Only a first-ever
+          visit that turns out closed collapses the gap. */ ''}
+      ${/* Tabs switch on pointerdown: a focus change re-lays out the hero and could move the tab
+         before the click lands. onClick keeps keyboard activation; repeats are no-ops. */ ''}
+      ${registrationOpen !== false &&
+      html`<div
+        class=${`signin-segmented ${registrationOpen === null ? 'is-pending' : ''}`}
+        data-value=${tab}
+        role="tablist"
+        aria-hidden=${registrationOpen === null ? 'true' : null}
+        aria-label="Chọn đăng nhập hoặc đăng ký"
+      >
+        <button type="button" role="tab" aria-selected=${String(isLogin)} onPointerDown=${() => switchTab('login')} onClick=${() => switchTab('login')}>Đăng nhập</button>
+        <button type="button" role="tab" aria-selected=${String(!isLogin)} onPointerDown=${() => switchTab('register')} onClick=${() => switchTab('register')}>Tạo tài khoản gia đình</button>
       </div>`}
 
       ${formError && html`<div class="banner banner-error signin-banner" role="alert">${formError}</div>`}

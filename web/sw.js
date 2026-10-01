@@ -6,7 +6,7 @@
 // Background music (/audio/ambient/*) has its own cache that survives SHELL_CACHE bumps so ~15MB
 // is not re-downloaded on every deploy. To replace one track, ship it under a new file name; bump
 // AMBIENT_CACHE only when every track changes (that forces all of them to download again).
-const SHELL_CACHE = 'booksnap-shell-v23';
+const SHELL_CACHE = 'booksnap-shell-v24';
 const AUDIO_CACHE = 'booksnap-audio-v1';
 const AMBIENT_CACHE = 'booksnap-ambient-v2'; // v2: tracks re-normalised to -18 LUFS
 const KEPT_CACHES = [SHELL_CACHE, AUDIO_CACHE, AMBIENT_CACHE];
@@ -42,6 +42,7 @@ const SHELL_ASSETS = [
   '/js/camera-capture.js',
   '/js/auth-error-kind.js',
   '/js/icons.js',
+  '/js/library-cache.js',
   '/js/media-session.js',
   '/js/network-activity.js',
   '/js/offline-audio-cache.js',
@@ -50,7 +51,9 @@ const SHELL_ASSETS = [
   '/js/playback-progress.js',
   '/js/processing-progress.js',
   '/js/profile-avatar-style.js',
+  '/js/registration-status-cache.js',
   '/js/scrub-math.js',
+  '/js/shelf-sync.js',
   '/js/sign-out.js',
   '/js/sleeve-palette.js',
   '/js/store.js',
@@ -60,6 +63,7 @@ const SHELL_ASSETS = [
   '/js/use-background-music.js',
   '/js/use-book-bookmarks.js',
   '/js/use-page-anchors.js',
+  '/js/use-shelf-toggle.js',
   '/js/use-visible-polling.js',
   '/js/voice-labels.js',
   '/js/components/account-profile-forms.js',

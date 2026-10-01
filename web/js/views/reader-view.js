@@ -1,6 +1,6 @@
 // Reader + player: text (Literata), highlight đoạn đang đọc, phát liên tục, nhớ vị trí, offline.
 import { html, useEffect, useMemo, useRef, useState } from '../../vendor/preact-htm.module.js';
-import { booksApi, chunksApi, shelfApi } from '../api-client.js';
+import { booksApi, chunksApi } from '../api-client.js';
 import { authStore } from '../store.js';
 import { AudioPlaylist } from '../audio-playlist.js';
 import { PlaybackProgress } from '../playback-progress.js';
@@ -14,6 +14,7 @@ import { PlayerSheet } from '../components/player-sheet.js';
 import { NowPlayingPanel } from '../components/now-playing-panel.js';
 import { PagePickerSheet } from '../components/page-picker-sheet.js';
 import { useBookBookmarks } from '../use-book-bookmarks.js';
+import { useShelfToggle } from '../use-shelf-toggle.js';
 import { useBackgroundMusic } from '../use-background-music.js';
 import { usePageAnchors } from '../use-page-anchors.js';
 import { pageAt, seekForPage } from '../page-position.js';
@@ -39,6 +40,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
   const bookmarks = useBookBookmarks(bookId);
   const user = authStore.get().user;
   const [book, setBook] = useState(/** @type {any|null} */ (null));
+  const shelf = useShelfToggle(bookId, book?.on_shelf);
   const [chunks, setChunks] = useState(/** @type {any[]} */ ([]));
   const [playerState, setPlayerState] = useState({ currentSeq: null, currentTimeMs: 0, durationMs: 0, playing: false, ready: false, rate: 1 });
   const music = useBackgroundMusic(playerState.playing);
@@ -267,17 +269,6 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
   }
 
   /** @returns {Promise<boolean>} false when the server rejected the topic (the sheet then reverts). */
-  /** Add/remove this book on the current profile's shelf ("Kệ của tôi"). */
-  async function handleToggleShelf() {
-    const next = !book.on_shelf;
-    try {
-      await (next ? shelfApi.add(bookId) : shelfApi.remove(bookId));
-      setBook((b) => (b ? { ...b, on_shelf: next } : b));
-    } catch {
-      // Offline or profile lost: leave the toggle as it was; the 409 handler routes to the picker.
-    }
-  }
-
   async function handleChangeTopic(name) {
     try {
       setBook(await booksApi.patch(bookId, { topic: name || null }));
@@ -454,12 +445,12 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         onChangeTopic=${handleChangeTopic}
         onDelete=${handleDelete}
         exportUrl=${booksApi.exportUrl(bookId)}
-        onShelf=${Boolean(book.on_shelf)}
-        onToggleShelf=${handleToggleShelf}
+        onShelf=${shelf.onShelf}
+        onToggleShelf=${shelf.toggle}
         onClose=${() => setSheetOpen(false)}
       />`}
 
-      <div class="reader-toast" role="status" aria-live="polite" hidden=${!(bookmarks.message || music.message)}>${bookmarks.message || music.message || ''}</div>
+      <div class="reader-toast" role="status" aria-live="polite" hidden=${!(bookmarks.message || shelf.message || music.message)}>${bookmarks.message || shelf.message || music.message || ''}</div>
 
       ${editingChunk &&
       html`<${ChunkEditor} chunk=${editingChunk} onClose=${() => setEditingChunk(null)} onSaved=${onChunkSaved} />`}

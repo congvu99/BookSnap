@@ -2,7 +2,8 @@
 // danh sách trang và các trang lỗi có thể thử lại / bỏ qua.
 // Polls every 3s while work is pending (60s when only waiting for quota), paused on hidden tabs.
 import { html, useEffect, useRef, useState } from '../../vendor/preact-htm.module.js';
-import { booksApi, pagesApi, shelfApi } from '../api-client.js';
+import { booksApi, pagesApi } from '../api-client.js';
+import { useShelfToggle } from '../use-shelf-toggle.js';
 import { ProgressTimeline } from '../components/progress-timeline.js';
 import { BookPageStatusList } from '../components/book-page-status-list.js';
 import { StatusToast } from '../components/status-toast.js';
@@ -22,6 +23,7 @@ export function BookStatusView({ bookId }) {
   const [discarding, setDiscarding] = useState(/** @type {Set<number>} */ (new Set()));
   const [sealing, setSealing] = useState(false);
   const [toast, setToast] = useState(/** @type {string|null} */ (null));
+  const [toastTone, setToastTone] = useState(/** @type {'info'|'error'} */ ('info'));
   const [now, setNow] = useState(Date.now());
   // Per-visit memory: bar never shrinks, ETA anchored at first load, countdown anchored at receipt.
   const percentRef = useRef(0);
@@ -29,22 +31,14 @@ export function BookStatusView({ bookId }) {
   const receivedAtRef = useRef(Date.now());
   const sawBusyRef = useRef(false);
 
-  const [shelfBusy, setShelfBusy] = useState(false);
-
-  /** Add/remove this book on the current profile's shelf ("Kệ của tôi"). */
-  async function toggleShelf() {
-    if (!book || shelfBusy) return;
-    const next = !book.on_shelf;
-    setShelfBusy(true);
-    try {
-      await (next ? shelfApi.add(bookId) : shelfApi.remove(bookId));
-      setBook((b) => (b ? { ...b, on_shelf: next } : b));
-    } catch (err) {
-      setError(err.message || 'Không cập nhật được kệ');
-    } finally {
-      setShelfBusy(false);
+  // Optimistic shelf toggle; polled `book.on_shelf` never overrides a pending tap.
+  const shelf = useShelfToggle(bookId, book?.on_shelf);
+  useEffect(() => {
+    if (shelf.failures > 0) {
+      setToastTone('error');
+      setToast(`${shelf.message || 'Không lưu được kệ, thử lại sau'}`);
     }
-  }
+  }, [shelf.failures]);
 
   async function load(isStale = () => false) {
     try {
@@ -57,6 +51,7 @@ export function BookStatusView({ bookId }) {
       if (isBusyPhase(phase)) sawBusyRef.current = true;
       else if (sawBusyRef.current && phase === 'ready') {
         sawBusyRef.current = false;
+        setToastTone('info');
         setToast('Sách đã sẵn sàng');
       }
       setBook(b);
@@ -181,8 +176,8 @@ export function BookStatusView({ bookId }) {
           <h1 style=${{ fontSize: '20px', margin: 0 }}>${book.title}</h1>
         </div>
         <div class="page-header-actions">
-          <button class="shelf-toggle" aria-pressed=${book.on_shelf ? 'true' : 'false'} disabled=${shelfBusy} aria-busy=${shelfBusy ? 'true' : null} onClick=${toggleShelf}>
-            <${Icon} name="bookmark" size=${16} /> ${book.on_shelf ? 'Trên kệ' : 'Thêm vào kệ'}
+          <button class="shelf-toggle" aria-pressed=${shelf.onShelf ? 'true' : 'false'} onClick=${shelf.toggle}>
+            <${Icon} name="bookmark" size=${16} /> ${shelf.onShelf ?'Trên kệ' : 'Thêm vào kệ'}
           </button>
           ${book.can_manage && html`<button class="icon-btn" aria-label="Xoá sách" onClick=${remove}><${Icon} name="trash" /></button>`}
         </div>
@@ -256,7 +251,7 @@ export function BookStatusView({ bookId }) {
           ${book.can_manage && html`<a class="btn btn-ghost" href=${booksApi.exportUrl(bookId)}>Tải bản sao</a>`}
         </div>
       </div>
-      <${StatusToast} message=${toast} />
+      <${StatusToast} message=${toast} tone=${toastTone} />
     </div>
   `;
 }

@@ -5,6 +5,7 @@
 // state the server confirmed. If the initial load fails (offline) every seq shows as unmarked.
 import { useEffect, useRef, useState } from '../vendor/preact-htm.module.js';
 import { bookmarksApi } from './api-client.js';
+import { authStore } from './store.js';
 
 const MESSAGE_MS = 2400;
 
@@ -17,6 +18,8 @@ export function useBookBookmarks(bookId) {
   const syncing = useRef(/** @type {Set<number>} */ (new Set()));
   const alive = useRef(true);
   const timer = useRef(/** @type {number|undefined} */ (undefined));
+  // Pinned at mount: a toggle still syncing after a profile switch stays with this profile.
+  const profileIdRef = useRef(authStore.get().user?.id);
 
   function render() {
     const next = new Set(confirmed.current);
@@ -57,7 +60,7 @@ export function useBookBookmarks(bookId) {
       while (wanted.current.has(seq) && wanted.current.get(seq) !== confirmed.current.has(seq)) {
         const on = wanted.current.get(seq);
         try {
-          await (on ? bookmarksApi.add(bookId, seq) : bookmarksApi.remove(bookId, seq));
+          await (on ? bookmarksApi.add(bookId, seq, profileIdRef.current) : bookmarksApi.remove(bookId, seq, profileIdRef.current));
         } catch (err) {
           wanted.current.delete(seq);
           render();

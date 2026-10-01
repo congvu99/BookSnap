@@ -1,7 +1,7 @@
 // Shared sign-out of the family account: revoke the session server-side (best effort), then forget
 // who this device is. Per-profile progress stays (see progressStorageKey in store.js).
 import { authApi } from './api-client.js';
-import { authStore, clearCachedUser } from './store.js';
+import { authStore, clearCachedUser, clearLibrarySnapshots } from './store.js';
 
 export async function signOut() {
   try {
@@ -10,6 +10,7 @@ export async function signOut() {
     // Ignore network errors on logout — clear local state regardless.
   }
   clearCachedUser();
+  clearLibrarySnapshots();
   authStore.set({ user: null, needsProfile: false, ready: true, offline: false });
   window.location.hash = '#/auth';
 }

@@ -30,6 +30,29 @@ export const CACHED_USER_KEY = 'booksnap:cached-user';
 /** Views holding work that only lives in memory (capture's upload queue) register a check here. */
 const unsavedWorkChecks = new Set();
 
+/** localStorage, or null where touching it throws (private mode, blocked site data). */
+export function safeLocalStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Library snapshots (library-cache.js) are cheap to rebuild: drop them all on sign-out. */
+export function clearLibrarySnapshots() {
+  const storage = safeLocalStorage();
+  if (!storage) return;
+  try {
+    for (let i = storage.length - 1; i >= 0; i--) {
+      const key = storage.key(i);
+      if (key && key.startsWith('booksnap:library:')) storage.removeItem(key);
+    }
+  } catch {
+    // Storage unavailable — nothing to clear.
+  }
+}
+
 /** @param {() => boolean} check @returns {() => void} unregister */
 export function registerUnsavedWork(check) {
   unsavedWorkChecks.add(check);

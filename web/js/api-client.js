@@ -121,8 +121,9 @@ export const profilesApi = {
 
 // ---- Shelf ("Kệ của tôi", per profile; idempotent) ----
 export const shelfApi = {
-  add: (bookId) => apiFetch(`/api/me/shelf/${bookId}`, { method: 'PUT' }),
-  remove: (bookId) => apiFetch(`/api/me/shelf/${bookId}`, { method: 'DELETE' }),
+  /** profileId pins the write to the profile that made it (see putProgress). */
+  add: (bookId, profileId) => apiFetch(`/api/me/shelf/${bookId}`, { method: 'PUT', headers: profileHeader(profileId) }),
+  remove: (bookId, profileId) => apiFetch(`/api/me/shelf/${bookId}`, { method: 'DELETE', headers: profileHeader(profileId) }),
 };
 
 // ---- Account (the signed-in profile; password belongs to the family account) ----
@@ -195,8 +196,8 @@ export const bookmarksApi = {
   list: () => apiFetch('/api/bookmarks'),
   /** Bookmarked chunk seqs of one book: number[]. */
   forBook: (bookId) => apiFetch(`/api/books/${bookId}/bookmarks`),
-  add: (bookId, seq) => apiFetch(`/api/books/${bookId}/bookmarks/${seq}`, { method: 'PUT' }),
-  remove: (bookId, seq) => apiFetch(`/api/books/${bookId}/bookmarks/${seq}`, { method: 'DELETE' }),
+  add: (bookId, seq, profileId) => apiFetch(`/api/books/${bookId}/bookmarks/${seq}`, { method: 'PUT', headers: profileHeader(profileId) }),
+  remove: (bookId, seq, profileId) => apiFetch(`/api/books/${bookId}/bookmarks/${seq}`, { method: 'DELETE', headers: profileHeader(profileId) }),
 };
 
 // ---- Voices ----

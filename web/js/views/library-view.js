@@ -1,10 +1,11 @@
 // Thư viện chung as "record crates": hero "Nghe tiếp", accent-insensitive search, topic pull-down
 // menu and one crate per topic. Layout reference: docs/mockups/vinyl-library-preview.html.
-import { html, useEffect, useMemo, useState } from '../../vendor/preact-htm.module.js';
+import { html, useEffect, useMemo, useRef, useState } from '../../vendor/preact-htm.module.js';
 import { booksApi } from '../api-client.js';
-import { authStore } from '../store.js';
+import { authStore, safeLocalStorage } from '../store.js';
 import { signOut } from '../sign-out.js';
 import { listOfflineBooks } from '../offline-book-cache.js';
+import { readLibraryCache, writeLibraryCache } from '../library-cache.js';
 import { matchesQuery } from '../text-fold.js';
 import { LibraryHeroCard } from '../components/library-hero-card.js';
 import { LibraryCrate } from '../components/library-crate.js';
@@ -41,15 +42,26 @@ export function groupIntoShelves(books) {
 /** Menu option key for a shelf ('' topic id -> UNSORTED_KEY). */
 const shelfKey = (shelf) => shelf.key || UNSORTED_KEY;
 
+
 export function LibraryView() {
-  const [books, setBooks] = useState(/** @type {any[]|null} */ (null));
-  const [continuing, setContinuing] = useState(/** @type {any[]} */ ([]));
+  const user = authStore.get().user;
+  // Stale-while-revalidate: the snapshot is read once, keyed by the current profile (never another one's).
+  const [cached] = useState(() => readLibraryCache(safeLocalStorage(), user ? user.id : null));
+  const [books, setBooks] = useState(/** @type {any[]|null} */ (cached ? cached.books : null));
+  const [continuing, setContinuing] = useState(/** @type {any[]} */ (cached ? cached.continuing : []));
   const [error, setError] = useState(/** @type {string|null} */ (null));
   const [isOffline, setIsOffline] = useState(false);
   const [query, setQuery] = useState('');
   const [topic, setTopic] = useState(ALL);
   const [shelfOnly, setShelfOnly] = useState(false);
-  const user = authStore.get().user;
+  // Showing a snapshot whose refresh failed: tell the user and offer a retry.
+  const [stale, setStale] = useState(false);
+  const staleRef = useRef(false);
+  staleRef.current = stale;
+
+  function saveCache(list, cont) {
+    writeLibraryCache(safeLocalStorage(), user ? user.id : null, { books: list, continuing: cont });
+  }
 
   async function load() {
     setError(null);
@@ -58,7 +70,18 @@ export function LibraryView() {
       setBooks(list);
       setContinuing(cont);
       setIsOffline(false);
+      setStale(false);
+      saveCache(list, cont);
     } catch (err) {
+      // Network down: the browser says so, or the request never reached the server / the service
+      // worker answered its offline 503.
+      const reallyOffline = (typeof navigator !== 'undefined' && navigator.onLine === false) || err.status === 0 || err.status === 503;
+      // A snapshot is already on screen: keep it, but say it may be out of date. Only when offline
+      // with downloaded books swap to them (the offline banner describes exactly that list).
+      if (cached && (!reallyOffline || listOfflineBooks().length === 0)) {
+        setStale(true);
+        return;
+      }
       // Offline: show whatever books were saved for offline reading instead of a dead end.
       const offline = listOfflineBooks();
       if (offline.length > 0) {
@@ -78,7 +101,10 @@ export function LibraryView() {
   // The first load decides offline mode; later connectivity loss only pauses polling.
   const [online, setOnline] = useState(typeof navigator === 'undefined' || navigator.onLine !== false);
   useEffect(() => {
-    const up = () => setOnline(true);
+    const up = () => {
+      setOnline(true);
+      if (staleRef.current) load();
+    };
     const down = () => setOnline(false);
     window.addEventListener('online', up);
     window.addEventListener('offline', down);
@@ -95,6 +121,7 @@ export function LibraryView() {
     if (isStale()) return;
     if (list.status === 'fulfilled') setBooks(list.value);
     if (cont.status === 'fulfilled') setContinuing(cont.value);
+    if (list.status === 'fulfilled' && cont.status === 'fulfilled') saveCache(list.value, cont.value);
   }
   const phases = (books || []).filter((b) => b.pages && b.chunks).map(phaseOf);
   const anyLive = phases.some((p) => LIVE_PHASES.has(p));
@@ -139,6 +166,11 @@ export function LibraryView() {
 
       <div class="container">
         ${error && html`<div class="banner banner-error" role="alert">${error}</div>`}
+        ${stale && !error &&
+        html`<div class="banner banner-info" role="status">
+          <${Icon} name="clock" size=${14} /> Chưa cập nhật được thư viện, đang hiện bản lần trước.
+          <button class="btn btn-ghost" onClick=${load}>Thử lại</button>
+        </div>`}
         ${isOffline &&
         html`<div class="banner banner-info"><${Icon} name="clock" size=${14} /> Đang ngoại tuyến — chỉ hiện sách đã tải để nghe offline</div>`}
 
