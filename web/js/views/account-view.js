@@ -1,4 +1,4 @@
-// Thông tin cá nhân: identity + personal stats, shared provider quota, display name, password.
+// Thông tin cá nhân: current profile + its stats, shared provider quota, profile name, family password.
 import { html, useEffect, useState } from '../../vendor/preact-htm.module.js';
 import { accountApi, usageApi } from '../api-client.js';
 import { authStore } from '../store.js';
@@ -6,6 +6,7 @@ import { signOut } from '../sign-out.js';
 import { UsageMeterList } from '../components/usage-meter-list.js';
 import { DisplayNameForm, PasswordForm } from '../components/account-profile-forms.js';
 import { Icon } from '../icons.js';
+import { ProfileAvatar } from '../components/profile-avatar.js';
 
 const JOINED = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -48,7 +49,6 @@ export function AccountView() {
 
   if (!user) return null;
   const shown = profile || user;
-  const initial = (shown.display_name || '?').trim().charAt(0).toUpperCase() || '?';
 
   return html`
     <div>
@@ -61,10 +61,11 @@ export function AccountView() {
         ${profileError && html`<div class="banner banner-info" role="status">${profileError}</div>`}
 
         <section class="card account-identity" aria-label="Hồ sơ">
-          <span class="avatar account-avatar" aria-hidden="true">${initial}</span>
+          <${ProfileAvatar} name=${shown.display_name} avatar=${shown.avatar} large />
           <div class="account-identity-text">
             <h2>${shown.display_name}</h2>
-            <p>@${shown.username}${profile ? ` · Tham gia ${JOINED.format(new Date(profile.created_at))}` : ''}</p>
+            <p>Tài khoản gia đình @${shown.username}${profile ? ` · Tạo hồ sơ ${JOINED.format(new Date(profile.created_at))}` : ''}</p>
+            <a class="account-switch" href="#/profiles">Đổi hồ sơ</a>
           </div>
         </section>
 

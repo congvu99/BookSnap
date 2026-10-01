@@ -48,6 +48,7 @@ export function LibraryView() {
   const [isOffline, setIsOffline] = useState(false);
   const [query, setQuery] = useState('');
   const [topic, setTopic] = useState(ALL);
+  const [shelfOnly, setShelfOnly] = useState(false);
   const user = authStore.get().user;
 
   async function load() {
@@ -100,9 +101,10 @@ export function LibraryView() {
   const onlyQuota = !anyLive && phases.includes('quota');
   useVisiblePolling(refresh, anyLive ? LIVE_POLL_MS : QUOTA_POLL_MS, !isOffline && online && (anyLive || onlyQuota));
 
-  // Search narrows books first; topic options keep every topic but show counts for the search result.
+  // "Kệ của tôi" narrows to this profile's picks, then search; topic options keep every topic of that
+  // set but show counts for the search result.
   const { options, shelves, visibleCount, activeTopic } = useMemo(() => {
-    const all = books || [];
+    const all = (books || []).filter((b) => !shelfOnly || b.on_shelf);
     const searched = all.filter((b) => matchesQuery(b.title, query));
     const searchedCounts = new Map(groupIntoShelves(searched).map((s) => [shelfKey(s), s.books.length]));
     const opts = [
@@ -113,7 +115,7 @@ export function LibraryView() {
     const active = opts.some((o) => o.key === topic) ? topic : ALL;
     const shown = groupIntoShelves(searched).filter((s) => active === ALL || shelfKey(s) === active);
     return { options: opts, activeTopic: active, shelves: shown, visibleCount: shown.reduce((n, s) => n + s.books.length, 0) };
-  }, [books, query, topic]);
+  }, [books, query, topic, shelfOnly]);
 
   const hero = !isOffline && continuing.length > 0 ? continuing[0] : null;
   const hasBooks = books !== null && books.length > 0;
@@ -121,6 +123,7 @@ export function LibraryView() {
   function clearFilters() {
     setQuery('');
     setTopic(ALL);
+    setShelfOnly(false);
   }
 
   return html`
@@ -130,7 +133,7 @@ export function LibraryView() {
           <p class="eyebrow">BookSnap · Thư phòng gia đình</p>
           <h1>Thư viện</h1>
         </div>
-        <${LibraryAccountMenu} name=${user ? user.display_name : ''} onLogout=${signOut} />
+        <${LibraryAccountMenu} name=${user ? user.display_name : ''} avatar=${user ? user.avatar : null} onLogout=${signOut} />
       </header>
 
       <div class="container">
@@ -159,13 +162,25 @@ export function LibraryView() {
           </div>
           <div class="lib-toolbar">
             <p class="lib-summary" aria-live="polite">${visibleCount} đĩa · ${shelves.length} thùng</p>
-            <${TopicFilterMenu} options=${options} value=${activeTopic} onChange=${setTopic} />
+            <div class="lib-filters">
+              ${!isOffline &&
+              html`<button class="shelf-toggle" aria-pressed=${shelfOnly ? 'true' : 'false'} onClick=${() => setShelfOnly(!shelfOnly)}>
+                <${Icon} name="bookmark" size=${16} /> Kệ của tôi
+              </button>`}
+              <${TopicFilterMenu} options=${options} value=${activeTopic} onChange=${setTopic} />
+            </div>
           </div>
           ${shelves.map((shelf) => html`<${LibraryCrate} key=${shelfKey(shelf)} shelf=${shelf} offline=${isOffline} />`)}
           ${visibleCount === 0 &&
           html`
             <div class="lib-empty">
-              <p>${query.trim() ? html`Không có sách nào khớp “${query.trim()}”.` : 'Không có sách nào trong chủ đề này.'}</p>
+              <p>
+                ${query.trim()
+                  ? html`Không có sách nào khớp “${query.trim()}”.`
+                  : shelfOnly
+                    ? 'Kệ của bạn chưa có sách. Mở một cuốn và chọn “Thêm vào kệ”.'
+                    : 'Không có sách nào trong chủ đề này.'}
+              </p>
               <button class="btn btn-secondary" onClick=${clearFilters}>Xoá tìm kiếm và bộ lọc</button>
             </div>
           `}

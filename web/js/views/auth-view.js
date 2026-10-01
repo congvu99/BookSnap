@@ -1,6 +1,7 @@
-// Sign-in / sign-up, laid out for one-handed iPhone use: brand art on top, form in the thumb zone.
+// Sign-in to the family account (sign-up only until it exists), laid out for one-handed iPhone use:
+// brand art on top, form in the thumb zone.
 // Errors render under the named field (err.field); anything else uses the banner.
-import { html, useState } from '../../vendor/preact-htm.module.js';
+import { html, useEffect, useState } from '../../vendor/preact-htm.module.js';
 import { authApi, ApiError } from '../api-client.js';
 import { authStore, cacheUser } from '../store.js';
 import { Icon } from '../icons.js';
@@ -20,14 +21,14 @@ const ERROR_ID = 'signin-error';
 
 const FIELD_LABEL = {
   username: 'Tên đăng nhập',
-  display_name: 'Tên hiển thị',
+  display_name: 'Tên hồ sơ của bạn',
   password: 'Mật khẩu',
   invite_code: 'Mã mời',
 };
 
 const FOOT_HINT = {
-  login: 'Quên mật khẩu? Nhờ người quản lý thư viện đặt lại.',
-  register: 'Mã mời do người quản lý thư viện gia đình cung cấp.',
+  login: 'Cả nhà dùng chung một tài khoản. Quên mật khẩu? Nhờ người quản lý thư viện đặt lại.',
+  register: 'Tạo tài khoản gia đình một lần, sau đó mỗi người thêm hồ sơ riêng. Mã mời do người quản lý thư viện cung cấp.',
 };
 
 /** One labelled row; `extra` is rendered after the input (eye toggle). */
@@ -58,6 +59,15 @@ export function AuthView({ onAuthed }) {
   const [formError, setFormError] = useState(/** @type {string|null} */ (null));
   const [fieldErrors, setFieldErrors] = useState(/** @type {Record<string,string>} */ ({}));
   const [values, setValues] = useState({ username: '', display_name: '', password: '', invite_code: '' });
+  // Unknown (null) until /api/auth/status answers; the tab stays hidden unless registration is open.
+  const [registrationOpen, setRegistrationOpen] = useState(/** @type {boolean|null} */ (null));
+
+  useEffect(() => {
+    authApi
+      .status()
+      .then((s) => setRegistrationOpen(Boolean(s.registration_open)))
+      .catch(() => setRegistrationOpen(false));
+  }, []);
 
   const isLogin = tab === 'login';
   const errorField = Object.keys(fieldErrors)[0];
@@ -83,7 +93,7 @@ export function AuthView({ onAuthed }) {
     // Drop the keyboard so the hero expands back while the record spins.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     try {
-      const user = isLogin
+      const res = isLogin
         ? await authApi.login({ username: values.username.trim(), password: values.password })
         : await authApi.register({
             username: values.username.trim(),
@@ -91,8 +101,14 @@ export function AuthView({ onAuthed }) {
             password: values.password,
             invite_code: values.invite_code.trim(),
           });
-      cacheUser(user);
-      authStore.set({ user, ready: true, offline: false });
+      if (res.profile_required) {
+        // Several profiles: the app shows "Ai đang nghe?" next.
+        authStore.set({ user: null, needsProfile: true, ready: true, offline: false });
+      } else {
+        const me = { id: res.id, username: res.username, display_name: res.display_name, avatar: res.avatar };
+        cacheUser(me);
+        authStore.set({ user: me, needsProfile: false, ready: true, offline: false });
+      }
       onAuthed();
     } catch (err) {
       if (err instanceof ApiError) {
@@ -134,10 +150,11 @@ export function AuthView({ onAuthed }) {
         </div>
       </div>
 
-      <div class="signin-segmented" data-value=${tab} role="tablist" aria-label="Chọn đăng nhập hoặc đăng ký">
+      ${registrationOpen &&
+      html`<div class="signin-segmented" data-value=${tab} role="tablist" aria-label="Chọn đăng nhập hoặc đăng ký">
         <button type="button" role="tab" aria-selected=${String(isLogin)} onClick=${() => switchTab('login')}>Đăng nhập</button>
-        <button type="button" role="tab" aria-selected=${String(!isLogin)} onClick=${() => switchTab('register')}>Đăng ký</button>
-      </div>
+        <button type="button" role="tab" aria-selected=${String(!isLogin)} onClick=${() => switchTab('register')}>Tạo tài khoản gia đình</button>
+      </div>`}
 
       ${formError && html`<div class="banner banner-error signin-banner" role="alert">${formError}</div>`}
 

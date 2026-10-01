@@ -1,9 +1,14 @@
 // Thin fetch wrapper matching the backend contract (see app/api_errors.py, app/api/serializers.py).
 // Every error body is {error:{code,message,field}}. A 401 on any /api/* call (except auth) means
-// the session cookie is gone — the caller should route to #/auth.
+// the session cookie is gone — the caller should route to #/auth. A 409 profile_required /
+// profile_mismatch means the device must pick a profile again (deleted, or switched in another tab).
+import { authStore } from './store.js';
+import { PROFILE_REQUIRED_CODES } from './auth-error-kind.js';
 
 /** Emitted on window when any request receives 401, so app.js can redirect once. */
 const UNAUTHORIZED_EVENT = 'booksnap:unauthorized';
+/** Emitted on window when any request (even with skipAuthRedirect) says a profile must be picked. */
+const PROFILE_REQUIRED_EVENT = 'booksnap:profile-required';
 
 /** Error class carrying the parsed backend error body. */
 export class ApiError extends Error {
@@ -29,6 +34,10 @@ export class ApiError extends Error {
  */
 export async function apiFetch(path, options = {}, opts = {}) {
   const headers = new Headers(options.headers || {});
+  // The cookie (and so the selected profile) is shared by every tab: tell the server which profile
+  // this tab is showing, so a stale tab gets 409 instead of writing into another profile.
+  const profileId = authStore.get().user?.id;
+  if (profileId && !headers.has('X-Profile-Id')) headers.set('X-Profile-Id', profileId);
   let body = options.body;
   if (body && !(body instanceof FormData) && typeof body !== 'string') {
     headers.set('Content-Type', 'application/json');
@@ -48,6 +57,9 @@ export async function apiFetch(path, options = {}, opts = {}) {
   const data = isJson ? await res.json().catch(() => null) : null;
   if (!res.ok) {
     const errBody = (data && data.error) || { code: 'unknown_error', message: `Lỗi máy chủ (${res.status})` };
+    if (res.status === 409 && PROFILE_REQUIRED_CODES.has(errBody.code)) {
+      window.dispatchEvent(new CustomEvent(PROFILE_REQUIRED_EVENT));
+    }
     throw new ApiError(res.status, errBody, res.headers);
   }
   return data;
@@ -58,17 +70,44 @@ export function onUnauthorized(handler) {
   return () => window.removeEventListener(UNAUTHORIZED_EVENT, handler);
 }
 
+export function onProfileRequired(handler) {
+  window.addEventListener(PROFILE_REQUIRED_EVENT, handler);
+  return () => window.removeEventListener(PROFILE_REQUIRED_EVENT, handler);
+}
+
 // ---- Auth ----
+// register/login return {id, username, display_name, avatar, account:{id, username}, profile_required};
+// the profile fields are null while profile_required (several profiles, none picked yet).
 export const authApi = {
+  /** {registration_open}: false once the family account exists. */
+  status: () => apiFetch('/api/auth/status', {}, { skipAuthRedirect: true }),
   register: (body) => apiFetch('/api/auth/register', { method: 'POST', body }, { skipAuthRedirect: true }),
   login: (body) => apiFetch('/api/auth/login', { method: 'POST', body }, { skipAuthRedirect: true }),
   logout: () => apiFetch('/api/auth/logout', { method: 'POST' }, { skipAuthRedirect: true }),
   me: () => apiFetch('/api/me', {}, { skipAuthRedirect: true }),
 };
 
-// ---- Account (the signed-in user) ----
+// ---- Profiles of the family account (work before a profile is picked) ----
+export const profilesApi = {
+  /** [{id, display_name, avatar}] in creation order. */
+  list: () => apiFetch('/api/profiles'),
+  create: (body) => apiFetch('/api/profiles', { method: 'POST', body }),
+  update: (id, body) => apiFetch(`/api/profiles/${id}`, { method: 'PATCH', body }),
+  /** Needs the family password; the profile's books go to the oldest remaining profile. */
+  remove: (id, password) => apiFetch(`/api/profiles/${id}`, { method: 'DELETE', body: { password } }),
+  /** Returns the /api/me shape of the picked profile. */
+  select: (id) => apiFetch(`/api/profiles/${id}/select`, { method: 'POST' }),
+};
+
+// ---- Shelf ("Kệ của tôi", per profile; idempotent) ----
+export const shelfApi = {
+  add: (bookId) => apiFetch(`/api/me/shelf/${bookId}`, { method: 'PUT' }),
+  remove: (bookId) => apiFetch(`/api/me/shelf/${bookId}`, { method: 'DELETE' }),
+};
+
+// ---- Account (the signed-in profile; password belongs to the family account) ----
 export const accountApi = {
-  /** {id, username, display_name, created_at, stats:{books_created, pages_captured, books_listening, bookmarks}} */
+  /** {id, username, display_name, avatar, created_at, stats:{books_created, pages_captured, books_listening, bookmarks}} */
   profile: () => apiFetch('/api/me/profile'),
   /** Returns the updated /api/me shape. */
   update: (body) => apiFetch('/api/me', { method: 'PATCH', body }),
@@ -76,7 +115,7 @@ export const accountApi = {
   changePassword: (body) => apiFetch('/api/me/password', { method: 'POST', body }),
 };
 
-// ---- Provider quota (shared by every account) ----
+// ---- Provider quota (shared by the whole family) ----
 export const usageApi = {
   /** {as_of, services:[{service, label, unit, window, status, used, limit, remaining, resets_at, paused_until, waiting_chunks, last_quota_at}]} */
   get: () => apiFetch('/api/usage'),
@@ -129,7 +168,7 @@ export const topicsApi = {
   list: () => apiFetch('/api/topics'),
 };
 
-// ---- Bookmarks (per user; PUT/DELETE are idempotent) ----
+// ---- Bookmarks (per profile; PUT/DELETE are idempotent) ----
 export const bookmarksApi = {
   /** [{book_id, book_title, chunk_seq, excerpt, created_at}] newest first. */
   list: () => apiFetch('/api/bookmarks'),

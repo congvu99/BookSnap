@@ -17,10 +17,29 @@ function createStore(initial) {
   };
 }
 
-/** @type {{get:()=>{user:null|{id:string,username:string,display_name:string}, ready:boolean, offline:boolean}, set:Function, subscribe:Function}} */
-export const authStore = createStore({ user: null, ready: false, offline: false });
+/**
+ * user: the picked profile (/api/me shape; `username` is the family login).
+ * needsProfile: signed in to the family account but must pick a profile (picker shown). `user` may
+ * still hold the previous profile while a capture view keeps its unsent pages on screen.
+ * @type {{get:()=>{user:null|{id:string,username:string,display_name:string,avatar:string}, needsProfile:boolean, ready:boolean, offline:boolean}, set:Function, subscribe:Function}}
+ */
+export const authStore = createStore({ user: null, needsProfile: false, ready: false, offline: false });
 
-const CACHED_USER_KEY = 'booksnap:cached-user';
+export const CACHED_USER_KEY = 'booksnap:cached-user';
+
+/** Views holding work that only lives in memory (capture's upload queue) register a check here. */
+const unsavedWorkChecks = new Set();
+
+/** @param {() => boolean} check @returns {() => void} unregister */
+export function registerUnsavedWork(check) {
+  unsavedWorkChecks.add(check);
+  return () => unsavedWorkChecks.delete(check);
+}
+
+/** True while some view would lose in-memory work if it were unmounted. */
+export function hasUnsavedWork() {
+  return [...unsavedWorkChecks].some((check) => check());
+}
 
 /** Persist the last known /api/me result so offline reloads can keep a downloaded book usable (C4). */
 export function cacheUser(user) {
@@ -68,15 +87,10 @@ if (themeStore.get().theme !== 'auto') {
   document.documentElement.setAttribute('data-theme', themeStore.get().theme);
 }
 
-/** Per-user localStorage key prefix for playback progress, so logout can wipe just that user's data. */
+/**
+ * Per-profile localStorage key for playback progress. Kept on sign-out: one household shares the
+ * device, and an offline position not yet synced may be the only copy.
+ */
 export function progressStorageKey(userId, bookId) {
   return `booksnap:progress:${userId}:${bookId}`;
-}
-
-export function clearUserProgress(userId) {
-  const prefix = `booksnap:progress:${userId}:`;
-  for (let i = localStorage.length - 1; i >= 0; i--) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith(prefix)) localStorage.removeItem(key);
-  }
 }

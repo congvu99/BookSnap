@@ -2,7 +2,7 @@
 // danh sách trang và các trang lỗi có thể thử lại / bỏ qua.
 // Polls every 3s while work is pending (60s when only waiting for quota), paused on hidden tabs.
 import { html, useEffect, useRef, useState } from '../../vendor/preact-htm.module.js';
-import { booksApi, pagesApi } from '../api-client.js';
+import { booksApi, pagesApi, shelfApi } from '../api-client.js';
 import { ProgressTimeline } from '../components/progress-timeline.js';
 import { BookPageStatusList } from '../components/book-page-status-list.js';
 import { StatusToast } from '../components/status-toast.js';
@@ -28,6 +28,23 @@ export function BookStatusView({ bookId }) {
   const etaRef = useRef(createEta());
   const receivedAtRef = useRef(Date.now());
   const sawBusyRef = useRef(false);
+
+  const [shelfBusy, setShelfBusy] = useState(false);
+
+  /** Add/remove this book on the current profile's shelf ("Kệ của tôi"). */
+  async function toggleShelf() {
+    if (!book || shelfBusy) return;
+    const next = !book.on_shelf;
+    setShelfBusy(true);
+    try {
+      await (next ? shelfApi.add(bookId) : shelfApi.remove(bookId));
+      setBook((b) => (b ? { ...b, on_shelf: next } : b));
+    } catch (err) {
+      setError(err.message || 'Không cập nhật được kệ');
+    } finally {
+      setShelfBusy(false);
+    }
+  }
 
   async function load(isStale = () => false) {
     try {
@@ -163,7 +180,12 @@ export function BookStatusView({ bookId }) {
           <a class="icon-btn" href="#/library" aria-label="Về thư viện"><${Icon} name="chevron-left" /></a>
           <h1 style=${{ fontSize: '20px', margin: 0 }}>${book.title}</h1>
         </div>
-        ${book.can_manage && html`<button class="icon-btn" aria-label="Xoá sách" onClick=${remove}><${Icon} name="trash" /></button>`}
+        <div class="page-header-actions">
+          <button class="shelf-toggle" aria-pressed=${book.on_shelf ? 'true' : 'false'} disabled=${shelfBusy} onClick=${toggleShelf}>
+            <${Icon} name="bookmark" size=${16} /> ${book.on_shelf ? 'Trên kệ' : 'Thêm vào kệ'}
+          </button>
+          ${book.can_manage && html`<button class="icon-btn" aria-label="Xoá sách" onClick=${remove}><${Icon} name="trash" /></button>`}
+        </div>
       </div>
       <div class="fleuron-rule header-rule" aria-hidden="true"><i></i></div>
 

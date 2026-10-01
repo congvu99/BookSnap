@@ -1,0 +1,65 @@
+/* Profiles: "Ai đang nghe?" picker, manage form, avatar colours, shelf toggles. */
+
+/* Eight avatar colours (c1..c8): deep leather tones from the sleeve palette plus four companions.
+   Same in light and dark themes; the cream initial keeps ≥ 7:1 contrast on every one. */
+.profile-avatar { --avatar-bg: #6B2424; display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--avatar-bg); color: #F6ECD6; font: 600 21px/1 var(--font-display); box-shadow: inset 0 0 0 2px var(--avatar-bg), inset 0 0 0 3px rgba(240, 213, 152, .55); user-select: none; }
+.profile-avatar--c1 { --avatar-bg: #6B2424; }
+.profile-avatar--c2 { --avatar-bg: #3F4A33; }
+.profile-avatar--c3 { --avatar-bg: #34494D; }
+.profile-avatar--c4 { --avatar-bg: #7A5226; }
+.profile-avatar--c5 { --avatar-bg: #5B3557; }
+.profile-avatar--c6 { --avatar-bg: #2F5450; }
+.profile-avatar--c7 { --avatar-bg: #833824; }
+.profile-avatar--c8 { --avatar-bg: #2E3A5C; }
+.profile-avatar--lg { width: 88px; height: 88px; font-size: 40px; box-shadow: inset 0 0 0 3px var(--avatar-bg), inset 0 0 0 5px rgba(240, 213, 152, .55); }
+
+/* The header avatar button wraps a coloured avatar instead of drawing its own circle. */
+.avatar.avatar--profile { width: auto; height: auto; border: 0; background: none; box-shadow: none; border-radius: 50%; }
+.avatar.avatar--profile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ——— Picker ——— */
+.profiles { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; padding: calc(env(safe-area-inset-top) + 40px) 16px calc(env(safe-area-inset-bottom) + 24px); background: var(--bg); }
+.profiles-overlay { position: fixed; inset: 0; z-index: 60; overflow-y: auto; }
+.profiles-head { text-align: center; }
+.profiles-head .eyebrow { margin: 0; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold-ink); }
+.profiles-head h1 { margin: 4px 0 0; font-size: 34px; line-height: 1.15; }
+.profiles-head p { margin: 8px 0 0; font-size: 14px; color: var(--ink-muted); }
+.profiles .banner { width: min(100%, 480px); margin: var(--space-4) 0 0; }
+.profiles-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 132px)); justify-content: center; gap: 20px 16px; width: 100%; margin: 28px 0 0; padding: 0; list-style: none; }
+@media (min-width: 560px) { .profiles-grid { grid-template-columns: repeat(4, minmax(0, 132px)); } }
+.profile-tile { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 4px; border: 0; border-radius: var(--radius-md); background: none; color: var(--ink); cursor: pointer; font: inherit; }
+.profile-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.profile-tile:active .profile-avatar { transform: scale(.96); }
+.profile-tile[aria-current='true'] .profile-avatar { box-shadow: inset 0 0 0 3px var(--avatar-bg), inset 0 0 0 5px rgba(240, 213, 152, .55), 0 0 0 3px var(--bg), 0 0 0 5px var(--gold); }
+.profile-tile-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 600; }
+.profile-tile-note { margin-top: -6px; font-size: 12px; color: var(--ink-muted); }
+.profile-tile--add .profile-add-icon { display: grid; place-items: center; width: 88px; height: 88px; border: 1px dashed var(--gold-soft); border-radius: 50%; color: var(--ink-muted); font: 300 44px/1 var(--font-ui); }
+.profiles-manage .profile-tile .profile-avatar { opacity: .82; }
+.profiles-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: 32px; }
+.profiles-actions .btn { min-width: 140px; }
+.profiles-signout { margin-top: var(--space-6); border: 0; background: none; color: var(--ink-muted); font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; min-height: 44px; }
+
+/* ——— Manage form ——— */
+.profile-form { width: min(100%, 420px); margin-top: 24px; display: grid; gap: var(--space-4); }
+.profile-form-preview { display: flex; justify-content: center; }
+.profile-swatches { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; border: 0; }
+.profile-swatches legend { margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+.profile-swatch { position: relative; }
+.profile-swatch input { position: absolute; opacity: 0; width: 44px; height: 44px; margin: 0; cursor: pointer; }
+.profile-swatch .profile-avatar { font-size: 0; }
+.profile-swatch input:checked + .profile-avatar { box-shadow: inset 0 0 0 2px var(--avatar-bg), 0 0 0 3px var(--bg), 0 0 0 5px var(--gold); }
+.profile-swatch input:focus-visible + .profile-avatar { outline: 2px solid var(--primary); outline-offset: 4px; }
+.profile-form-buttons { display: flex; gap: var(--space-2); }
+.profile-form-buttons .btn { flex: 1; }
+.profile-danger { padding: var(--space-4); border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border)); border-radius: var(--radius-md); background: var(--surface); }
+.profile-danger h2 { margin: 0 0 6px; font-size: 18px; color: var(--danger); }
+.profile-danger p { margin: 0 0 var(--space-3); font-size: 14px; line-height: 1.45; color: var(--ink-muted); }
+
+/* ——— Shelf ——— */
+.shelf-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1px solid var(--gold-soft); border-radius: 999px; background: var(--surface); color: var(--ink); cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; }
+.shelf-toggle[aria-pressed='true'] { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--surface)); color: var(--primary); }
+.shelf-toggle .icon { display: flex; }
+.lib-filters { display: flex; align-items: center; gap: var(--space-2); }
+.page-header-actions { display: flex; align-items: center; gap: var(--space-2); flex: none; }
+.page-header-actions .shelf-toggle { min-height: 40px; padding: 0 10px; font-size: 13px; }
+.account-switch { display: inline-flex; align-items: center; min-height: 44px; color: var(--primary); font-size: 14px; font-weight: 600; text-decoration: none; }

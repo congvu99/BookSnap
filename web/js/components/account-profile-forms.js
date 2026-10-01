@@ -99,14 +99,14 @@ export function PasswordForm({ username }) {
 
   return html`
     <form class="card account-form" onSubmit=${submit}>
-      <h2 class="section-heading">Đổi mật khẩu</h2>
+      <h2 class="section-heading">Đổi mật khẩu gia đình</h2>
       <input type="text" autocomplete="username" value=${username} hidden readonly />
       ${row('current_password', 'acc-pw-current', 'Mật khẩu hiện tại', 'current-password')}
       ${row('new_password', 'acc-pw-new', 'Mật khẩu mới', 'new-password')}
       ${row('confirm', 'acc-pw-confirm', 'Nhập lại mật khẩu mới', 'new-password')}
       ${error && !['current_password', 'new_password', 'confirm'].includes(error.field) && html`<p class="field-error" role="alert">${error.text}</p>`}
       ${done && html`<p class="account-ok" role="status">${done}</p>`}
-      <p class="account-hint">Các thiết bị khác sẽ bị đăng xuất; thiết bị này vẫn đăng nhập.</p>
+      <p class="account-hint">Cả nhà dùng chung mật khẩu này. Mọi thiết bị khác (mọi hồ sơ) sẽ bị đăng xuất; thiết bị này vẫn đăng nhập.</p>
       <button class="btn btn-secondary" type="submit" disabled=${busy}>${busy ? 'Đang đổi…' : 'Đổi mật khẩu'}</button>
     </form>
   `;

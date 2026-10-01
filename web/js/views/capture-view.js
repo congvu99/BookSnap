@@ -4,6 +4,7 @@ import { html, useEffect, useRef, useState } from '../../vendor/preact-htm.modul
 import { booksApi, voicesApi } from '../api-client.js';
 import { CameraCapture, CameraError } from '../camera-capture.js';
 import { MAX_PAGES_PER_SESSION, UploadQueue } from '../upload-queue.js';
+import { registerUnsavedWork } from '../store.js';
 import { orderVoices } from '../voice-labels.js';
 import { Icon } from '../icons.js';
 import { CaptureThumbStrip } from '../components/capture-thumb-strip.js';
@@ -115,7 +116,13 @@ export function CaptureView({ bookId, skipConfirm = false }) {
       }
     }
     window.addEventListener('beforeunload', warnBeforeUnload);
-    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+    // Unsent pages live only in memory: if the profile is lost meanwhile, the app keeps this view
+    // mounted under the picker so the queue can finish after a profile is picked again.
+    const unregister = registerUnsavedWork(() => Boolean(queueRef.current && queueRef.current.pendingCount > 0));
+    return () => {
+      window.removeEventListener('beforeunload', warnBeforeUnload);
+      unregister();
+    };
   }, []);
 
   /** Switch the voice for not-yet-voiced content. Capturing stays blocked until it succeeds or
