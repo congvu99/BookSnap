@@ -196,10 +196,42 @@ p { margin: 0 0 var(--space-3); }
 .ornament::after { --tip: right; --line: left; }
 
 /* Skeleton */
+/* Warm base from tokens + a soft diagonal light sweep. Invisible for the first 120ms (fill-mode
+   backwards keeps opacity 0), so loads that finish quickly never flash a placeholder. */
 .skeleton {
-  background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--border) 50%, var(--surface-sunken) 75%);
-  background-size: 200% 100%;
+  --sk-base: var(--surface-sunken);
+  --sk-light: color-mix(in srgb, var(--gold-soft) 60%, var(--surface-sunken));
+  background-color: var(--sk-base);
+  background-image: linear-gradient(105deg, transparent 35%, var(--sk-light) 50%, transparent 65%);
+  background-size: 250% 100%;
+  background-repeat: no-repeat;
+  background-position: 100% 0;
   border-radius: var(--radius-sm);
-  animation: skeleton-sheen 1.4s ease-in-out infinite;
+  animation: skeleton-fade-in 260ms ease-out 120ms backwards, skeleton-sheen 1.4s linear 120ms infinite;
 }
-@keyframes skeleton-sheen { to { background-position: -200% 0; } }
+@keyframes skeleton-fade-in { from { opacity: 0; } }
+@keyframes skeleton-sheen { from { background-position: 100% 0; } to { background-position: 0 0; } }
+.sk-line { height: 12px; margin: 8px 0 0; border-radius: 4px; }
+.sk-block { width: 100%; }
+.sk-cover { width: 100%; aspect-ratio: 1; }
+.sk-card { flex: none; min-width: 0; }
+.sk-card-row { display: flex; gap: 12px; overflow: hidden; padding-top: 14px; }
+.sk-card-row .sk-card { width: 118px; }
+.sk-grid.me-grid { padding: 0 16px; }
+.sk-list { display: grid; }
+.sk-list-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) 36px; align-items: center; gap: 12px; min-height: 54px; }
+.sk-list-row .sk-line { margin: 0; }
+.sk-icon { width: 22px; height: 22px; border-radius: 50%; }
+.sk-meta { height: 12px; border-radius: 4px; }
+.sk-pad { padding: 0 16px; }
+.sk-stack { display: grid; gap: 14px; }
+.sk-stack .sk-line { margin: 0; }
+.sk-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+@media (max-width: 420px) { .sk-stat-grid { grid-template-columns: repeat(2, 1fr); } }
+.sk-steps { display: grid; gap: 14px; margin: var(--space-4) 0; }
+.sk-step { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; gap: 12px; }
+.sk-step .sk-line { margin: 0; }
+.sk-bookmark-group { display: grid; gap: 10px; margin-top: var(--space-4); }
+.sk-bookmark-book { display: flex; align-items: center; gap: var(--space-3); }
+.sk-bookmark-book .sk-cover { width: 44px; flex: none; }
+.sk-bookmark-book > div:last-child { flex: 1; }

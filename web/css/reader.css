@@ -166,3 +166,8 @@
 .page-pick-num { flex: none; min-width: 5.5em; font-family: var(--font-display); font-weight: 600; font-variant-numeric: tabular-nums; }
 .page-pick-excerpt { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; }
 .page-pick-row:disabled .page-pick-excerpt { font-style: italic; }
+
+/* Reader text while the chunks are still loading: shimmer lines in the paragraph rhythm. */
+.reader-skeleton { display: grid; gap: 10px; padding: 8px 0 24px; }
+.reader-skeleton .skeleton { height: 14px; }
+.reader-skeleton .skeleton:nth-child(4n) { width: 58%; margin-bottom: 14px; }

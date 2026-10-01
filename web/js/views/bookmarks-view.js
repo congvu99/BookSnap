@@ -1,9 +1,34 @@
 // Đánh dấu: the current user's bookmarked passages, grouped by book (newest bookmark first).
 // "Nghe từ đây" opens the listen mode at that chunk (#/listen/:id?seq=n).
-import { html, useEffect, useState } from '../../vendor/preact-htm.module.js';
+import { html, useEffect, useRef, useState } from '../../vendor/preact-htm.module.js';
 import { bookmarksApi } from '../api-client.js';
 import { RecordSleeve } from '../components/record-sleeve.js';
 import { Icon } from '../icons.js';
+import { authStore } from '../store.js';
+import { SkeletonStatus, SkeletonLine, SkeletonBlock, SkeletonCover } from '../components/skeleton.js';
+import { loadCached, peekCached, setCached } from '../view-cache.js';
+
+const CACHE_KEY = 'bookmarks:list';
+const profileOpts = () => ({ profileId: authStore.get().user?.id ?? null });
+
+/** Book header (sleeve + title) over two excerpt cards, matching the real groups. */
+function BookmarksSkeleton() {
+  return html`
+    <div>
+      <${SkeletonStatus} />
+      ${[0, 1].map((g) => html`
+        <div class="sk-bookmark-group" key=${g}>
+          <div class="sk-bookmark-book">
+            <${SkeletonCover} />
+            <div><${SkeletonLine} width="55%" /><${SkeletonLine} width="22%" /></div>
+          </div>
+          <${SkeletonBlock} height="104px" />
+          ${g === 0 && html`<${SkeletonBlock} height="104px" />`}
+        </div>
+      `)}
+    </div>
+  `;
+}
 
 const RELATIVE = new Intl.RelativeTimeFormat('vi', { numeric: 'auto' });
 const UNITS = /** @type {const} */ ([
@@ -56,22 +81,42 @@ function BookmarkCard({ item, onRemove }) {
 }
 
 export function BookmarksView() {
-  const [items, setItems] = useState(/** @type {any[]|null} */ (null));
+  const [items, setItemsState] = useState(/** @type {any[]|null} */ (() => peekCached(CACHE_KEY, profileOpts()) ?? null));
   const [error, setError] = useState(/** @type {string|null} */ (null));
+  // Every change goes through the cache too, so a return visit never shows removed bookmarks.
+  // Removed since mount: a refresh that started before the delete must not bring these back.
+  const removedRef = useRef(new Set());
+  const bookmarkKey = (i) => `${i.book_id}:${i.chunk_seq}`;
+  const setItems = (next) => {
+    setCached(CACHE_KEY, next, profileOpts());
+    setItemsState(next);
+  };
 
-  useEffect(() => {
-    bookmarksApi
-      .list()
-      .then(setItems)
-      .catch((err) => setError(err.status === 0 || err.status === 503 ? 'Đang ngoại tuyến — không tải được danh sách đánh dấu.' : err.message));
-  }, []);
+  useEffect(
+    () =>
+      loadCached(CACHE_KEY, () => bookmarksApi.list(), profileOpts(), {
+        onValue: (fresh) => {
+          const kept = removedRef.current.size ? fresh.filter((i) => !removedRef.current.has(bookmarkKey(i))) : fresh;
+          if (kept !== fresh) setCached(CACHE_KEY, kept, profileOpts());
+          setItemsState(kept);
+          setError(null);
+        },
+        // A snapshot already on screen stays; only an empty screen reports the failure.
+        onError: (err) => {
+          if (items === null) setError(err.status === 0 || err.status === 503 ? 'Đang ngoại tuyến — không tải được danh sách đánh dấu.' : err.message);
+        },
+      }),
+    []
+  );
 
   async function remove(item) {
     const before = items;
+    removedRef.current.add(bookmarkKey(item));
     setItems(items.filter((i) => !(i.book_id === item.book_id && i.chunk_seq === item.chunk_seq)));
     try {
       await bookmarksApi.remove(item.book_id, item.chunk_seq);
     } catch (err) {
+      removedRef.current.delete(bookmarkKey(item));
       setItems(before);
       setError(err.message || 'Không bỏ được đánh dấu, thử lại sau.');
     }
@@ -93,7 +138,7 @@ export function BookmarksView() {
       <div class="fleuron-rule header-rule" aria-hidden="true"><i></i></div>
       <div class="container">
         ${error && html`<div class="banner banner-error" role="alert">${error}</div>`}
-        ${items === null && !error && html`<div class="skeleton" style=${{ height: '160px' }}></div>`}
+        ${items === null && !error && html`<${BookmarksSkeleton} />`}
         ${items !== null && items.length === 0 &&
         html`
           <div class="empty-state">

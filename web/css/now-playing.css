@@ -60,3 +60,14 @@
   border: none; border-bottom: 1px dotted currentColor; background: none; color: inherit;
   font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer;
 }
+
+/* Shared-cover target of the library -> player view transition (only this element carries the name). */
+html[data-cover-flight] .stage-sleeve.is-cover { view-transition-name: book-cover; }
+
+/* Chunks not here yet: shimmer lines instead of the excerpt, transport dimmed until audio can start. */
+.np-excerpt-skeleton { display: grid; gap: 8px; justify-items: center; margin: 14px auto 0; max-width: 32ch; }
+.np-excerpt-skeleton .skeleton { height: 12px; width: 100%; }
+.np-excerpt-skeleton .skeleton:last-child { width: 62%; }
+.np-body.is-loading .np-seek, .np-body.is-loading .np-times, .np-body.is-loading .np-transport, .np-body.is-loading .np-options {
+  opacity: .55; pointer-events: none; transition: opacity 240ms ease;
+}

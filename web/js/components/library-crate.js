@@ -1,11 +1,12 @@
 // One "record crate": a sticky tab (topic name + count) above a horizontally scrolling row of records.
 // Each record is a sleeve with the disc peeking out to the right, only once the book is playable.
-import { html, useRef } from '../../vendor/preact-htm.module.js';
+import { html, useEffect, useRef } from '../../vendor/preact-htm.module.js';
 import { RecordSleeve } from './record-sleeve.js';
 import { VinylDisc } from './vinyl-disc.js';
 import { Icon } from '../icons.js';
 import { libraryLabel, overallPercent, phaseOf } from '../processing-progress.js';
 import { remainingMinutes } from '../library-rails.js';
+import { prefetchBook } from '../book-prefetch.js';
 
 const BUSY_PHASES = new Set(['ocr', 'tts', 'tail_wait', 'quota']);
 const PHASE_ICON = { ready: 'check', failed: 'alert-circle' };
@@ -30,6 +31,39 @@ function href(book, offline) {
   return book.state === 'ready' ? `#/listen/${book.id}` : `#/book/${book.id}`;
 }
 
+const COVER_TRANSITION_NAME = 'book-cover';
+/** Safety net when the navigation never happens (modified click, cancelled): drop the name again. */
+const COVER_NAME_FALLBACK_MS = 1500;
+/** @type {HTMLElement|null} the one element currently carrying the shared-cover transition name */
+let namedCover = null;
+
+// Prefetch waits this long after touch-down and gives up if the finger moves this far (a scroll).
+const PREFETCH_DELAY_MS = 120;
+const PREFETCH_MOVE_PX = 10;
+
+function clearCoverName(el) {
+  if (!el) return;
+  el.style.viewTransitionName = '';
+  if (namedCover === el) namedCover = null;
+  delete document.documentElement.dataset.coverFlight;
+}
+
+/**
+ * Name this card's sleeve so the view transition flies it into the player; only one at a time.
+ * When the route changes the card unmounts, so the player's cover is then the sole holder.
+ * @param {HTMLElement|null} el
+ */
+function nameCover(el) {
+  if (!el || namedCover === el) return;
+  clearCoverName(namedCover);
+  el.style.viewTransitionName = COVER_TRANSITION_NAME;
+  namedCover = el;
+  // The player's cover takes the same name only while this flag is set (css/now-playing.css), so
+  // every other way into or out of the player slides as one page instead of detaching the cover.
+  document.documentElement.dataset.coverFlight = '';
+  setTimeout(() => clearCoverName(el), COVER_NAME_FALLBACK_MS);
+}
+
 /**
  * Book card shared by crates, rails and the browse grid.
  * `showRemaining` (continue rail) adds "Còn N phút" under the progress bar.
@@ -42,8 +76,37 @@ export function LibraryBookCard({ book, offline, buildPercents, showRemaining = 
   const minutes = showRemaining ? remainingMinutes(book) : null;
   const percent = building ? overallPercent(book, buildPercents.get(book.id) || 0) : 0;
   if (building) buildPercents.set(book.id, percent);
+  const target = href(book, offline);
+  const opensPlayer = target.startsWith('#/listen/');
+  const linkRef = useRef(/** @type {HTMLElement|null} */ (null));
+  // Start loading book + chunks + progress shortly after the finger lands, ahead of the click.
+  // A swipe across a rail cancels it (pointercancel / movement), so scrolling never downloads books.
+  const warmTimer = useRef(/** @type {any} */ (0));
+  const warmStart = useRef(/** @type {{x: number, y: number}|null} */ (null));
+  const cancelWarm = () => {
+    clearTimeout(warmTimer.current);
+    warmStart.current = null;
+  };
+  const warm = () => {
+    if (opensPlayer) prefetchBook(book.id);
+  };
+  const onPointerDown = (e) => {
+    if (!opensPlayer) return;
+    cancelWarm();
+    warmStart.current = { x: e.clientX, y: e.clientY };
+    warmTimer.current = setTimeout(warm, PREFETCH_DELAY_MS);
+  };
+  const onPointerMove = (e) => {
+    const start = warmStart.current;
+    if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > PREFETCH_MOVE_PX) cancelWarm();
+  };
+  useEffect(() => cancelWarm, []);
+  const onClick = (e) => {
+    if (!opensPlayer || e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    nameCover(linkRef.current ? linkRef.current.querySelector('.sleeve') : null);
+  };
   return html`
-    <a class="rec" href=${href(book, offline)} aria-label=${`${book.title}, ${info.label}`}>
+    <a class="rec" ref=${linkRef} href=${target} aria-label=${`${book.title}, ${info.label}`} onPointerDown=${onPointerDown} onPointerMove=${onPointerMove} onPointerCancel=${cancelWarm} onKeyDown=${(e) => e.key === 'Enter' && warm()} onClick=${(e) => { warm(); onClick(e); }}>
       <div class="rec-art" aria-hidden="true">
         ${book.state === 'ready' && html`<${VinylDisc} book=${book} />`}
         <${RecordSleeve} book=${book} />

@@ -7,6 +7,8 @@ import { UsageMeterList } from '../components/usage-meter-list.js';
 import { DisplayNameForm, PasswordForm } from '../components/account-profile-forms.js';
 import { RecordSleeve } from '../components/record-sleeve.js';
 import { Icon } from '../icons.js';
+import { SkeletonStatus, SkeletonGrid, SkeletonLine, SkeletonBlock } from '../components/skeleton.js';
+import { cached, loadCached, peekCached, setCached } from '../view-cache.js';
 
 const TITLES = {
   shelf: 'Kệ của tôi',
@@ -26,6 +28,8 @@ const STAT_LABELS = [
   ['bookmarks', 'Đoạn đánh dấu'],
 ];
 const isOfflineError = (err) => err.status === 0 || err.status === 503;
+
+const profileOpts = () => ({ profileId: authStore.get().user?.id ?? null });
 
 /** Back to where the user came from; a deep-linked screen (no history) falls back to #/me. */
 function goBack() {
@@ -54,16 +58,27 @@ function BookGrid({ books, offline = false, empty }) {
 }
 
 function ShelfSection() {
-  const [books, setBooks] = useState(/** @type {any[]|null} */ (null));
+  const [list, setList] = useState(/** @type {any[]|undefined} */ (() => peekCached('books:list', profileOpts())));
   const [error, setError] = useState(/** @type {string|null} */ (null));
-  useEffect(() => {
-    booksApi
-      .list()
-      .then((list) => setBooks(list.filter((b) => b.on_shelf)))
-      .catch((err) => setError(isOfflineError(err) ? 'Đang ngoại tuyến — không xem được kệ.' : err.message));
-  }, []);
-  if (error) return html`<div class="banner banner-error" role="alert">${error}</div>`;
-  if (!books) return html`<div class="skeleton" style=${{ height: '180px' }}></div>`;
+  useEffect(
+    () =>
+      loadCached('books:list', () => booksApi.list(), profileOpts(), {
+        onValue: (fresh) => {
+          setList(fresh);
+          setError(null);
+        },
+        // A snapshot already on screen stays; only an empty screen shows the error.
+        onError: (err) => {
+          if (list === undefined) setError(isOfflineError(err) ? 'Đang ngoại tuyến — không xem được kệ.' : err.message);
+        },
+      }),
+    []
+  );
+  if (list === undefined && error) return html`<div class="banner banner-error" role="alert">${error}</div>`;
+  if (list === undefined) {
+    return html`<div><${SkeletonStatus} /><${SkeletonGrid} count=${6} className="me-grid" /></div>`;
+  }
+  const books = list.filter((b) => b.on_shelf);
   return html`
     <p class="note">Sách bạn giữ lại để nghe sau. Mỗi hồ sơ có kệ riêng.</p>
     <${BookGrid} books=${books} empty="Kệ chưa có sách. Khi nghe, mở ⋮ Tuỳ chọn và chọn “Thêm vào kệ”." />
@@ -78,8 +93,17 @@ function DownloadsSection() {
   `;
 }
 
+function QuotaSkeleton() {
+  return html`
+    <div class="sk-stack">
+      <${SkeletonStatus} />
+      ${[0, 1, 2].map((i) => html`<div key=${i}><${SkeletonLine} width="38%" /><${SkeletonBlock} height="6px" radius="3px" /></div>`)}
+    </div>
+  `;
+}
+
 function QuotaSection() {
-  const [usage, setUsage] = useState(/** @type {any|null} */ (null));
+  const [usage, setUsage] = useState(/** @type {any|null} */ (() => peekCached('usage', profileOpts()) ?? null));
   const [error, setError] = useState(/** @type {string|null} */ (null));
   const [loading, setLoading] = useState(false);
 
@@ -87,7 +111,7 @@ function QuotaSection() {
     setLoading(true);
     setError(null);
     try {
-      setUsage(await usageApi.get());
+      setUsage(await cached('usage', () => usageApi.get(), profileOpts()).refresh);
     } catch (err) {
       setError(isOfflineError(err) ? 'Đang ngoại tuyến — không xem được hạn mức.' : err.message);
     } finally {
@@ -105,7 +129,7 @@ function QuotaSection() {
     </div>
     <div class="me-pad">
       ${error && html`<div class="banner banner-error" role="alert">${error}</div>`}
-      ${!usage && !error && html`<div class="skeleton" style=${{ height: '140px' }}></div>`}
+      ${!usage && !error && html`<${QuotaSkeleton} />`}
       ${usage && html`<${UsageMeterList} services=${usage.services} />`}
     </div>
   `;
@@ -113,14 +137,25 @@ function QuotaSection() {
 
 /** Loads the full profile (stats, username); shared by the password and name screens. */
 function useProfile() {
-  const [profile, setProfile] = useState(/** @type {any|null} */ (null));
+  const [profile, setProfileState] = useState(/** @type {any|null} */ (() => peekCached('profile', profileOpts()) ?? null));
   const [error, setError] = useState(/** @type {string|null} */ (null));
-  useEffect(() => {
-    accountApi
-      .profile()
-      .then(setProfile)
-      .catch((err) => setError(isOfflineError(err) ? 'Đang ngoại tuyến — không sửa được lúc này.' : err.message));
-  }, []);
+  const setProfile = (next) => {
+    setCached('profile', next, profileOpts());
+    setProfileState(next);
+  };
+  useEffect(
+    () =>
+      loadCached('profile', () => accountApi.profile(), profileOpts(), {
+        onValue: (fresh) => {
+          setProfileState(fresh);
+          setError(null);
+        },
+        onError: (err) => {
+          if (profile === null) setError(isOfflineError(err) ? 'Đang ngoại tuyến — không sửa được lúc này.' : err.message);
+        },
+      }),
+    []
+  );
   return { profile, setProfile, error };
 }
 
@@ -131,6 +166,19 @@ function PasswordSection() {
     <div class="me-pad">
       ${error && html`<div class="banner banner-info" role="status">${error}</div>`}
       ${profile && html`<${PasswordForm} username=${profile.username} />`}
+    </div>
+  `;
+}
+
+/** Joined line, four stat tiles, name field + button. */
+function ProfileSkeleton() {
+  return html`
+    <div class="sk-stack">
+      <${SkeletonStatus} />
+      <${SkeletonLine} width="45%" />
+      <div class="sk-stat-grid">${[0, 1, 2, 3].map((i) => html`<${SkeletonBlock} key=${i} height="64px" />`)}</div>
+      <${SkeletonBlock} height="44px" />
+      <${SkeletonBlock} height="44px" radius="var(--radius-sm)" />
     </div>
   `;
 }
@@ -148,7 +196,7 @@ function NameSection() {
         </dl>
         <${DisplayNameForm} user=${profile} onSaved=${(u) => setProfile({ ...profile, display_name: u.display_name })} />
       `}
-      ${!profile && !error && html`<div class="skeleton" style=${{ height: '160px' }}></div>`}
+      ${!profile && !error && html`<${ProfileSkeleton} />`}
     </div>
   `;
 }

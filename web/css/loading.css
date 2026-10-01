@@ -39,3 +39,43 @@
 }
 @keyframes top-progress-shimmer { to { background-position: -200% 0; } }
 @keyframes busy-spin { to { transform: rotate(360deg); } }
+/* ---- Vinyl loader: spinning record + resting tonearm, centred. Mirrored by the boot loader inline in index.html. ---- */
+.vinyl-loader {
+  --vl-size: 112px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  min-height: 100vh; min-height: 100dvh; box-sizing: border-box; padding: 24px;
+}
+.vinyl-loader-stage { position: relative; flex: none; width: calc(var(--vl-size) * 1.28); height: var(--vl-size); }
+.vinyl-loader-record {
+  position: absolute; left: 0; top: 0; width: var(--vl-size); height: var(--vl-size); border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--vl-hole, #FBF7EF) 0 3%, transparent 3.5%),
+    radial-gradient(circle, var(--primary, #7A2E2E) 0 21%, var(--gold, #B08D57) 21.5% 24%, transparent 24.5%),
+    repeating-radial-gradient(circle, rgba(255, 255, 255, .09) 0 1px, transparent 1px 3px),
+    conic-gradient(from 20deg, transparent 0 30%, rgba(255, 255, 255, .10) 38%, transparent 46% 80%, rgba(255, 255, 255, .08) 88%, transparent 96%),
+    var(--vinyl, #111111);
+  box-shadow: 0 0 0 1px var(--vinyl-rim, #3A3A3A), 0 6px 16px rgba(0, 0, 0, .22);
+  animation: vinyl-loader-spin 3.6s linear infinite;
+}
+/* Tonearm parked beside the record: pivot cap at the top, brass bar angled down, headshell at the tip. */
+.vinyl-loader-arm {
+  position: absolute; right: calc(var(--vl-size) * .06); top: calc(var(--vl-size) * .04);
+  width: calc(var(--vl-size) * .07); height: calc(var(--vl-size) * .72); border-radius: 99px;
+  background: linear-gradient(90deg, var(--brass-lo, #8D6831), var(--brass-hi, #EBD29A) 45%, var(--brass, #C29A58));
+  transform-origin: 50% calc(var(--vl-size) * .035); transform: rotate(-9deg);
+}
+.vinyl-loader-arm::before {
+  content: ''; position: absolute; left: 50%; top: calc(var(--vl-size) * -.04); width: calc(var(--vl-size) * .17); height: calc(var(--vl-size) * .17);
+  margin-left: calc(var(--vl-size) * -.085); border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--brass-hi, #EBD29A), var(--brass, #C29A58) 55%, var(--brass-lo, #8D6831));
+}
+.vinyl-loader-arm::after {
+  content: ''; position: absolute; left: 50%; bottom: calc(var(--vl-size) * -.05); width: calc(var(--vl-size) * .12); height: calc(var(--vl-size) * .12);
+  margin-left: calc(var(--vl-size) * -.04); border-radius: 2px;
+  background: var(--brass-lo, #8D6831);
+}
+.vinyl-loader-label {
+  font-family: var(--font-display, 'Inter', system-ui, sans-serif); font-weight: 700; font-size: 18px; letter-spacing: .02em;
+  color: var(--ink-muted, #5E554A);
+}
+@keyframes vinyl-loader-spin { to { transform: rotate(360deg); } }

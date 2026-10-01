@@ -7,6 +7,7 @@ import { readLibraryCache, writeLibraryCache } from '../library-cache.js';
 import { railByKey } from '../library-rails.js';
 import { LibraryBookGrid } from '../components/library-rail.js';
 import { Icon } from '../icons.js';
+import { SkeletonStatus, SkeletonGrid } from '../components/skeleton.js';
 
 /** Back to the previous screen, or the library when the page was opened directly. */
 function goBack() {
@@ -66,7 +67,7 @@ export function LibraryBrowseView({ railKey }) {
       </header>
       <div class="container">
         ${error && html`<div class="banner banner-error" role="alert">${error}</div>`}
-        ${books === null && !error && html`<div class="crate-skeleton skeleton" aria-hidden="true"></div>`}
+        ${books === null && !error && html`<div><${SkeletonStatus} /><${SkeletonGrid} count=${8} /></div>`}
         ${books !== null && shown.length === 0 &&
         html`<div class="lib-empty"><p>Không còn sách nào ở đây.</p><a class="btn btn-secondary" href="#/library">Về thư viện</a></div>`}
         ${shown.length > 0 && html`<${LibraryBookGrid} books=${shown} offline=${isOffline} />`}

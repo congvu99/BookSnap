@@ -43,4 +43,6 @@
 .disc-spin { transform-box: fill-box; transform-origin: center; animation: disc-spin 1.8s linear infinite; animation-play-state: paused; }
 .disc.is-spinning .disc-spin { animation-play-state: running; }
 @keyframes disc-spin { to { transform: rotate(360deg); } }
+/* Loader: while the audio is not ready the record turns slowly (even before play is pressed). */
+.disc.is-waiting .disc-spin { animation-duration: 4s; animation-play-state: running; }
 

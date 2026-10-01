@@ -1,5 +1,6 @@
 // Reader + player: text (Literata), highlight đoạn đang đọc, phát liên tục, nhớ vị trí, offline.
 import { html, useEffect, useMemo, useRef, useState } from '../../vendor/preact-htm.module.js';
+import { invalidateCached } from '../view-cache.js';
 import { booksApi, chunksApi } from '../api-client.js';
 import { authStore } from '../store.js';
 import { AudioPlaylist } from '../audio-playlist.js';
@@ -13,6 +14,7 @@ import { MiniPlayer } from '../components/mini-player.js';
 import { PlayerSheet } from '../components/player-sheet.js';
 import { NowPlayingPanel } from '../components/now-playing-panel.js';
 import { PagePickerSheet } from '../components/page-picker-sheet.js';
+import { peekBook, takePrefetched } from '../book-prefetch.js';
 import { useBookBookmarks } from '../use-book-bookmarks.js';
 import { useShelfToggle } from '../use-shelf-toggle.js';
 import { useBackgroundMusic } from '../use-background-music.js';
@@ -40,7 +42,15 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
   const user = authStore.get().user;
   const [book, setBook] = useState(/** @type {any|null} */ (null));
   const shelf = useShelfToggle(bookId, book?.on_shelf);
-  const [chunks, setChunks] = useState(/** @type {any[]} */ ([]));
+  const [chunks, setChunksState] = useState(/** @type {any[]} */ ([]));
+  // False until the first chunk list (network or offline copy) arrives: shows shimmer, not "no chunks".
+  const [chunksLoaded, setChunksLoaded] = useState(false);
+  const setChunks = (cs) => {
+    setChunksState(cs);
+    setChunksLoaded(true);
+  };
+  // Library-list summary: paints cover/title/disc on the first frame while the real book loads.
+  const peek = useMemo(() => peekBook(bookId), [bookId]);
   const [playerState, setPlayerState] = useState({ currentSeq: null, currentTimeMs: 0, durationMs: 0, playing: false, ready: false, rate: 1 });
   const music = useBackgroundMusic(playerState.playing);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -72,16 +82,27 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
 
     async function init() {
       try {
-        const [b, cs] = await Promise.all([booksApi.get(bookId), booksApi.chunks(bookId)]);
+        // Adopt requests a card press already started; otherwise start all three now, in parallel.
+        const pre = takePrefetched(bookId);
+        const bookP = pre ? pre.book : booksApi.get(bookId);
+        const chunksP = pre ? pre.chunks : booksApi.chunks(bookId);
+        const progressP = progressRef.current.load(pre ? pre.progress : undefined);
+        // Settle the unused-branch rejection so a failing book request never goes unhandled while
+        // we are still waiting on chunks; the real error is re-raised by `await bookP` below.
+        bookP.catch(() => {});
+        // Chunks + progress first: the restored chunk's audio starts buffering before the book detail lands.
+        const cs = await chunksP;
         if (cancelled) return;
-        bookRef.current = b;
-        setBook(b);
         setChunks(cs);
         setIsOffline(false);
         playlistRef.current.setChunks(cs);
-        const restored = startAt(await progressRef.current.load(), cs);
+        const restored = startAt(await progressP, cs);
         if (cancelled) return;
         playlistRef.current.loadAt(restored.chunk_seq, restored.offset_ms, false);
+        const b = await bookP;
+        if (cancelled) return;
+        bookRef.current = b;
+        setBook(b);
         const downloaded = await isBookDownloaded(cs);
         if (!cancelled && downloaded) {
           setDownloadState({ status: 'done', done: cs.length, total: cs.length });
@@ -282,6 +303,9 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
     if (!window.confirm('Xoá sách này? Không thể hoàn tác.')) return;
     try {
       await booksApi.remove(bookId);
+      const profileId = authStore.get().user?.id;
+      invalidateCached(`book:${bookId}`, { profileId });
+      invalidateCached('books:list', { profileId });
       window.location.hash = '#/library';
     } catch (err) {
       setError(err.message);
@@ -289,7 +313,10 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
   }
 
   if (error && !book) return html`<div class="container"><div class="banner banner-error" role="alert">${error}</div></div>`;
-  if (!book) return html`<div class="container"><div class="skeleton" style=${{ height: '300px' }}></div></div>`;
+  // Until the real book arrives: the library summary if known, else (player only) a bare record.
+  const view = book || peek || (isListen ? { id: bookId, title: '' } : null);
+  if (!view) return html`<div class="container"><div class="skeleton" style=${{ height: '300px' }}></div></div>`;
+  const openSheet = () => book && setSheetOpen(true);
 
   const statusLabel =
     playerState.chunkStatus === 'waiting_quota'
@@ -328,7 +355,8 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
       </div>`}
       ${isListen
         ? html`<${NowPlayingPanel}
-            book=${book}
+            book=${view}
+            loading=${!chunksLoaded}
             playing=${playerState.playing}
             ready=${playerState.ready}
             statusLabel=${statusLabel}
@@ -343,7 +371,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
             onSeekForward=${seekForward}
             onSeekAbsolute=${seekAbsolute}
             onSetRate=${(r) => playlistRef.current.setRate(r)}
-            onOpenSheet=${() => setSheetOpen(true)}
+            onOpenSheet=${openSheet}
             readHref=${`#/read/${bookId}`}
             pageText=${pageText}
             onOpenPages=${openPages}
@@ -359,9 +387,9 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         : null}
       ${!isListen && html`<div class="reader-topbar">
         <a class="icon-btn" href="#/book/${bookId}" aria-label="Quay lại"><${Icon} name="chevron-left" /></a>
-        <span class="reader-title">${book.title}</span>
+        <span class="reader-title">${view.title}</span>
         <a class="icon-btn" href="#/listen/${bookId}" aria-label="Mở màn đĩa than"><${Icon} name="disc" /></a>
-        <button class="icon-btn" aria-label="Tuỳ chọn" onClick=${() => setSheetOpen(true)}><${Icon} name="settings" /></button>
+        <button class="icon-btn" aria-label="Tuỳ chọn" onClick=${openSheet}><${Icon} name="settings" /></button>
       </div>`}
       ${isOffline && !isListen &&
       html`<div class="banner banner-info" style=${{ margin: '0 20px 8px' }}><${Icon} name="clock" size=${14} /> Đang ngoại tuyến — phát từ bản đã tải</div>`}
@@ -369,7 +397,8 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
       ${!isListen &&
       html`<div class="reader-content" ref=${contentRef} style=${{ '--reader-font-size': `${fontSize}px` }}>
         ${error && html`<div class="banner banner-error" role="alert">${error}</div>`}
-        ${chunks.length === 0 && html`<p class="text-muted">Sách chưa có đoạn nào để đọc. Quay lại khi OCR/chuyển giọng xong.</p>`}
+        ${!chunksLoaded && html`<div class="reader-skeleton" aria-hidden="true">${Array.from({ length: 12 }, () => html`<div class="skeleton"></div>`)}</div>`}
+        ${chunksLoaded && chunks.length === 0 && html`<p class="text-muted">Sách chưa có đoạn nào để đọc. Quay lại khi OCR/chuyển giọng xong.</p>`}
         ${chunks.map(
           (c) => html`
             <div ref=${(el) => el && paraRefs.current.set(c.seq, el)} key=${c.id}>
@@ -397,7 +426,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
 
       ${!isListen &&
       html`<${MiniPlayer}
-        book=${book}
+        book=${view}
         listenHref=${`#/listen/${bookId}`}
         playing=${playerState.playing}
         ready=${playerState.ready}
@@ -408,7 +437,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         onSeekBack=${seekBack}
         onSeekForward=${seekForward}
         onSeekAbsolute=${seekAbsolute}
-        onExpand=${() => setSheetOpen(true)}
+        onExpand=${openSheet}
         pageText=${pageText}
         onOpenPages=${openPages}
         buffering=${Boolean(playerState.buffering)}
@@ -422,7 +451,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         onClose=${() => setPagePickerOpen(false)}
       />`}
 
-      ${sheetOpen &&
+      ${sheetOpen && book &&
       html`<${PlayerSheet}
         rate=${playerState.rate}
         onSetRate=${(r) => playlistRef.current.setRate(r)}

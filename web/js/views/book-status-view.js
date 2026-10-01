@@ -10,14 +10,51 @@ import { StatusToast } from '../components/status-toast.js';
 import { useVisiblePolling } from '../use-visible-polling.js';
 import { overallPercent, phaseOf, isBusyPhase, createEta, statusLine } from '../processing-progress.js';
 import { Icon } from '../icons.js';
+import { SkeletonStatus, SkeletonLine, SkeletonBlock } from '../components/skeleton.js';
+import { authStore } from '../store.js';
+import { peekEntry, setCached, invalidateCached } from '../view-cache.js';
 
 const POLL_MS = 3000;
 const QUOTA_POLL_MS = 60000;
 const TOAST_MS = 4000;
 
+const cacheKey = (bookId) => `book:${bookId}`;
+const currentProfileId = () => authStore.get().user?.id ?? null;
+
+/** Layout-faithful placeholder: title bar, progress bar, four status steps. */
+function BookStatusSkeleton() {
+  return html`
+    <div>
+      <${SkeletonStatus} />
+      <div class="page-header">
+        <div class="page-header-back">
+          <a class="icon-btn" href="#/library" aria-label="Về thư viện"><${Icon} name="chevron-left" /></a>
+          <${SkeletonLine} width="180px" />
+        </div>
+      </div>
+      <div class="container">
+        <${SkeletonLine} width="40%" />
+        <div class="build-progress">
+          <${SkeletonBlock} height="8px" radius="4px" />
+          <div class="build-progress-line"><${SkeletonLine} width="55%" /><${SkeletonLine} width="36px" /></div>
+        </div>
+        <div class="sk-steps">
+          ${[0, 1, 2, 3].map((i) => html`
+            <div class="sk-step" key=${i}>
+              <div class="skeleton sk-icon"></div>
+              <${SkeletonLine} width=${['62%', '48%', '56%', '40%'][i]} />
+            </div>
+          `)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 /** @param {{ bookId: string }} props */
 export function BookStatusView({ bookId }) {
-  const [book, setBook] = useState(/** @type {any|null} */ (null));
+  // A visit within the cache window paints the last known status at once; the first poll replaces it.
+  const [book, setBook] = useState(() => peekEntry(cacheKey(bookId), { profileId: currentProfileId() })?.value ?? null);
   const [error, setError] = useState(/** @type {string|null} */ (null));
   const [retrying, setRetrying] = useState(/** @type {Set<string>} */ (new Set()));
   const [discarding, setDiscarding] = useState(/** @type {Set<number>} */ (new Set()));
@@ -28,7 +65,7 @@ export function BookStatusView({ bookId }) {
   // Per-visit memory: bar never shrinks, ETA anchored at first load, countdown anchored at receipt.
   const percentRef = useRef(0);
   const etaRef = useRef(createEta());
-  const receivedAtRef = useRef(Date.now());
+  const receivedAtRef = useRef(peekEntry(cacheKey(bookId), { profileId: currentProfileId() })?.at ?? Date.now());
   const sawBusyRef = useRef(false);
 
   // Optimistic shelf toggle; polled `book.on_shelf` never overrides a pending tap.
@@ -54,6 +91,7 @@ export function BookStatusView({ bookId }) {
         setToastTone('info');
         setToast('Sách đã sẵn sàng');
       }
+      setCached(cacheKey(bookId), b, { profileId: currentProfileId() });
       setBook(b);
       setNow(at);
       setError(null);
@@ -69,7 +107,9 @@ export function BookStatusView({ bookId }) {
     percentRef.current = 0;
     etaRef.current = createEta();
     sawBusyRef.current = false;
-    setBook(null);
+    const entry = peekEntry(cacheKey(bookId), { profileId: currentProfileId() });
+    if (entry) receivedAtRef.current = entry.at;
+    setBook(entry ? entry.value : null);
     reload();
   }, [bookId]);
 
@@ -139,6 +179,7 @@ export function BookStatusView({ bookId }) {
     if (!window.confirm('Xoá sách này? Không thể hoàn tác.')) return;
     try {
       await booksApi.remove(bookId);
+      invalidateCached(cacheKey(bookId), { profileId: currentProfileId() });
       window.location.hash = '#/library';
     } catch (err) {
       setError(err.message);
@@ -149,7 +190,7 @@ export function BookStatusView({ bookId }) {
     return html`<div class="container"><div class="banner banner-error" role="alert">${error}</div></div>`;
   }
   if (!book) {
-    return html`<div class="container"><div class="skeleton" style=${{ height: '200px' }}></div></div>`;
+    return html`<${BookStatusSkeleton} />`;
   }
 
   percentRef.current = overallPercent(book, percentRef.current);

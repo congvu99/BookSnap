@@ -8,6 +8,7 @@ import { authStore, CACHED_USER_KEY, cacheUser, clearCachedUser, hasUnsavedWork,
 import { Icon } from './icons.js';
 import { BottomNav } from './components/bottom-nav.js';
 import { TopProgressBar } from './components/top-progress-bar.js';
+import { VinylLoader } from './components/vinyl-loader.js';
 import { AuthView } from './views/auth-view.js';
 import { LibraryView } from './views/library-view.js';
 import { CaptureView } from './views/capture-view.js';
@@ -183,7 +184,7 @@ function App() {
   }, [routeKey]);
 
   if (!authReady) {
-    return html`<div class="container"><div class="skeleton" style=${{ height: '240px' }}></div></div>`;
+    return html`<${VinylLoader} />`;
   }
 
   const route = parseRoute(hash);

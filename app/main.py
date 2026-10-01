@@ -6,6 +6,8 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.gzip import GZipMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.api import (
     account_routes,
@@ -35,6 +37,27 @@ from app.storage_health import data_dir_durability_error
 log = logging.getLogger("app")
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+
+
+def _is_audio_path(path: str) -> bool:
+    return path.startswith("/audio/") or (path.startswith("/api/chunks/") and path.endswith("/audio"))
+
+
+class SelectiveGZipMiddleware:
+    """GZip text responses, but pass audio (chunk audio + ambient tracks) and Range requests through untouched
+    so streaming, seeking and Content-Length/206 semantics are preserved."""
+
+    def __init__(self, app: ASGIApp, minimum_size: int = 1000) -> None:
+        self.app = app
+        self.gzip = GZipMiddleware(app, minimum_size=minimum_size)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and (
+            _is_audio_path(scope["path"]) or any(k == b"range" for k, _ in scope.get("headers") or [])
+        ):
+            await self.app(scope, receive, send)
+            return
+        await self.gzip(scope, receive, send)
 
 
 def _configure_logging(level: str) -> None:
@@ -82,6 +105,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     install_error_handlers(app)
     app.add_middleware(RequestSizeLimitMiddleware, max_body_bytes=settings.max_upload_bytes + 256 * 1024)
+    app.add_middleware(SelectiveGZipMiddleware, minimum_size=1000)
 
     app.include_router(auth_routes.public_router)
     app.include_router(auth_routes.router)

@@ -7,6 +7,7 @@ import { openProfileSwitcher } from '../profile-switcher.js';
 import { buildRails } from '../library-rails.js';
 import { listOfflineBooks } from '../offline-book-cache.js';
 import { readLibraryCache, writeLibraryCache } from '../library-cache.js';
+import { setCached } from '../view-cache.js';
 import { matchesQuery } from '../text-fold.js';
 import { LibraryHeroCard } from '../components/library-hero-card.js';
 import { LibraryRail, LibraryBookGrid } from '../components/library-rail.js';
@@ -41,6 +42,7 @@ export function LibraryView() {
 
   function saveCache(list, cont) {
     writeLibraryCache(safeLocalStorage(), user ? user.id : null, { books: list, continuing: cont });
+    if (user) setCached('books:list', list, { profileId: user.id });
   }
 
   async function load() {

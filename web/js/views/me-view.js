@@ -8,10 +8,12 @@ import { signOut } from '../sign-out.js';
 import { openProfileSwitcher } from '../profile-switcher.js';
 import { ProfileAvatar } from '../components/profile-avatar.js';
 import { Icon } from '../icons.js';
+import { loadCached, peekCached } from '../view-cache.js';
 
 export const THEME_LABELS = { light: 'Sáng', dark: 'Tối', auto: 'Theo máy' };
 
 const countLabel = (n, unit) => (typeof n === 'number' ? `${n} ${unit}` : '');
+const shelfCountOf = (books) => books.filter((b) => b.on_shelf).length;
 
 function Row({ href, icon, label, meta = '' }) {
   return html`
@@ -29,26 +31,28 @@ export function MeView() {
   const [theme, setTheme] = useState(themeStore.get().theme);
   // Shelf count: show the library snapshot instantly, then refresh from the server.
   const [shelfCount, setShelfCount] = useState(() => {
-    const cached = readLibraryCache(safeLocalStorage(), user ? user.id : null);
-    return cached ? cached.books.filter((b) => b.on_shelf).length : null;
+    const opts = { profileId: user ? user.id : null };
+    const books = peekCached('books:list', opts);
+    if (books) return shelfCountOf(books);
+    const snapshot = readLibraryCache(safeLocalStorage(), opts.profileId);
+    return snapshot ? shelfCountOf(snapshot.books) : null;
   });
-  const [bookmarkCount, setBookmarkCount] = useState(/** @type {number|null} */ (null));
+  const [bookmarkCount, setBookmarkCount] = useState(/** @type {number|null} */ (() => {
+    const profile = peekCached('profile', { profileId: user ? user.id : null });
+    return profile ? profile.stats.bookmarks : null;
+  }));
   const [downloadCount] = useState(() => listOfflineBooks().length);
 
   useEffect(() => themeStore.subscribe((s) => setTheme(s.theme)), []);
 
   useEffect(() => {
-    let cancelled = false;
-    booksApi
-      .list()
-      .then((books) => !cancelled && setShelfCount(books.filter((b) => b.on_shelf).length))
-      .catch(() => {}); // offline: keep the snapshot count
-    accountApi
-      .profile()
-      .then((p) => !cancelled && setBookmarkCount(p.stats.bookmarks))
-      .catch(() => {});
+    const opts = { profileId: user ? user.id : null };
+    // Offline: failures are ignored, the snapshot counts stay.
+    const stopBooks = loadCached('books:list', () => booksApi.list(), opts, { onValue: (books) => setShelfCount(shelfCountOf(books)) });
+    const stopProfile = loadCached('profile', () => accountApi.profile(), opts, { onValue: (p) => setBookmarkCount(p.stats.bookmarks) });
     return () => {
-      cancelled = true;
+      stopBooks();
+      stopProfile();
     };
   }, []);
 

@@ -76,6 +76,7 @@ export async function runRouteTransition(direction, update) {
     if (running === transition) {
       running = null;
       delete root.dataset.nav;
+      delete root.dataset.coverFlight; // a cover flight lasts exactly one transition
     }
   };
   transition.finished.then(clear, clear);

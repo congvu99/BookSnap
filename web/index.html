@@ -29,10 +29,107 @@
 <link rel="stylesheet" href="/css/auth.css" />
 <link rel="stylesheet" href="/css/voice-picker.css" />
 <link rel="stylesheet" href="/css/processing-progress.css" />
+<style>
+/* Critical boot loader: shown until Preact renders into #app. Mirrors .vinyl-loader in css/loading.css. */
+html,body{margin:0;background:var(--bg,#FBF7EF)}
+.vinyl-loader{--vl-size:112px;--vl-hole:var(--bg,#FBF7EF);--vl-ink:var(--ink-muted,#5E554A);--vl-primary:var(--primary,#7A2E2E);--vl-gold:var(--gold,#B08D57);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;min-height:100vh;min-height:100dvh;box-sizing:border-box;padding:24px}
+@media (prefers-color-scheme:dark){html:not([data-theme=light]),html:not([data-theme=light]) body{background:#1C1915}.vinyl-loader{--vl-hole:var(--bg,#1C1915);--vl-ink:var(--ink-muted,#B3A996);--vl-primary:var(--primary,#D98C7F);--vl-gold:var(--gold,#C9A66B)}}
+.vinyl-loader-stage{position:relative;flex:none;width:calc(var(--vl-size)*1.28);height:var(--vl-size)}
+.vinyl-loader-record{position:absolute;left:0;top:0;width:var(--vl-size);height:var(--vl-size);border-radius:50%;background:radial-gradient(circle,var(--vl-hole) 0 3%,transparent 3.5%),radial-gradient(circle,var(--vl-primary) 0 21%,var(--vl-gold) 21.5% 24%,transparent 24.5%),repeating-radial-gradient(circle,rgba(255,255,255,.09) 0 1px,transparent 1px 3px),conic-gradient(from 20deg,transparent 0 30%,rgba(255,255,255,.1) 38%,transparent 46% 80%,rgba(255,255,255,.08) 88%,transparent 96%),#111;box-shadow:0 0 0 1px #3A3A3A,0 6px 16px rgba(0,0,0,.22);animation:vinyl-loader-spin 3.6s linear infinite}
+.vinyl-loader-arm{position:absolute;right:calc(var(--vl-size)*.06);top:calc(var(--vl-size)*.04);width:calc(var(--vl-size)*.07);height:calc(var(--vl-size)*.72);border-radius:99px;background:linear-gradient(90deg,#8D6831,#EBD29A 45%,#C29A58);transform-origin:50% calc(var(--vl-size)*.035);transform:rotate(-9deg)}
+.vinyl-loader-arm::before{content:'';position:absolute;left:50%;top:calc(var(--vl-size)*-.04);width:calc(var(--vl-size)*.17);height:calc(var(--vl-size)*.17);margin-left:calc(var(--vl-size)*-.085);border-radius:50%;background:radial-gradient(circle at 35% 30%,#EBD29A,#C29A58 55%,#8D6831)}
+.vinyl-loader-arm::after{content:'';position:absolute;left:50%;bottom:calc(var(--vl-size)*-.05);width:calc(var(--vl-size)*.12);height:calc(var(--vl-size)*.12);margin-left:calc(var(--vl-size)*-.04);border-radius:2px;background:#8D6831}
+.vinyl-loader-label{font:700 18px/1.2 'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;letter-spacing:.02em;color:var(--vl-ink)}
+@keyframes vinyl-loader-spin{to{transform:rotate(360deg)}}
+</style>
+<link rel="modulepreload" href="/js/api-client.js" />
+<link rel="modulepreload" href="/js/app.js" />
+<link rel="modulepreload" href="/js/audio-playlist.js" />
+<link rel="modulepreload" href="/js/auth-error-kind.js" />
+<link rel="modulepreload" href="/js/background-music-graph.js" />
+<link rel="modulepreload" href="/js/background-music-prefs.js" />
+<link rel="modulepreload" href="/js/background-music-tracks.js" />
+<link rel="modulepreload" href="/js/background-music.js" />
+<link rel="modulepreload" href="/js/book-prefetch-core.js" />
+<link rel="modulepreload" href="/js/book-prefetch.js" />
+<link rel="modulepreload" href="/js/camera-capture.js" />
+<link rel="modulepreload" href="/js/components/account-profile-forms.js" />
+<link rel="modulepreload" href="/js/components/book-page-status-list.js" />
+<link rel="modulepreload" href="/js/components/bottom-nav.js" />
+<link rel="modulepreload" href="/js/components/capture-thumb-strip.js" />
+<link rel="modulepreload" href="/js/components/chunk-editor.js" />
+<link rel="modulepreload" href="/js/components/chunk-paragraph.js" />
+<link rel="modulepreload" href="/js/components/library-crate.js" />
+<link rel="modulepreload" href="/js/components/library-hero-card.js" />
+<link rel="modulepreload" href="/js/components/library-rail.js" />
+<link rel="modulepreload" href="/js/components/mini-player.js" />
+<link rel="modulepreload" href="/js/components/now-playing-panel.js" />
+<link rel="modulepreload" href="/js/components/ornament-shapes.js" />
+<link rel="modulepreload" href="/js/components/ornate-frame.js" />
+<link rel="modulepreload" href="/js/components/page-picker-sheet.js" />
+<link rel="modulepreload" href="/js/components/player-sheet.js" />
+<link rel="modulepreload" href="/js/components/profile-avatar.js" />
+<link rel="modulepreload" href="/js/components/profile-manage-form.js" />
+<link rel="modulepreload" href="/js/components/profile-switch-sheet.js" />
+<link rel="modulepreload" href="/js/components/progress-timeline.js" />
+<link rel="modulepreload" href="/js/components/range-slider.js" />
+<link rel="modulepreload" href="/js/components/record-sleeve.js" />
+<link rel="modulepreload" href="/js/components/skeleton.js" />
+<link rel="modulepreload" href="/js/components/status-toast.js" />
+<link rel="modulepreload" href="/js/components/tonearm.js" />
+<link rel="modulepreload" href="/js/components/top-progress-bar.js" />
+<link rel="modulepreload" href="/js/components/topic-input.js" />
+<link rel="modulepreload" href="/js/components/usage-meter-list.js" />
+<link rel="modulepreload" href="/js/components/vinyl-disc.js" />
+<link rel="modulepreload" href="/js/components/vinyl-loader.js" />
+<link rel="modulepreload" href="/js/components/voice-picker.js" />
+<link rel="modulepreload" href="/js/icons.js" />
+<link rel="modulepreload" href="/js/library-cache.js" />
+<link rel="modulepreload" href="/js/library-rails.js" />
+<link rel="modulepreload" href="/js/media-session.js" />
+<link rel="modulepreload" href="/js/network-activity.js" />
+<link rel="modulepreload" href="/js/offline-audio-cache.js" />
+<link rel="modulepreload" href="/js/offline-book-cache.js" />
+<link rel="modulepreload" href="/js/page-position.js" />
+<link rel="modulepreload" href="/js/playback-progress.js" />
+<link rel="modulepreload" href="/js/processing-progress.js" />
+<link rel="modulepreload" href="/js/profile-avatar-style.js" />
+<link rel="modulepreload" href="/js/profile-switcher.js" />
+<link rel="modulepreload" href="/js/profile-zoom.js" />
+<link rel="modulepreload" href="/js/registration-status-cache.js" />
+<link rel="modulepreload" href="/js/route-transition.js" />
+<link rel="modulepreload" href="/js/scrub-math.js" />
+<link rel="modulepreload" href="/js/shelf-sync.js" />
+<link rel="modulepreload" href="/js/sign-out.js" />
+<link rel="modulepreload" href="/js/sleeve-palette.js" />
+<link rel="modulepreload" href="/js/store.js" />
+<link rel="modulepreload" href="/js/text-fold.js" />
+<link rel="modulepreload" href="/js/upload-notices.js" />
+<link rel="modulepreload" href="/js/upload-queue.js" />
+<link rel="modulepreload" href="/js/use-background-music.js" />
+<link rel="modulepreload" href="/js/use-book-bookmarks.js" />
+<link rel="modulepreload" href="/js/use-page-anchors.js" />
+<link rel="modulepreload" href="/js/use-shelf-toggle.js" />
+<link rel="modulepreload" href="/js/use-visible-polling.js" />
+<link rel="modulepreload" href="/js/view-cache.js" />
+<link rel="modulepreload" href="/js/views/auth-view.js" />
+<link rel="modulepreload" href="/js/views/book-status-view.js" />
+<link rel="modulepreload" href="/js/views/bookmarks-view.js" />
+<link rel="modulepreload" href="/js/views/capture-choose-step.js" />
+<link rel="modulepreload" href="/js/views/capture-confirm-step.js" />
+<link rel="modulepreload" href="/js/views/capture-view.js" />
+<link rel="modulepreload" href="/js/views/library-browse-view.js" />
+<link rel="modulepreload" href="/js/views/library-view.js" />
+<link rel="modulepreload" href="/js/views/me-section-view.js" />
+<link rel="modulepreload" href="/js/views/me-view.js" />
+<link rel="modulepreload" href="/js/views/profile-picker-view.js" />
+<link rel="modulepreload" href="/js/views/reader-view.js" />
+<link rel="modulepreload" href="/js/voice-labels.js" />
+<link rel="modulepreload" href="/vendor/preact-htm.module.js" />
 </head>
 <body>
 <noscript>BookSnap cần JavaScript để hoạt động.</noscript>
-<div id="app"></div>
+<div id="app"><div class="vinyl-loader" role="status" aria-label="BookSnap"><div class="vinyl-loader-stage" aria-hidden="true"><div class="vinyl-loader-record"></div><span class="vinyl-loader-arm"></span></div><div class="vinyl-loader-label" aria-hidden="true">BookSnap</div></div></div>
 <script type="module" src="/js/app.js"></script>
 </body>
 </html>

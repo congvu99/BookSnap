@@ -43,10 +43,10 @@ function DetailedLabel({ title }) {
   `;
 }
 
-/** @param {{book: {id: string, title: string}, detailed?: boolean, spinning?: boolean, className?: string}} props */
-export function VinylDisc({ book, detailed = false, spinning = false, className = '' }) {
+/** `waiting`: audio not ready yet; the record turns slowly as a loader. @param {{book: {id: string, title: string}, detailed?: boolean, spinning?: boolean, waiting?: boolean, className?: string}} props */
+export function VinylDisc({ book, detailed = false, spinning = false, waiting = false, className = '' }) {
   return html`
-    <div class="disc ${spinning ? 'is-spinning' : ''} ${className}" aria-hidden="true" style=${sleeveStyle(book.id)}>
+    <div class="disc ${spinning ? 'is-spinning' : ''} ${waiting ? 'is-waiting' : ''} ${className}" aria-hidden="true" style=${sleeveStyle(book.id)}>
       <svg viewBox="0 0 200 200" focusable="false">
         <g class="disc-spin">
           <circle class="disc-vinyl" cx="100" cy="100" r="99" />

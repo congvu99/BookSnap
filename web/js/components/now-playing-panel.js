@@ -25,9 +25,10 @@ export function nextRate(rate) {
  *   onTogglePlay: () => void, onSeekBack: () => void, onSeekForward: () => void,
  *   onSeekAbsolute: (ms:number) => void, onSetRate: (r:number) => void, onOpenSheet: () => void,
  *   readHref: string, bookmarkSlot?: any, pageText?: string|null, onOpenPages?: () => void,
- *   buffering?: boolean,
+ *   buffering?: boolean, loading?: boolean,
  * }} props
  * bookmarkSlot: optional vnode rendered as the last chip (reserved for the bookmark toggle).
+ * loading: chunks not fetched yet (shimmer text, dimmed transport).
  * pageText: "X/N" of the page being heard; without it the eyebrow falls back to chunk numbers.
  */
 export function NowPlayingPanel({
@@ -52,11 +53,15 @@ export function NowPlayingPanel({
   pageText,
   onOpenPages,
   buffering = false,
+  loading = false,
 }) {
   // Finger position while scrubbing: labels preview it, the audio only seeks on release.
   const [previewMs, setPreviewMs] = useState(/** @type {number|null} */ (null));
   const progress = totalDurationMs > 0 ? Math.min(1, Math.max(0, currentAbsoluteMs / totalDurationMs)) : 0;
   const pct = progress * 100;
+  // Vinyl loader: slow disc + lifted arm until the audio can actually run; arm lowers once playing.
+  const waiting = loading || buffering || (!ready && Boolean(statusLabel));
+  const needleDown = playing && ready && !buffering;
 
   return html`
     <section class="now-playing ${playing ? 'is-playing' : ''}" aria-label="Đang nghe">
@@ -67,13 +72,13 @@ export function NowPlayingPanel({
       </div>
 
       <div class="stage" role="img" aria-label=${`Đĩa than ${book.title}`}>
-        <div class="stage-disc"><${VinylDisc} book=${book} detailed spinning=${playing} /></div>
-        <div class="stage-sleeve"><${RecordSleeve} book=${book} /></div>
-        <${Tonearm} angle=${armAngle(playing, progress)} />
+        <div class="stage-disc"><${VinylDisc} book=${book} detailed spinning=${playing} waiting=${waiting} /></div>
+        <div class="stage-sleeve is-cover"><${RecordSleeve} book=${book} /></div>
+        <${Tonearm} angle=${armAngle(needleDown, progress)} />
         <div class="stage-floor"></div>
       </div>
 
-      <div class="np-body">
+      <div class="np-body ${loading ? 'is-loading' : ''}" aria-busy=${loading ? 'true' : null}>
         <p class="np-eyebrow">
           Mặt A${pageText
             ? html` · <button class="np-page-btn" aria-label=${`Đang ở trang ${pageText.replace('/', ' trên ')}, chọn trang`} onClick=${onOpenPages}>Trang ${pageText}</button>`
@@ -82,7 +87,9 @@ export function NowPlayingPanel({
         <h1 class="np-title">${book.title}</h1>
         ${book.created_by_name && html`<p class="np-by">Chụp bởi ${book.created_by_name}</p>`}
         ${statusLabel && html`<p class="np-status"><${Icon} name="clock" size=${14} /> ${statusLabel}</p>`}
-        ${excerpt && html`<p class="np-excerpt">${excerpt}</p>`}
+        ${loading
+          ? html`<div class="np-excerpt-skeleton" aria-hidden="true"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>`
+          : excerpt && html`<p class="np-excerpt">${excerpt}</p>`}
 
         <${RangeSlider}
           className="np-seek"

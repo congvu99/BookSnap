@@ -71,7 +71,7 @@ export function MiniPlayer({
         <a class="mini-player-meta" href=${listenHref} aria-label=${`Mở màn đĩa than: ${book.title}`}>
           <span class="mini-art" aria-hidden="true">
             <${RecordSleeve} book=${book} />
-            <${VinylDisc} book=${book} spinning=${playing} />
+            <${VinylDisc} book=${book} spinning=${playing} waiting=${buffering || (!ready && Boolean(statusLabel))} />
           </span>
           <span class="mini-player-text">
             <span class="mini-player-book">${book.title}</span>

@@ -17,12 +17,15 @@ export class PlaybackProgress {
     this._pendingGetter = null;
   }
 
-  /** Fetch server + local progress and return whichever is newer (server ties preferred). */
-  async load() {
+  /**
+   * Fetch server + local progress and return whichever is newer (server ties preferred).
+   * @param {Promise<any>} [prefetchedServer] an already running getProgress request to adopt
+   */
+  async load(prefetchedServer) {
     const local = this._readLocal();
     let server = null;
     try {
-      server = await booksApi.getProgress(this.bookId, this.userId);
+      server = await (prefetchedServer || booksApi.getProgress(this.bookId, this.userId));
     } catch {
       // Offline or server error — fall back to local only.
     }
