@@ -1,7 +1,7 @@
 // Hash router + app shell. Routes: #/auth #/profiles #/library #/browse/:railKey #/bookmarks #/me #/me/:section #/capture #/capture/:bookId
 // (#/account redirects to #/me)
 // #/book/:id #/read/:id #/listen/:id (both take an optional ?seq= to start at a chunk)
-import { html, render, useEffect, useState } from '../vendor/preact-htm.module.js';
+import { html, render, useEffect, useRef, useState } from '../vendor/preact-htm.module.js';
 import { authApi, onProfileRequired, onUnauthorized } from './api-client.js';
 import { authErrorKind } from './auth-error-kind.js';
 import { authStore, CACHED_USER_KEY, cacheUser, clearCachedUser, hasUnsavedWork, readCachedUser } from './store.js';
@@ -63,6 +63,9 @@ const showsNav = (route) => !NO_NAV_ROUTES.has(route.name) || (route.name === 'r
 const routeKeyOf = (route) => route.name + (route.bookId || route.section || route.railKey || '');
 // Deeper screens slide in from the right a few px; top-level tabs just fade/rise (see motion.css).
 const DEEP_ROUTES = new Set(['book', 'read', 'capture', 'browse', 'me-section', 'profiles', 'bookmarks']);
+// Direction of the navigation now rendering, claimed by the next .route-view to mount. A view that
+// remounts without navigating (profile switch) finds it already claimed and uses the plain fade.
+const pendingEnter = { hash: /** @type {string|null} */ (null), direction: 'none' };
 
 function App() {
   const [hash, setHash] = useState(window.location.hash);
@@ -96,6 +99,8 @@ function App() {
         navStack.pop();
         if (direction !== 'none') direction = 'pop';
       } else navStack.push(nextHash);
+      pendingEnter.hash = nextHash;
+      pendingEnter.direction = direction;
       // The transition helper waits for the render itself (no frame waits: see route-transition.js).
       runRouteTransition(direction, () => setHash(nextHash)).catch(() => setHash(nextHash));
     };
@@ -180,8 +185,17 @@ function App() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [routeKey]);
+  // Enter direction of the mounted .route-view, fixed per viewKey so its CSS enter animation
+  // (motion.css) never changes, and so never restarts. Declared before the early returns below.
+  const enter = useRef({ key: '', direction: 'none' });
+  // Screens rendered instead of the route view: whatever comes next mounts with the plain fade.
+  const dropEnter = () => {
+    pendingEnter.hash = null;
+    enter.current.key = '';
+  };
 
   if (!authReady) {
+    dropEnter();
     return html`<${VinylLoader} />`;
   }
 
@@ -197,6 +211,7 @@ function App() {
   // `user` is only kept while needsProfile when a view holds unsent work (see onProfileRequired):
   // then the view stays mounted under the overlay rendered at the end of the shell.
   if (needsProfile && !user) {
+    dropEnter();
     return html`<${ProfilePickerView} currentUser=${null} onPicked=${onPicked} />`;
   }
   if (!user && route.name !== 'auth') {
@@ -211,6 +226,11 @@ function App() {
   // Switching profile rebuilds the screen so every view reloads that profile's data (library rails,
   // shelf, progress). Capture is the exception: its unsent pages must survive a profile switch.
   const viewKey = route.name === 'capture' ? routeKey : `${user ? user.id : ''}:${routeKey}`;
+  if (enter.current.key !== viewKey) {
+    const direction = pendingEnter.hash === hash ? pendingEnter.direction : 'none';
+    pendingEnter.hash = null;
+    enter.current = { key: viewKey, direction };
+  }
   const showNav = showsNav(route);
   let view;
   switch (route.name) {
@@ -260,7 +280,7 @@ function App() {
         <${Icon} name="clock" size=${14} /> Đang ngoại tuyến
       </div>`}
       <main class="app-main ${showNav ? 'app-main--with-nav' : ''}" inert=${needsProfile ? true : undefined}>
-        <div class="route-view ${DEEP_ROUTES.has(route.name) ? 'route-view--deep' : ''}" key=${viewKey}>${view}</div>
+        <div class="route-view ${DEEP_ROUTES.has(route.name) ? 'route-view--deep' : ''}" data-enter=${enter.current.direction} key=${viewKey}>${view}</div>
       </main>
       ${showNav && html`<${BottomNav} currentRoute=${hash || '#/library'} />`}
       ${needsProfile && html`<${ProfilePickerView} currentUser=${user} overlay onPicked=${onPicked} />`}

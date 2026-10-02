@@ -1,6 +1,7 @@
 // Route transitions via the View Transitions API, with a plain update fallback. No Preact import,
 // so the pure helpers (routeDepth, directionFor) run under `node --test`.
-// CSS in css/motion.css keys off <html data-nav="push|pop|tab"> while a transition runs.
+// View Transitions CSS in css/motion.css keys off <html data-nav="push|pop|tab"> while one runs; the
+// CSS fallback instead reads data-enter on each .route-view, fixed when that view mounts (app.js).
 
 /** @typedef {'push'|'pop'|'tab'|'none'} NavDirection */
 
@@ -9,9 +10,6 @@
 // at all. The fallback animates the entering screen with the same push / pop / tab directions.
 const IS_WEBKIT = typeof navigator !== 'undefined' && /Apple/.test(navigator.vendor || '');
 const SUPPORTS_VT = typeof document !== 'undefined' && typeof document.startViewTransition === 'function' && !IS_WEBKIT;
-/** How long html[data-nav] stays set for the CSS fallback's enter animation. */
-const FALLBACK_MS = 420;
-let fallbackTimer = 0;
 // css/motion.css only plays its own enter animation when View Transitions are unavailable.
 if (SUPPORTS_VT) document.documentElement.dataset.vt = '';
 
@@ -71,13 +69,9 @@ let running = null;
  */
 export async function runRouteTransition(direction, update) {
   if (!SUPPORTS_VT || direction === 'none') {
-    if (typeof document !== 'undefined' && direction !== 'none') {
-      // CSS fallback: the remounted .route-view picks its enter animation from html[data-nav].
-      const root = document.documentElement;
-      clearTimeout(fallbackTimer);
-      root.dataset.nav = direction;
-      fallbackTimer = setTimeout(() => delete root.dataset.nav, FALLBACK_MS);
-    }
+    // CSS fallback: the remounted .route-view animates from its own data-enter (see app.js). Never
+    // toggle a document-level attribute here: changing a live element's animation-name restarts the
+    // animation, so the screen already shown would fade from transparent again.
     await update();
     return;
   }
