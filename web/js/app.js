@@ -7,7 +7,6 @@ import { authErrorKind } from './auth-error-kind.js';
 import { authStore, CACHED_USER_KEY, cacheUser, clearCachedUser, hasUnsavedWork, readCachedUser } from './store.js';
 import { Icon } from './icons.js';
 import { BottomNav } from './components/bottom-nav.js';
-import { TopProgressBar } from './components/top-progress-bar.js';
 import { VinylLoader } from './components/vinyl-loader.js';
 import { AuthView } from './views/auth-view.js';
 import { LibraryView } from './views/library-view.js';
@@ -198,7 +197,7 @@ function App() {
   // `user` is only kept while needsProfile when a view holds unsent work (see onProfileRequired):
   // then the view stays mounted under the overlay rendered at the end of the shell.
   if (needsProfile && !user) {
-    return html`<${TopProgressBar} /><${ProfilePickerView} currentUser=${null} onPicked=${onPicked} />`;
+    return html`<${ProfilePickerView} currentUser=${null} onPicked=${onPicked} />`;
   }
   if (!user && route.name !== 'auth') {
     window.location.hash = '#/auth';
@@ -260,7 +259,6 @@ function App() {
       >
         <${Icon} name="clock" size=${14} /> Đang ngoại tuyến
       </div>`}
-      <${TopProgressBar} />
       <main class="app-main ${showNav ? 'app-main--with-nav' : ''}" inert=${needsProfile ? true : undefined}>
         <div class="route-view ${DEEP_ROUTES.has(route.name) ? 'route-view--deep' : ''}" key=${viewKey}>${view}</div>
       </main>
