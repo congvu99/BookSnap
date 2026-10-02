@@ -27,6 +27,8 @@
 .row .chev { width: 16px; height: 16px; color: var(--ink-muted); }
 .row .icon, .row .icon svg { width: 22px; height: 22px; }
 .row .chev svg { width: 16px; height: 16px; }
+.diag-row { cursor: default; grid-template-columns: minmax(0, 1fr) auto; }
+.diag-row .meta { text-align: right; overflow-wrap: anywhere; }
 .row.danger { grid-template-columns: 1fr; justify-items: center; color: var(--primary); font-weight: 600; }
 
 .note { margin: 0 16px 16px; color: var(--ink-muted); font-size: 13px; }

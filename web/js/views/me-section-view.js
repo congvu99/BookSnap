@@ -9,6 +9,7 @@ import { RecordSleeve } from '../components/record-sleeve.js';
 import { Icon } from '../icons.js';
 import { SkeletonStatus, SkeletonGrid, SkeletonLine, SkeletonBlock } from '../components/skeleton.js';
 import { cached, loadCached, peekCached, setCached } from '../view-cache.js';
+import { ConnectionDiagnostics } from '../components/connection-diagnostics.js';
 
 const TITLES = {
   shelf: 'Kệ của tôi',
@@ -17,6 +18,7 @@ const TITLES = {
   password: 'Mật khẩu gia đình',
   name: 'Tên hồ sơ',
   theme: 'Giao diện',
+  diagnostics: 'Chẩn đoán kết nối',
 };
 
 const JOINED = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -225,6 +227,7 @@ const SECTIONS = {
   password: PasswordSection,
   name: NameSection,
   theme: ThemeSection,
+  diagnostics: ConnectionDiagnostics,
 };
 
 /** @param {{ section: string }} props */

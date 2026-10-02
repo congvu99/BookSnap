@@ -91,6 +91,7 @@ export function MeView() {
       <div class="group">
         <${Row} href="#/me/theme" icon="sun" label="Giao diện" meta=${THEME_LABELS[theme] || THEME_LABELS.auto} />
         <${Row} href="#/me/name" icon="edit" label="Tên hồ sơ" />
+        <${Row} href="#/me/diagnostics" icon="gauge" label="Chẩn đoán kết nối" />
       </div>
 
       <div class="group">

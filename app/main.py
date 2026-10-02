@@ -13,6 +13,7 @@ from app.api import (
     account_routes,
     audio_routes,
     bookmarks_routes,
+    diag_routes,
     books_routes,
     export_routes,
     pages_routes,
@@ -120,6 +121,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(profiles_routes.router)
     app.include_router(shelf_routes.router)
     app.include_router(usage_routes.router)
+    app.include_router(diag_routes.router)
 
     @app.get("/health", include_in_schema=False)
     async def health(request: Request) -> JSONResponse:

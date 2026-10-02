@@ -47,3 +47,13 @@ def test_modulepreload_covers_static_import_graph_of_app_js():
     expected = set(module.static_import_graph())
     assert sorted(expected - set(_preload_hrefs())) == []
     assert sorted(set(_preload_hrefs()) - expected) == []
+
+
+def test_app_version_matches_the_service_worker_shell_cache():
+    import re
+    from pathlib import Path
+
+    web = Path(__file__).resolve().parent.parent / "web"
+    shell = re.search(r"booksnap-shell-v(\d+)", (web / "sw.js").read_text(encoding="utf-8")).group(1)
+    version = re.search(r"APP_VERSION = (\d+)", (web / "js" / "app-version.js").read_text(encoding="utf-8")).group(1)
+    assert shell == version, "bump web/js/app-version.js together with SHELL_CACHE in web/sw.js"
