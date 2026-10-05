@@ -67,7 +67,10 @@ p { margin: 0 0 var(--space-3); }
   transition: transform 150ms ease-out, background-color 150ms ease-out, opacity 150ms ease-out;
 }
 .btn:active { transform: scale(0.98); }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+/* Failed-page row: three actions wrap as whole buttons on narrow phones instead of breaking their labels. */
+.failed-page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.failed-page-actions .btn { white-space: nowrap; }
 .btn-primary {
   background: var(--primary); color: var(--on-primary); border-color: var(--primary);
   box-shadow: inset 0 0 0 2px var(--primary), inset 0 0 0 3px color-mix(in srgb, var(--gold) 75%, var(--primary)), var(--elevation-card);

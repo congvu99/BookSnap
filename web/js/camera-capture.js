@@ -1,8 +1,6 @@
 // getUserMedia camera wrapper: video stream + capture-to-Blob. Image bytes never touch disk —
 // they stay in RAM (Blob/ObjectURL) until uploaded, then the caller revokes the URL (see D3).
-
-const LONG_EDGE = 2000;
-const JPEG_QUALITY = 0.85;
+import { downscaleToJpeg } from './image-downscale.js';
 
 /** Thrown when getUserMedia is denied or unsupported, so the UI can show the permission screen. */
 export class CameraError extends Error {
@@ -94,26 +92,11 @@ export class CameraCapture {
     const vw = this.videoEl.videoWidth;
     const vh = this.videoEl.videoHeight;
     if (!vw || !vh) throw new CameraError('Camera chưa sẵn sàng, thử lại sau giây lát.');
-    const scale = Math.min(1, LONG_EDGE / Math.max(vw, vh));
-    const w = Math.round(vw * scale);
-    const h = Math.round(vh * scale);
-    // M4: `x instanceof OffscreenCanvas` throws a ReferenceError when the global itself is
-    // undefined (iOS Safari < 16.4) — never reference the identifier in that branch at all.
-    const hasOffscreen = typeof OffscreenCanvas !== 'undefined';
-    if (hasOffscreen) {
-      const canvas = new OffscreenCanvas(w, h);
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(this.videoEl, 0, 0, w, h);
-      return canvas.convertToBlob({ type: 'image/jpeg', quality: JPEG_QUALITY });
+    try {
+      return await downscaleToJpeg(this.videoEl, vw, vh);
+    } catch (err) {
+      throw new CameraError('Không tạo được ảnh', err);
     }
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(this.videoEl, 0, 0, w, h);
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new CameraError('Không tạo được ảnh'))), 'image/jpeg', JPEG_QUALITY);
-    });
   }
 
   vibrate() {

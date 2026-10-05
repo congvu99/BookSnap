@@ -163,6 +163,12 @@ export const pagesApi = {
     return apiFetch(`/api/books/${bookId}/pages`, { method: 'POST', body: form });
   },
   retry: (pageId) => apiFetch(`/api/pages/${pageId}/retry`, { method: 'POST' }),
+  /** Recapture a failed page: new image, same seq, OCR runs again. @param {string} pageId @param {Blob} blob */
+  replaceImage: (pageId, blob) => {
+    const form = new FormData();
+    form.append('image', blob, `page-${pageId}.jpg`);
+    return apiFetch(`/api/pages/${pageId}/image`, { method: 'POST', body: form });
+  },
   /** Marks seq as permanently skipped so it stops blocking later pages (C2 contract). */
   discard: (bookId, seq) => apiFetch(`/api/books/${bookId}/pages/${seq}/discard`, { method: 'POST' }),
 };

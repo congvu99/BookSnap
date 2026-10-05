@@ -31,6 +31,26 @@ def sniff_image_mime(head: bytes) -> str | None:
     return None
 
 
+async def _read_validated_image(ctx: Ctx, image: UploadFile) -> tuple[bytes, str]:
+    """Read the upload under the size cap; the declared MIME must match the magic bytes."""
+    limit = ctx.settings.max_upload_bytes
+    data = await image.read(limit + 1)
+    if len(data) > limit:
+        raise ApiError(413, "image_too_large", f"Ảnh vượt quá {limit // (1024 * 1024)}MB", "image")
+    declared = (image.content_type or "").split(";")[0].strip().lower()
+    actual = sniff_image_mime(data[:16])
+    if declared not in _EXT_BY_MIME or actual != declared:
+        raise ApiError(415, "image_type_invalid", "Chỉ nhận ảnh JPEG, PNG hoặc WebP", "image")
+    return data, actual
+
+
+async def _write_tmp_image(ctx: Ctx, page_id: str, data: bytes, mime: str) -> Path:
+    ctx.settings.tmp_dir.mkdir(parents=True, exist_ok=True)
+    path = ctx.settings.tmp_dir / f"{page_id}.{_EXT_BY_MIME[mime]}"
+    await asyncio.to_thread(path.write_bytes, data)
+    return path
+
+
 @router.post("/books/{book_id}/pages", status_code=202)
 async def upload_page(
     book_id: str,
@@ -41,19 +61,10 @@ async def upload_page(
     upload_id: str | None = Form(default=None, max_length=64),
 ):
     await load_book(ctx, book_id)
-    limit = ctx.settings.max_upload_bytes
-    data = await image.read(limit + 1)
-    if len(data) > limit:
-        raise ApiError(413, "image_too_large", f"Ảnh vượt quá {limit // (1024 * 1024)}MB", "image")
-    declared = (image.content_type or "").split(";")[0].strip().lower()
-    actual = sniff_image_mime(data[:16])
-    if declared not in _EXT_BY_MIME or actual != declared:
-        raise ApiError(415, "image_type_invalid", "Chỉ nhận ảnh JPEG, PNG hoặc WebP", "image")
+    data, actual = await _read_validated_image(ctx, image)
 
     page_id = new_id()
-    ctx.settings.tmp_dir.mkdir(parents=True, exist_ok=True)
-    path = ctx.settings.tmp_dir / f"{page_id}.{_EXT_BY_MIME[actual]}"
-    await asyncio.to_thread(path.write_bytes, data)
+    path = await _write_tmp_image(ctx, page_id, data, actual)
     try:
         page = await ctx.pages.create(book_id, seq, str(path), actual, upload_id, page_id=page_id)
     except PageSeqConflictError as conflict:
@@ -94,4 +105,30 @@ async def retry_page(page_id: str, ctx: Ctx, user: CurrentUser) -> dict:
     ctx.worker.wake()
     refreshed = await ctx.pages.get(page_id)
     return page_out(refreshed)  # type: ignore[arg-type]
+
+
+@router.post("/pages/{page_id}/image")
+async def replace_page_image(page_id: str, ctx: Ctx, user: CurrentUser, image: UploadFile = File(...)) -> dict:
+    """Recapture a failed page: swap in a new image under the same seq and re-run OCR.
+
+    Safe for ordering: a failed page blocks the chunker, so no later page has been chunked yet."""
+    page = await ctx.pages.get(page_id)
+    if page is None:
+        raise not_found("Không tìm thấy trang")
+    await load_book(ctx, page.book_id)
+    data, mime = await _read_validated_image(ctx, image)
+
+    # A fresh file name per capture: the old file is only deleted after the swap commits.
+    path = await _write_tmp_image(ctx, new_id(), data, mime)
+    replaced, old_path = await ctx.pages.replace_failed_image(page_id, str(path), mime)
+    if not replaced:
+        path.unlink(missing_ok=True)
+        raise ApiError(409, "page_not_replaceable", "Chỉ chụp lại được trang đang lỗi")
+    if old_path:
+        await asyncio.to_thread(Path(old_path).unlink, True)
+
+    await ctx.books.touch(page.book_id)
+    log.info("page_image_replaced page_id=%s book_id=%s seq=%d bytes=%d user_id=%s", page_id, page.book_id, page.seq, len(data), user.id)
+    ctx.worker.wake()
+    return page_out(await ctx.pages.get(page_id))  # type: ignore[arg-type]
 

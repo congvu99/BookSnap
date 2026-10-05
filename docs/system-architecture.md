@@ -95,6 +95,7 @@ POST /api/books/{id}/pages
 Pages:     [0:ocr_done, 1:ocr_done, 2:failed, 3:ocr_done, 4:discarded, 5:ocr_done]
 Chunks:    [0–1 merged] → blocked at seq 2 (failed) → chunks [4–5] unreachable
 User:      Press "Retry" on page 2 → pages.status='ocr_processing' → chunks unblock next tick
+           Or press "Recapture" on page 2 → new image, same seq → uploaded → OCR → chunks unblock
            Or press "Discard" on page 2 → pages.status='discarded' → chunks [2, 3, 4, 5] fold in
 ```
 
@@ -357,6 +358,7 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 | POST | `/books/{id}/pages` | ✓ | 202 (200 khi gửi lại cùng `upload_id`) | `page_out`; multipart `image`, `seq`, `upload_id?` |
 | POST | `/books/{id}/pages/{seq}/discard` | ✓ | 200 | `page_out`; trang `failed` hoặc seq còn thiếu (≤ next_seq) |
 | POST | `/pages/{id}/retry` | ✓ | 200 | `page_out`; chỉ trang `failed` còn ảnh |
+| POST | `/pages/{id}/image` | ✓ | 200 | `page_out`; multipart `image`; chỉ trang `failed` — thay ảnh, giữ seq, OCR lại (an toàn thứ tự vì trang lỗi đang chặn chunker) |
 | **Chunks** ||||
 | GET | `/books/{id}/chunks` | ✓ | 200 | `[chunk_out]`; `audio_url` chỉ có khi `done` |
 | PATCH | `/chunks/{id}` | ✓ | 200 | `chunk_out`; sửa `text` → seal + `pending`; returns voice/provider = book's current (the voice next claim will use) |
@@ -381,7 +383,7 @@ Tất cả path có tiền tố `/api` (trừ `/health`). Auth ✓ = cần cooki
 }
 ```
 
-**Error codes:** `invalid_request` (400), `username_invalid` / `display_name_invalid` / `avatar_invalid` / `password_invalid` / `title_invalid` / `topic_invalid` / `text_invalid` (400), `current_password_invalid` / `password_unchanged` (400), `unauthorized` / `invalid_credentials` (401), `forbidden` / `invite_invalid` / `registration_closed` / `password_invalid` (403, mật khẩu gia đình sai khi xoá hồ sơ), `not_found` (404), `profile_required` / `profile_mismatch` (409, client chuyển sang màn chọn hồ sơ), `page_seq_taken` / `page_not_discardable` / `page_not_retryable` / `chunk_not_retryable` / `profile_limit` / `profile_active` (409), `unknown_voice` (400 khi tên giọng lạ), `provider_unavailable` (409 khi provider không cấu hình API key), `image_too_large` / `request_too_large` (413), `image_type_invalid` (415), `rate_limited` (429, có `Retry-After`).
+**Error codes:** `invalid_request` (400), `username_invalid` / `display_name_invalid` / `avatar_invalid` / `password_invalid` / `title_invalid` / `topic_invalid` / `text_invalid` (400), `current_password_invalid` / `password_unchanged` (400), `unauthorized` / `invalid_credentials` (401), `forbidden` / `invite_invalid` / `registration_closed` / `password_invalid` (403, mật khẩu gia đình sai khi xoá hồ sơ), `not_found` (404), `profile_required` / `profile_mismatch` (409, client chuyển sang màn chọn hồ sơ), `page_seq_taken` / `page_not_discardable` / `page_not_retryable` / `page_not_replaceable` / `chunk_not_retryable` / `profile_limit` / `profile_active` (409), `unknown_voice` (400 khi tên giọng lạ), `provider_unavailable` (409 khi provider không cấu hình API key), `image_too_large` / `request_too_large` (413), `image_type_invalid` (415), `rate_limited` (429, có `Retry-After`).
 
 ### Page Anchor Computation (On-Read Mapping)
 
@@ -473,7 +475,8 @@ ocr_processing
     └─ [OCR failed] → failed
         (image TTL 24h, then orphan sweep)
         ├─ [user retry] → uploaded (image still present)
-        └─ [image expired] → failed (image=NULL, can only discard)
+        ├─ [user recapture] → uploaded (new image, same id/seq; works after expiry)
+        └─ [image expired] → failed (image=NULL, recapture or discard)
 
     [user discard]
         ↓

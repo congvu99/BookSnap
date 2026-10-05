@@ -7,6 +7,8 @@ import { useShelfToggle } from '../use-shelf-toggle.js';
 import { ProgressTimeline } from '../components/progress-timeline.js';
 import { BookPageStatusList } from '../components/book-page-status-list.js';
 import { StatusToast } from '../components/status-toast.js';
+import { RecapturePageSheet } from '../components/recapture-page-sheet.js';
+import { fileToJpeg } from '../image-downscale.js';
 import { useVisiblePolling } from '../use-visible-polling.js';
 import { overallPercent, phaseOf, isBusyPhase, createEta, statusLine } from '../processing-progress.js';
 import { Icon } from '../icons.js';
@@ -58,6 +60,8 @@ export function BookStatusView({ bookId }) {
   const [error, setError] = useState(/** @type {string|null} */ (null));
   const [retrying, setRetrying] = useState(/** @type {Set<string>} */ (new Set()));
   const [discarding, setDiscarding] = useState(/** @type {Set<number>} */ (new Set()));
+  const [recaptureTarget, setRecaptureTarget] = useState(/** @type {{id: string, seq: number}|null} */ (null));
+  const [recapturing, setRecapturing] = useState(/** @type {Set<string>} */ (new Set()));
   const [sealing, setSealing] = useState(false);
   const [toast, setToast] = useState(/** @type {string|null} */ (null));
   const [toastTone, setToastTone] = useState(/** @type {'info'|'error'} */ ('info'));
@@ -149,6 +153,32 @@ export function BookStatusView({ bookId }) {
       setRetrying((s) => {
         const next = new Set(s);
         next.delete(pageId);
+        return next;
+      });
+    }
+  }
+
+  /** Replace a failed page's image (same seq) with a freshly shot or picked photo. */
+  async function recapture(page, file) {
+    setRecaptureTarget(null);
+    setRecapturing((s) => new Set(s).add(page.id));
+    try {
+      let blob;
+      try {
+        blob = await fileToJpeg(file);
+      } catch {
+        throw new Error('Không đọc được ảnh này, hãy chụp lại');
+      }
+      await pagesApi.replaceImage(page.id, blob);
+      setToastTone('info');
+      setToast(`Đang nhận dạng lại trang ${page.seq + 1}`);
+      await reload();
+    } catch (err) {
+      setError(err.message || 'Không chụp lại được trang này');
+    } finally {
+      setRecapturing((s) => {
+        const next = new Set(s);
+        next.delete(page.id);
         return next;
       });
     }
@@ -260,9 +290,17 @@ export function BookStatusView({ bookId }) {
               (p) => html`
                 <li key=${p.id} class="card" style=${{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <span>Trang ${p.seq + 1}${p.error ? ` — ${p.error}` : ''}</span>
-                  <span style=${{ display: 'flex', gap: '8px' }}>
+                  <span class="failed-page-actions">
                     <button class="btn btn-secondary" disabled=${retrying.has(p.id)} aria-busy=${retrying.has(p.id) ? 'true' : null} onClick=${() => retryPage(p.id)}>
                       <${Icon} name="refresh-cw" size=${16} /> Thử lại
+                    </button>
+                    <button
+                      class="btn btn-secondary"
+                      aria-disabled=${recapturing.has(p.id) ? 'true' : null}
+                      aria-busy=${recapturing.has(p.id) ? 'true' : null}
+                      onClick=${() => !recapturing.has(p.id) && setRecaptureTarget({ id: p.id, seq: p.seq })}
+                    >
+                      <${Icon} name="camera" size=${16} /> Chụp lại
                     </button>
                     <button class="btn btn-danger" disabled=${discarding.has(p.seq)} aria-busy=${discarding.has(p.seq) ? 'true' : null} onClick=${() => discard(p.seq, false)}>
                       <${Icon} name="trash" size=${16} /> Bỏ trang này
@@ -293,6 +331,12 @@ export function BookStatusView({ bookId }) {
         </div>
       </div>
       <${StatusToast} message=${toast} tone=${toastTone} />
+      ${recaptureTarget &&
+      html`<${RecapturePageSheet}
+        seq=${recaptureTarget.seq}
+        onPick=${(file) => recapture(recaptureTarget, file)}
+        onClose=${() => setRecaptureTarget(null)}
+      />`}
     </div>
   `;
 }

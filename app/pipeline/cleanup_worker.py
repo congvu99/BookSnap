@@ -34,7 +34,7 @@ async def _expire_failed_images(ctx: AppContext) -> None:
     for page in stale:
         if page.image_path:
             await asyncio.to_thread(Path(page.image_path).unlink, True)
-        await ctx.pages.clear_image(page.id)
+            await ctx.pages.clear_image(page.id, page.image_path)
     if stale:
         log.info("cleanup outcome=images_expired count=%d", len(stale))
 

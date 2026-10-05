@@ -107,6 +107,23 @@ class PageRepository:
         )
         return changed == 1
 
+    async def replace_failed_image(self, page_id: str, image_path: str, image_mime: str) -> tuple[bool, str | None]:
+        """failed → uploaded with a freshly captured image, keeping id and seq.
+
+        Works even after the old image expired. Returns (replaced, previous image path) so the
+        caller can delete the old file once the new one is committed."""
+        async with self.db.transaction() as conn:
+            async with conn.execute("SELECT status, image_path FROM pages WHERE id=?", (page_id,)) as cur:
+                row = await cur.fetchone()
+            if row is None or row["status"] != "failed":
+                return False, None
+            await conn.execute(
+                "UPDATE pages SET status='uploaded', image_path=?, image_mime=?, error=NULL, attempts=0, updated_at=?"
+                " WHERE id=?",
+                (image_path, image_mime, now_iso(), page_id),
+            )
+        return True, row["image_path"]
+
     # --- worker: OCR pipeline -------------------------------------------------
 
     async def claim_next_uploaded(self) -> Page | None:
@@ -165,9 +182,13 @@ class PageRepository:
             ),
         )
 
-    async def clear_image(self, page_id: str) -> None:
+    async def clear_image(self, page_id: str, expected_path: str) -> None:
+        """Forget an expired image — only if the page still points at that file, so a recapture
+        that committed while cleanup was deleting the old file keeps its new image."""
         await self.db.execute(
-            "UPDATE pages SET image_path=NULL, image_mime=NULL, updated_at=? WHERE id=?", (now_iso(), page_id)
+            "UPDATE pages SET image_path=NULL, image_mime=NULL, updated_at=?"
+            " WHERE id=? AND status='failed' AND image_path=?",
+            (now_iso(), page_id, expected_path),
         )
 
     async def all_image_paths(self) -> list[str]:
