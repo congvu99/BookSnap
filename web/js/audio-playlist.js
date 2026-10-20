@@ -24,6 +24,8 @@ export class AudioPlaylist {
     this.currentSeq = null;
     /** True while the active element wants to play but is waiting for data. */
     this._buffering = false;
+    /** @type {string|null} why the voice could not start, shown to the user; cleared once it plays */
+    this.error = null;
     // H3: HTMLMediaElement.src reflects the *resolved* URL — once the attribute has ever been
     // set, `el.src` is never falsy again (assigning '' makes it resolve to the page's own URL,
     // and even `removeAttribute('src')` leaves some browsers reporting the last value). Track
@@ -60,8 +62,44 @@ export class AudioPlaylist {
     // Network starvation: the element wants to play but has no data for the next frame.
     el.addEventListener('waiting', () => this._setBuffering(el, true));
     el.addEventListener('stalled', () => this._setBuffering(el, !el.paused));
-    el.addEventListener('playing', () => this._setBuffering(el, false));
+    el.addEventListener('playing', () => {
+      if (el === this.active && this.error) this.error = null;
+      this._setBuffering(el, false);
+    });
     el.addEventListener('canplay', () => this._setBuffering(el, false));
+    el.addEventListener('error', () => {
+      const key = el === this.a ? 'a' : 'b';
+      if (el !== this.active || this._loaded[key] == null) return; // a cleared src, not a failed load
+      this._reportFailure(`lỗi media ${el.error ? el.error.code : '?'}`);
+    });
+  }
+
+  /** play() rejections: AbortError is a normal interruption (new src / pause), anything else is a failure. */
+  _onPlayRejected(err) {
+    if (err && err.name !== 'AbortError') this._reportFailure(err.name || 'play bị từ chối');
+  }
+
+  /**
+   * Surface a failed start instead of failing silently. Re-requests the chunk URL from the page
+   * (with this app's cookies) so the message tells a media-loader problem (page fetch is fine)
+   * apart from a server/auth one (page fetch fails too).
+   * @param {string} detail
+   */
+  async _reportFailure(detail) {
+    const chunk = this._chunkBySeq(this.currentSeq);
+    let probe = 'không thử tải';
+    if (chunk && chunk.audio_url) {
+      try {
+        const res = await fetch(chunk.audio_url, { headers: { Range: 'bytes=0-1' }, credentials: 'same-origin', cache: 'no-store' });
+        probe = `tải thử HTTP ${res.status}`;
+      } catch (err) {
+        probe = `tải thử lỗi mạng`;
+      }
+    }
+    this._buffering = false;
+    this.error = `Không phát được audio (${detail}, ${probe})`;
+    console.warn('[playlist]', this.error);
+    this._emit();
   }
 
   /** Update the buffering flag from the active element only; emits on change. */
@@ -112,7 +150,7 @@ export class AudioPlaylist {
     el.currentTime = offsetMs / 1000;
     // A fresh src or seek has no data yet (readyState < HAVE_FUTURE_DATA): show buffering until `playing`.
     this._buffering = autoplay && el.readyState < 3;
-    if (autoplay) el.play().catch(() => {});
+    if (autoplay) el.play().catch((err) => this._onPlayRejected(err));
     this._preloadedFor = null;
     this._maybePreloadNext();
     this._emit();
@@ -122,7 +160,7 @@ export class AudioPlaylist {
     this._wantsPlay = true;
     if (this._loaded[this.activeKey] != null) {
       this._buffering = this.active.readyState < 3;
-      this.active.play().catch(() => {});
+      this.active.play().catch((err) => this._onPlayRejected(err));
     } else this._emit();
   }
 
@@ -179,7 +217,7 @@ export class AudioPlaylist {
       this.active.currentTime = offsetSeconds;
       this.active.playbackRate = this.rate;
       this._buffering = Boolean(wasPlaying) && this.active.readyState < 3;
-      if (wasPlaying) this.active.play().catch(() => {});
+      if (wasPlaying) this.active.play().catch((err) => this._onPlayRejected(err));
       this.standby.pause();
       this.standby.removeAttribute('src');
       this.standby.load();
@@ -230,6 +268,7 @@ export class AudioPlaylist {
       buffering: this._buffering,
       chunkStatus: chunk ? chunk.status : null,
       rate: this.rate,
+      error: this.error,
     };
   }
 

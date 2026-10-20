@@ -476,7 +476,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         onClose=${() => setSheetOpen(false)}
       />`}
 
-      <div class="reader-toast" role="status" aria-live="polite" hidden=${!(bookmarks.message || shelf.message || music.message)}>${bookmarks.message || shelf.message || music.message || ''}</div>
+      <div class="reader-toast" role="status" aria-live="polite" hidden=${!(playerState.error || bookmarks.message || shelf.message || music.message)}>${playerState.error || bookmarks.message || shelf.message || music.message || ''}</div>
 
       ${editingChunk &&
       html`<${ChunkEditor} chunk=${editingChunk} onClose=${() => setEditingChunk(null)} onSaved=${onChunkSaved} />`}
