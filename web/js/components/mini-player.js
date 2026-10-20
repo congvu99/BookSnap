@@ -22,6 +22,7 @@ export function formatTime(ms) {
  *   onTogglePlay: () => void, onSeekBack: () => void, onSeekForward: () => void,
  *   onSeekAbsolute: (ms:number) => void, onExpand: () => void,
  *   pageText?: string|null, onOpenPages?: () => void, buffering?: boolean,
+ *   onResumeScroll?: (() => void)|null,
  * }} props
  */
 export function MiniPlayer({
@@ -40,6 +41,7 @@ export function MiniPlayer({
   pageText,
   onOpenPages,
   buffering = false,
+  onResumeScroll = null,
 }) {
   // Finger position while scrubbing: labels preview it, the audio only seeks on release.
   const [previewMs, setPreviewMs] = useState(/** @type {number|null} */ (null));
@@ -47,6 +49,10 @@ export function MiniPlayer({
 
   return html`
     <div class="mini-player" role="region" aria-label="Trình phát">
+      ${onResumeScroll &&
+      html`<button class="scroll-resume-btn" aria-label="Về đoạn đang đọc" title="Về đoạn đang đọc" onClick=${onResumeScroll}>
+        <${Icon} name="locate" size=${20} />
+      </button>`}
       <${RangeSlider}
         className="mini-player-progress"
         min=${0}

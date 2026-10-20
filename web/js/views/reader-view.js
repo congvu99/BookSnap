@@ -419,11 +419,6 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         )}
       </div>`}
 
-      ${!isListen && autoScrollSuppressed &&
-      html`<button class="scroll-resume-btn" onClick=${() => setAutoScrollSuppressed(false)}>
-        <${Icon} name="chevron-down" size=${16} /> Về đoạn đang đọc
-      </button>`}
-
       ${!isListen &&
       html`<${MiniPlayer}
         book=${view}
@@ -441,6 +436,7 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
         pageText=${pageText}
         onOpenPages=${openPages}
         buffering=${Boolean(playerState.buffering)}
+        onResumeScroll=${autoScrollSuppressed ? () => setAutoScrollSuppressed(false) : null}
       />`}
 
       ${pagePickerOpen && anchors &&

@@ -35,12 +35,14 @@
 .reader-paragraph--failed .reader-paragraph-meta { color: var(--danger); }
 .reader-retry-link { background: none; border: none; color: var(--danger); text-decoration: underline; font-size: 13px; cursor: pointer; padding: 0; }
 
+/* Rendered inside .mini-player and pinned just above its top edge, so it follows the player's real
+   height (safe area included) instead of a guessed offset the player could grow over. */
 .scroll-resume-btn {
-  position: fixed; left: 50%; transform: translateX(-50%); bottom: 150px; z-index: 15;
-  background: var(--ink); color: var(--bg); border: none; border-radius: 999px;
-  padding: var(--space-2) var(--space-4); font-size: 14px;
+  position: absolute; right: 16px; bottom: calc(100% + 12px);
+  width: 44px; height: 44px; padding: 0; border: none; border-radius: 50%;
+  background: var(--ink); color: var(--bg); cursor: pointer;
   box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 3px var(--gold), var(--elevation-sheet);
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; justify-content: center;
 }
 
 .mini-player {
