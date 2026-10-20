@@ -1,3 +1,5 @@
 - [Vietnamese diacritic clipping](project_vietnamese-diacritic-clipping.md) — font/line-height changes: measure stacked-accent yMax vs clip threshold in overflow:hidden title boxes
 - [Chunk counter semantics](project_chunk-counter-semantics.md) — chunks.processing includes pending tail; use queued for phase logic
 - [Profile header guard](project_profile-header-guard.md) — X-Profile-Id check is opt-in; unmount/unload writes after user=null skip it
+- [In-place profile switch](project_in-place-profile-switch.md) — sheet switch keeps shell mounted; check per-profile state outside keyed route-view
+- [Shared-element view transition](project_shared-element-view-transition.md) — static view-transition-name = orphan group on other navs; check every route in/out
