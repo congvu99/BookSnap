@@ -9,7 +9,7 @@ import { remainingMinutes } from '../library-rails.js';
 import { prefetchBook } from '../book-prefetch.js';
 
 const BUSY_PHASES = new Set(['ocr', 'tts', 'tail_wait', 'quota']);
-const PHASE_ICON = { ready: 'check', failed: 'alert-circle' };
+const PHASE_ICON = { failed: 'alert-circle' };
 
 /** Label + icon for a record; offline copies may lack counters, so they fall back to book.state. */
 function stateInfo(book) {
@@ -118,7 +118,8 @@ export function LibraryBookCard({ book, offline, buildPercents, showRemaining = 
         ${building &&
         html`<div class="rec-build-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow=${percent}><span style=${{ width: `${percent}%` }}></span></div>`}
         ${minutes !== null && html`<div class="rec-remaining">Còn ${minutes} phút</div>`}
-        <div class="rec-state rec-state--${info.phase === 'failed' ? 'failed' : book.state}"><${Icon} name=${info.icon} size=${13} /><span>${info.label}</span></div>
+        ${info.phase !== 'ready' &&
+        html`<div class="rec-state${info.phase === 'failed' ? ' rec-state--failed' : ''}"><${Icon} name=${info.icon} size=${13} /><span>${info.label}</span></div>`}
       </div>
     </a>
   `;

@@ -100,7 +100,6 @@ a.menu-item { text-decoration: none; }
 .rec-build-progress span { display: block; height: 100%; background: var(--gold); }
 .rec-state { display: inline-flex; align-items: flex-start; gap: 4px; margin-top: 4px; font-size: 12px; color: var(--ink-muted); }
 .rec-state .icon { display: flex; margin-top: 2px; }
-.rec-state--ready { color: var(--success); }
 .rec-state--failed { color: var(--danger); }
 @media (min-width: 768px) { .crate-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); overflow: visible; } }
 
