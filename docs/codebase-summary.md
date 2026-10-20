@@ -144,7 +144,7 @@ BookSnap/
 │           ├── mini-player.js           [~90 LOC] Inline player with sleeve icon + disc (48px)
 │           ├── page-picker-sheet.js      [~65 LOC] Bottom sheet: list captured pages, current marked, disabled pages labeled, tap to play from
 │           ├── player-sheet.js          [~150 LOC] Bottom sheet: rate, sleep, nhạc nền, font, theme, offline, export
-│           ├── chunk-paragraph.js       [~50 LOC] Text render + edit button (long-press)
+│           ├── chunk-paragraph.js       [~50 LOC] Text render, tap to play, edit button
 │           └── chunk-editor.js          [~50 LOC] Edit dialog for chunk text
 │
 ├── tests/                               Test suite (Python: pytest, Web: node --test)

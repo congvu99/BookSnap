@@ -1,9 +1,9 @@
 // One reading chunk: tap to play from here, aria-current when active, inline status for
-// pending/processing/waiting_quota/failed chunks, long-press or the edit button to edit text.
-import { html, useRef } from '../../vendor/preact-htm.module.js';
+// pending/processing/waiting_quota/failed chunks, the edit button to edit text. There is no
+// long-press gesture: a resting or slow-dragging finger while reading kept opening the editor.
+import { html } from '../../vendor/preact-htm.module.js';
 import { Icon } from '../icons.js';
 
-const LONG_PRESS_MS = 500;
 // A short line with no sentence ender, followed by more text, is a heading ("Chương một: Mùa nước nổi").
 const HEADING_MAX_CHARS = 80;
 const ENDS_SENTENCE = /[.!?…:;]["'”’»)\]]*$/;
@@ -19,15 +19,8 @@ function formatHHmm(iso) {
  *   onEdit:(chunk:object)=>void, onToggleBookmark?: (seq:number)=>void}} props
  */
 export function ChunkParagraph({ chunk, isActive, bookmarked = false, onPlayFrom, onRetry, onEdit, onToggleBookmark }) {
-  const pressTimer = useRef(/** @type {number|undefined} */ (undefined));
   const pending = chunk.status !== 'done';
 
-  function onPointerDown() {
-    pressTimer.current = window.setTimeout(() => onEdit(chunk), LONG_PRESS_MS);
-  }
-  function cancelPress() {
-    window.clearTimeout(pressTimer.current);
-  }
   function onClick() {
     if (chunk.status === 'done') onPlayFrom(chunk.seq);
   }
@@ -83,9 +76,6 @@ export function ChunkParagraph({ chunk, isActive, bookmarked = false, onPlayFrom
       data-seq=${chunk.seq}
       aria-current=${isActive ? 'true' : undefined}
       onClick=${onClick}
-      onPointerDown=${onPointerDown}
-      onPointerUp=${cancelPress}
-      onPointerLeave=${cancelPress}
     >
       ${statusNode}
       ${lines.map((line, i) => html`<p
