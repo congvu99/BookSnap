@@ -183,7 +183,7 @@ function App() {
   // New screen → start at the top; read↔listen share a key so the reader keeps its scroll.
   const routeKey = routeKeyOf(parseRoute(hash));
   useEffect(() => {
-    window.scrollTo(0, 0);
+    document.querySelector('.app-main')?.scrollTo(0, 0); // the shell's scroller (app.css)
   }, [routeKey]);
   // Enter direction of the mounted .route-view, fixed per viewKey so its CSS enter animation
   // (motion.css) never changes, and so never restarts. Declared before the early returns below.

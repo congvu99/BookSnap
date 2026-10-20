@@ -224,9 +224,11 @@ export function ReaderView({ bookId, mode = 'read', startSeq = null }) {
       clearTimeout(suppressTimer.current);
       suppressTimer.current = window.setTimeout(() => setAutoScrollSuppressed(false), MANUAL_SCROLL_SUPPRESS_MS);
     }
-    window.addEventListener('scroll', onScroll, { passive: true });
+    // The page scrolls inside the shell's .app-main, not the window (app.css).
+    const scroller = document.querySelector('.app-main') || window;
+    scroller.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      window.removeEventListener('scroll', onScroll);
+      scroller.removeEventListener('scroll', onScroll);
       clearTimeout(suppressTimer.current);
     };
   }, [isListen]);

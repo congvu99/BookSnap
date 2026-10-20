@@ -19,8 +19,11 @@ a { color: var(--primary); text-decoration-color: var(--gold); text-underline-of
 ::selection { background: var(--highlight); color: var(--ink); }
 :focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
 
+/* The document never scrolls: .app-main is the scroller inside a shell pinned to the viewport.
+   When the page itself scrolled, home-screen iOS resized and shifted the viewport mid-scroll,
+   dragging the fixed bottom nav / mini player up and down with it. */
 .app-shell {
-  min-height: 100dvh;
+  position: fixed; inset: 0;
   display: flex;
   flex-direction: column;
 }
@@ -28,6 +31,9 @@ a { color: var(--primary); text-decoration-color: var(--gold); text-underline-of
 .app-main {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden; /* sideways route enter animations must not open a horizontal scroll */
+  overscroll-behavior-y: contain;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
