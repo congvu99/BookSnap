@@ -62,7 +62,29 @@ class GeminiOcrProvider:
         parsed = response.parsed
         if isinstance(parsed, _OcrSchema):
             return PageText(paragraphs=parsed.paragraphs, continues_on_next_page=parsed.continues_on_next_page)
-        raise OcrError("Phản hồi OCR không đúng định dạng", retryable=True)
+        raise _unparsed_error(response)
+
+
+def _unparsed_error(response: types.GenerateContentResponse) -> OcrError:
+    """Keep why Gemini stopped (RECITATION, MAX_TOKENS, SAFETY...) in pages.error, so a failed page is diagnosable from the DB alone."""
+    candidate = response.candidates[0] if response.candidates else None
+    feedback = response.prompt_feedback
+    usage = response.usage_metadata
+    details = {
+        "finish_reason": _enum_name(candidate.finish_reason) if candidate else None,
+        "block_reason": _enum_name(feedback.block_reason) if feedback else None,
+        "output_tokens": usage.candidates_token_count if usage else None,
+        "thinking_tokens": usage.thoughts_token_count if usage else None,
+    }
+    summary = ", ".join(f"{key}={value}" for key, value in details.items() if value is not None)
+    suffix = f" ({summary})" if summary else ""
+    return OcrError(f"Phản hồi OCR không đúng định dạng{suffix}", retryable=True)
+
+
+def _enum_name(value: object) -> str | None:
+    if value is None:
+        return None
+    return getattr(value, "name", str(value))
 
 
 def _map_error(exc: genai_errors.APIError) -> OcrError:
