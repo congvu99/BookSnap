@@ -1,4 +1,4 @@
-"""OCR through a vision model on OpenRouter (default: Qwen2.5-VL, free tier) for pages Gemini refuses as recitation.
+"""OCR through a vision model on OpenRouter (default: Gemma 4 31B, free tier) for pages Gemini refuses as recitation.
 
 Uses the same prompt and reply shape as the Gemini provider, so paragraphs are joined,
 running headers dropped and `continues_on_next_page` judged by the model, not by rules.
@@ -14,10 +14,10 @@ import httpx
 from pydantic import ValidationError
 
 from app.pipeline.ocr_gemini import PROMPT, OcrReply
+from app.pipeline.ocr_http import post_json
 from app.pipeline.ocr_provider import OcrError, PageText
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-TIMEOUT_SECONDS = 120.0
 JSON_INSTRUCTION = (
     ' Chỉ trả về đúng một đối tượng JSON dạng {"paragraphs": ["..."], "continues_on_next_page": false}, '
     "không thêm chữ nào khác."
@@ -54,25 +54,8 @@ class OpenRouterOcrProvider:
                 }
             ],
         }
-        headers = {"Authorization": f"Bearer {self._api_key}", "User-Agent": "booksnap"}
-        try:
-            async with httpx.AsyncClient(timeout=TIMEOUT_SECONDS, transport=self._transport) as client:
-                response = await client.post(API_URL, headers=headers, json=body)
-        except httpx.HTTPError as exc:
-            raise OcrError(f"Lỗi mạng khi gọi OpenRouter: {exc}", retryable=True) from exc
-        _raise_for_status(response)
+        response = await post_json(API_URL, self._api_key, body, service="OpenRouter", transport=self._transport)
         return _page_text(response)
-
-
-def _raise_for_status(response: httpx.Response) -> None:
-    code = response.status_code
-    if code < 400:
-        return
-    if code == 429:
-        raise OcrError("Hết quota OpenRouter tạm thời (429)", retryable=True, quota=True)
-    if code >= 500:
-        raise OcrError(f"Lỗi OpenRouter tạm thời ({code})", retryable=True)
-    raise OcrError(f"Lỗi OpenRouter ({code}): {response.text[:200]}", retryable=False)
 
 
 def _page_text(response: httpx.Response) -> PageText:

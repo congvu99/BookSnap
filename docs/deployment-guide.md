@@ -77,8 +77,10 @@
 | `AZURE_SPEECH_REGION` | str | `southeastasia` | Region for REST API |
 | `AZURE_TTS_VOICE` | str | `vi-VN-HoaiMyNeural` | Default Azure voice |
 | `AZURE_TTS_RPM` | int | 20 | Soft rate limit |
-| `OPENROUTER_API_KEY` | str | (empty) | OCR fallback for pages Gemini refuses as recitation. Empty = no fallback |
-| `OPENROUTER_OCR_MODEL` | str | `qwen/qwen2.5-vl-72b-instruct:free` | Vision model used by that fallback (`:free` models: ~50 requests/day) |
+| `MISTRAL_API_KEY` | str | (empty) | Preferred OCR fallback (Mistral OCR) for pages Gemini refuses as recitation. Free "Experiment" plan at console.mistral.ai, no card |
+| `MISTRAL_OCR_MODEL` | str | `mistral-ocr-latest` | Mistral OCR model |
+| `OPENROUTER_API_KEY` | str | (empty) | OCR fallback used only when `MISTRAL_API_KEY` is empty. Both empty = no fallback |
+| `OPENROUTER_OCR_MODEL` | str | `google/gemma-4-31b-it:free` | Vision model used by that fallback (`:free` models: ~50 requests/day) |
 | | | | |
 | `TTS_DEFAULT_PROVIDER` | str | `gemini` | Provider for new books (gemini \| azure) |
 | `OCR_CONCURRENCY` | int | 2 | Parallel OCR workers (don't exceed Gemini RPM) |
@@ -163,7 +165,7 @@
 |---------|-------|--------|
 | Many chunks `waiting_quota` | Railway logs: `outcome=quota` | 1. Check [Gemini quota](https://ai.google.dev) 2. Wait for reset (auto-requeue at `not_before`) 3. Or use PUT `/api/books/{id}/voice` to change provider (e.g. to Azure; unparks waiting chunks) |
 | Many chunks `failed` | Logs: `outcome=error` | Retry from book status view. If pattern: check `GEMINI_OCR_MODEL` / `GEMINI_TTS_MODEL` env |
-| Pages fail with `finish_reason=RECITATION` (law texts, published books) | Logs: `ocr_fallback reason=recitation`, or startup `ocr_fallback=none` | Gemini refuses to transcribe published text. With `OPENROUTER_API_KEY` set, those pages are read by `OPENROUTER_OCR_MODEL` instead. Startup `ocr_fallback=none` = no key: those pages stay failed. A 404/400 from OpenRouter usually means the free model was withdrawn: pick another vision model |
+| Pages fail with `finish_reason=RECITATION` (law texts, published books) | Logs: `ocr_fallback reason=recitation`, or startup `ocr_fallback=none` | Gemini refuses to transcribe published text. Those pages are read by the fallback named in startup log `ocr_fallback=mistral|openrouter` (Mistral when `MISTRAL_API_KEY` is set, else OpenRouter). Startup `ocr_fallback=none` = no key: those pages stay failed. A 404/400 from OpenRouter usually means the free model was withdrawn: pick another vision model |
 | `/health` → 503 | Dashboard volume list | Verify volume mounted. Check free space (`du -sh /data`). If full: delete old books or export+delete. |
 | User: "forgot password" | — | SSH to Railway, run reset command (see below) |
 | Web: old JS cached | Users have stale app | PWA cache: wait for SW update (user refresh app). Server-side: no action needed. |

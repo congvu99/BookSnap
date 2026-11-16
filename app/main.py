@@ -30,6 +30,7 @@ from app.config import Settings, get_settings
 from app.db import Database
 from app.pipeline.ocr_fallback import RecitationFallbackOcrProvider
 from app.pipeline.ocr_gemini import GeminiOcrProvider
+from app.pipeline.ocr_mistral import MistralOcrProvider
 from app.pipeline.ocr_openrouter import OpenRouterOcrProvider
 from app.pipeline.ocr_provider import OcrProvider
 from app.pipeline.tts_azure import AzureTtsProvider
@@ -70,11 +71,16 @@ def _configure_logging(level: str) -> None:
 
 def _build_ocr_provider(settings: Settings) -> OcrProvider:
     gemini = GeminiOcrProvider(settings.gemini_api_key, settings.gemini_ocr_model)
-    openrouter = OpenRouterOcrProvider(settings.openrouter_api_key, settings.openrouter_ocr_model)
-    if not openrouter.configured:
-        log.warning("startup ocr_fallback=none reason=openrouter_not_configured")
+    candidates = (
+        MistralOcrProvider(settings.mistral_api_key, settings.mistral_ocr_model),
+        OpenRouterOcrProvider(settings.openrouter_api_key, settings.openrouter_ocr_model),
+    )
+    fallback = next((provider for provider in candidates if provider.configured), None)
+    if fallback is None:
+        log.warning("startup ocr_fallback=none reason=no_fallback_key")
         return gemini
-    return RecitationFallbackOcrProvider(primary=gemini, fallback=openrouter)
+    log.info("startup ocr_fallback=%s", fallback.name)
+    return RecitationFallbackOcrProvider(primary=gemini, fallback=fallback)
 
 
 @asynccontextmanager

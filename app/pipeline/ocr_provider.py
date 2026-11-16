@@ -20,7 +20,7 @@ class OcrError(Exception):
     `quota` marks a 429: still retried with backoff (an RPM burst clears in seconds), but metered
     as a quota rejection rather than a billed request.
     `recitation` marks a page the model refused to transcribe because it matches published text;
-    a plain OCR engine can still read it (see RecitationFallbackOcrProvider, OpenRouterOcrProvider).
+    a plain OCR engine can still read it (see RecitationFallbackOcrProvider, MistralOcrProvider).
     """
 
     def __init__(self, message: str, *, retryable: bool, quota: bool = False, recitation: bool = False) -> None:
