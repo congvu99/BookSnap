@@ -7,6 +7,8 @@ the prompt, not by post-processing, since only the model can tell them apart fro
 real content.
 """
 
+import asyncio
+
 import httpx
 from google import genai
 from google.genai import errors as genai_errors
@@ -14,8 +16,14 @@ from google.genai import types
 from pydantic import BaseModel
 
 from app.pipeline.ocr_provider import OcrError, PageText
+from app.pipeline.page_image_split import SPLIT_MIME, split_page_horizontally
 
 GEMINI_TIMEOUT_MS = 120_000  # SDK default is no timeout; a hung call would pin a worker loop
+RECITATION_REASON = types.FinishReason.RECITATION.name
+RECITATION_MESSAGE = (
+    "Gemini từ chối chép nguyên văn vì trùng văn bản đã công bố (finish_reason=RECITATION), "
+    "kể cả khi đã cắt đôi trang"
+)
 
 PROMPT = (
     "Trích nguyên văn nội dung chính của trang sách tiếng Việt trong ảnh này. "
@@ -45,6 +53,26 @@ class GeminiOcrProvider:
         if self._client is None:
             raise OcrError("Chưa cấu hình gemini", retryable=False)
         try:
+            return await self._extract_once(image, mime)
+        except _RecitationBlocked:
+            return await self._extract_in_halves(image)
+
+    async def _extract_in_halves(self, image: bytes) -> PageText:
+        """Second chance after a recitation block: two shorter transcriptions rarely match a long published span."""
+        halves = await asyncio.to_thread(split_page_horizontally, image)
+        if halves is None:
+            raise OcrError(RECITATION_MESSAGE, retryable=False)
+        top_image, bottom_image = halves
+        try:
+            top = await self._extract_once(top_image, SPLIT_MIME)
+            bottom = await self._extract_once(bottom_image, SPLIT_MIME)
+        except _RecitationBlocked as exc:
+            raise OcrError(RECITATION_MESSAGE, retryable=False) from exc
+        return _merge_halves(top, bottom)
+
+    async def _extract_once(self, image: bytes, mime: str) -> PageText:
+        assert self._client is not None
+        try:
             response = await self._client.aio.models.generate_content(
                 model=self._model,
                 contents=[types.Part.from_bytes(data=image, mime_type=mime), PROMPT],
@@ -65,6 +93,19 @@ class GeminiOcrProvider:
         raise _unparsed_error(response)
 
 
+class _RecitationBlocked(OcrError):
+    """Gemini cut its reply because it matched published text; resending the same image fails the same way."""
+
+
+def _merge_halves(top: PageText, bottom: PageText) -> PageText:
+    paragraphs = list(top.paragraphs)
+    rest = list(bottom.paragraphs)
+    # A paragraph left unfinished at the cut continues as the bottom half's first paragraph.
+    if top.continues_on_next_page and paragraphs and rest:
+        paragraphs[-1] = f"{paragraphs[-1].rstrip()} {rest.pop(0).lstrip()}"
+    return PageText(paragraphs=paragraphs + rest, continues_on_next_page=bottom.continues_on_next_page)
+
+
 def _unparsed_error(response: types.GenerateContentResponse) -> OcrError:
     """Keep why Gemini stopped (RECITATION, MAX_TOKENS, SAFETY...) in pages.error, so a failed page is diagnosable from the DB alone."""
     candidate = response.candidates[0] if response.candidates else None
@@ -78,7 +119,10 @@ def _unparsed_error(response: types.GenerateContentResponse) -> OcrError:
     }
     summary = ", ".join(f"{key}={value}" for key, value in details.items() if value is not None)
     suffix = f" ({summary})" if summary else ""
-    return OcrError(f"Phản hồi OCR không đúng định dạng{suffix}", retryable=True)
+    message = f"Phản hồi OCR không đúng định dạng{suffix}"
+    if details["finish_reason"] == RECITATION_REASON:
+        return _RecitationBlocked(message, retryable=False)
+    return OcrError(message, retryable=True)
 
 
 def _enum_name(value: object) -> str | None:
