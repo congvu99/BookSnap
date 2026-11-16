@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from app.pipeline.ocr_fallback import RecitationFallbackOcrProvider
-from app.pipeline.ocr_chat_vision import CLOUDFLARE_URL, OPENROUTER_URL, ChatVisionOcrProvider
+from app.pipeline.ocr_chat_vision import CLOUDFLARE_URL, MAX_OUTPUT_TOKENS, OPENROUTER_URL, ChatVisionOcrProvider
 from app.pipeline.ocr_provider import OcrError, PageText
 
 MODEL = "qwen/qwen2.5-vl-72b-instruct:free"
@@ -42,6 +42,7 @@ async def test_sends_the_page_as_a_data_url_with_the_shared_prompt() -> None:
     body = json.loads(request.content)
     assert body["model"] == MODEL
     assert body["temperature"] == 0
+    assert body["max_tokens"] == MAX_OUTPUT_TOKENS
     text_part, image_part = body["messages"][0]["content"]
     assert "Trích nguyên văn" in text_part["text"]
     assert "continues_on_next_page" in text_part["text"]
@@ -55,6 +56,27 @@ async def test_accepts_json_wrapped_in_a_markdown_fence() -> None:
 
     assert page.paragraphs == ["Luật này quy định", "về đầu tư công."]
     assert page.continues_on_next_page is True
+
+
+async def test_ignores_words_around_the_json() -> None:
+    reply = 'Đây là kết quả:\n```json\n{"paragraphs": ["Điều 2."], "continues_on_next_page": false}\n```\nHết.'
+
+    page = await _provider(_answer(reply)).extract(b"img", "image/jpeg")
+
+    assert page.paragraphs == ["Điều 2."]
+
+
+async def test_reply_cut_at_the_token_limit_is_not_retried() -> None:
+    cut = '```json\n{"paragraphs": ["1. Báo cáo đề xuất chủ trương'
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        choice = {"message": {"content": cut}, "finish_reason": "length"}
+        return httpx.Response(200, json={"choices": [choice]})
+
+    error = await _extract_error(handler)
+
+    assert "finish_reason=length" in error.message
+    assert error.retryable is False
 
 
 async def test_non_json_reply_is_retryable() -> None:

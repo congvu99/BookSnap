@@ -4,12 +4,11 @@ for pages Gemini refuses as recitation.
 Uses the same prompt and reply shape as the Gemini provider, so paragraphs are joined,
 running headers dropped and `continues_on_next_page` judged by the model, not by rules.
 These models do not reliably honour a JSON response format, so the JSON is asked for in
-the prompt and read leniently (a ```json fence around it is accepted).
+the prompt and read leniently (a ```json fence or stray words around it are ignored).
 """
 
 import base64
 import json
-import re
 
 import httpx
 from pydantic import ValidationError
@@ -24,7 +23,9 @@ JSON_INSTRUCTION = (
     ' Chỉ trả về đúng một đối tượng JSON dạng {"paragraphs": ["..."], "continues_on_next_page": false}, '
     "không thêm chữ nào khác."
 )
-_JSON_FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
+# Some APIs default to a tiny reply budget (Workers AI: 256 tokens), which cuts a dense page mid-JSON.
+MAX_OUTPUT_TOKENS = 8192
+TRUNCATED_REASON = "length"
 
 
 class ChatVisionOcrProvider:
@@ -50,6 +51,7 @@ class ChatVisionOcrProvider:
         body = {
             "model": self._model,
             "temperature": 0,
+            "max_tokens": MAX_OUTPUT_TOKENS,
             "messages": [
                 {
                     "role": "user",
@@ -74,18 +76,23 @@ def _page_text(response: httpx.Response, service: str) -> PageText:
         message = error.get("message") if isinstance(error, dict) else error
         raise OcrError(f"Lỗi {service}: {message}", retryable=True)
     try:
-        content = payload["choices"][0]["message"]["content"] or ""
+        choice = payload["choices"][0]
+        content = choice["message"]["content"] or ""
     except (KeyError, IndexError, TypeError) as exc:
         raise OcrError(f"Phản hồi {service} thiếu nội dung", retryable=True) from exc
-    reply = _parse_reply(content, service)
+    reply = _parse_reply(content, service, choice.get("finish_reason"))
     return PageText(paragraphs=reply.paragraphs, continues_on_next_page=reply.continues_on_next_page)
 
 
-def _parse_reply(content: str, service: str) -> OcrReply:
-    text = content.strip()
-    if fenced := _JSON_FENCE.match(text):
-        text = fenced.group(1)
+def _parse_reply(content: str, service: str, finish_reason: str | None) -> OcrReply:
+    # The object spans from the first "{" to the last "}"; anything around it (a code fence, a preamble) is noise.
+    start, end = content.find("{"), content.rfind("}")
+    text = content[start : end + 1] if 0 <= start < end else content.strip()
     try:
         return OcrReply.model_validate(json.loads(text))
     except (ValueError, ValidationError) as exc:
-        raise OcrError(f"Phản hồi {service} không đúng định dạng: {text[:120]}", retryable=True) from exc
+        # A reply cut at the token limit is cut the same way on a retry at temperature 0.
+        raise OcrError(
+            f"Phản hồi {service} không đúng định dạng (finish_reason={finish_reason}): {content.strip()[:120]}",
+            retryable=finish_reason != TRUNCATED_REASON,
+        ) from exc
