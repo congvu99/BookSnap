@@ -161,6 +161,7 @@
 |---------|-------|--------|
 | Many chunks `waiting_quota` | Railway logs: `outcome=quota` | 1. Check [Gemini quota](https://ai.google.dev) 2. Wait for reset (auto-requeue at `not_before`) 3. Or use PUT `/api/books/{id}/voice` to change provider (e.g. to Azure; unparks waiting chunks) |
 | Many chunks `failed` | Logs: `outcome=error` | Retry from book status view. If pattern: check `GEMINI_OCR_MODEL` / `GEMINI_TTS_MODEL` env |
+| Pages fail with `finish_reason=RECITATION` (law texts, published books) | Logs: `ocr_fallback reason=recitation`, or startup `ocr_fallback=none` | Gemini refuses to transcribe published text. The Docker image ships Tesseract (`vie`) and reads those pages instead (lower quality on phone photos). Startup `ocr_fallback=none` = Tesseract missing (e.g. Railway/Railpack build, which skips the Dockerfile): those pages stay failed |
 | `/health` → 503 | Dashboard volume list | Verify volume mounted. Check free space (`du -sh /data`). If full: delete old books or export+delete. |
 | User: "forgot password" | — | SSH to Railway, run reset command (see below) |
 | Web: old JS cached | Users have stale app | PWA cache: wait for SW update (user refresh app). Server-side: no action needed. |

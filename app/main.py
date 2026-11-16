@@ -28,7 +28,10 @@ from app.app_context import AppContext
 from app.auth import auth_routes
 from app.config import Settings, get_settings
 from app.db import Database
+from app.pipeline.ocr_fallback import RecitationFallbackOcrProvider
 from app.pipeline.ocr_gemini import GeminiOcrProvider
+from app.pipeline.ocr_provider import OcrProvider
+from app.pipeline.ocr_tesseract import TesseractOcrProvider
 from app.pipeline.tts_azure import AzureTtsProvider
 from app.pipeline.tts_gemini import GeminiTtsProvider
 from app.pipeline.worker import Worker
@@ -65,6 +68,15 @@ def _configure_logging(level: str) -> None:
     logging.basicConfig(level=level.upper(), format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
+def _build_ocr_provider(settings: Settings) -> OcrProvider:
+    gemini = GeminiOcrProvider(settings.gemini_api_key, settings.gemini_ocr_model)
+    tesseract = TesseractOcrProvider()
+    if not tesseract.available:
+        log.warning("startup ocr_fallback=none reason=tesseract_not_installed")
+        return gemini
+    return RecitationFallbackOcrProvider(primary=gemini, fallback=tesseract)
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
@@ -82,7 +94,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.worker_enabled:
         worker = Worker(
             ctx,
-            ocr_provider=GeminiOcrProvider(settings.gemini_api_key, settings.gemini_ocr_model),
+            ocr_provider=_build_ocr_provider(settings),
             tts_providers={
                 "gemini": GeminiTtsProvider(settings.gemini_api_key, settings.gemini_tts_model, settings.gemini_tts_style),
                 "azure": AzureTtsProvider(settings.azure_speech_key, settings.azure_speech_region),
