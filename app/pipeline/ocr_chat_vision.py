@@ -1,8 +1,9 @@
-"""OCR through a vision model on OpenRouter (default: Gemma 4 31B, free tier) for pages Gemini refuses as recitation.
+"""OCR through a vision chat model on an OpenAI-compatible API (Cloudflare Workers AI, OpenRouter)
+for pages Gemini refuses as recitation.
 
 Uses the same prompt and reply shape as the Gemini provider, so paragraphs are joined,
 running headers dropped and `continues_on_next_page` judged by the model, not by rules.
-Free models do not reliably honour a JSON response format, so the JSON is asked for in
+These models do not reliably honour a JSON response format, so the JSON is asked for in
 the prompt and read leniently (a ```json fence around it is accepted).
 """
 
@@ -17,7 +18,8 @@ from app.pipeline.ocr_gemini import PROMPT, OcrReply
 from app.pipeline.ocr_http import post_json
 from app.pipeline.ocr_provider import OcrError, PageText
 
-API_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+CLOUDFLARE_URL = "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1/chat/completions"
 JSON_INSTRUCTION = (
     ' Chỉ trả về đúng một đối tượng JSON dạng {"paragraphs": ["..."], "continues_on_next_page": false}, '
     "không thêm chữ nào khác."
@@ -25,21 +27,25 @@ JSON_INSTRUCTION = (
 _JSON_FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
 
 
-class OpenRouterOcrProvider:
-    name = "openrouter"
+class ChatVisionOcrProvider:
+    """`name` labels logs and error messages; an empty `api_url`, key or model leaves it unconfigured."""
 
-    def __init__(self, api_key: str, model: str, *, transport: httpx.AsyncBaseTransport | None = None) -> None:
+    def __init__(
+        self, name: str, api_url: str, api_key: str, model: str, *, transport: httpx.AsyncBaseTransport | None = None
+    ) -> None:
+        self.name = name
+        self._api_url = api_url
         self._api_key = api_key
         self._model = model
         self._transport = transport
 
     @property
     def configured(self) -> bool:
-        return bool(self._api_key and self._model)
+        return bool(self._api_url and self._api_key and self._model)
 
     async def extract(self, image: bytes, mime: str) -> PageText:
         if not self.configured:
-            raise OcrError("Chưa cấu hình OpenRouter", retryable=False)
+            raise OcrError(f"Chưa cấu hình {self.name}", retryable=False)
         image_url = f"data:{mime};base64,{base64.b64encode(image).decode('ascii')}"
         body = {
             "model": self._model,
@@ -54,32 +60,32 @@ class OpenRouterOcrProvider:
                 }
             ],
         }
-        response = await post_json(API_URL, self._api_key, body, service="OpenRouter", transport=self._transport)
-        return _page_text(response)
+        response = await post_json(self._api_url, self._api_key, body, service=self.name, transport=self._transport)
+        return _page_text(response, self.name)
 
 
-def _page_text(response: httpx.Response) -> PageText:
+def _page_text(response: httpx.Response, service: str) -> PageText:
     try:
         payload = response.json()
     except ValueError as exc:
-        raise OcrError("Phản hồi OpenRouter không phải JSON", retryable=True) from exc
+        raise OcrError(f"Phản hồi {service} không phải JSON", retryable=True) from exc
     # An upstream provider failure can come back as HTTP 200 with an `error` object instead of choices.
     if error := payload.get("error"):
         message = error.get("message") if isinstance(error, dict) else error
-        raise OcrError(f"Lỗi OpenRouter: {message}", retryable=True)
+        raise OcrError(f"Lỗi {service}: {message}", retryable=True)
     try:
         content = payload["choices"][0]["message"]["content"] or ""
     except (KeyError, IndexError, TypeError) as exc:
-        raise OcrError("Phản hồi OpenRouter thiếu nội dung", retryable=True) from exc
-    reply = _parse_reply(content)
+        raise OcrError(f"Phản hồi {service} thiếu nội dung", retryable=True) from exc
+    reply = _parse_reply(content, service)
     return PageText(paragraphs=reply.paragraphs, continues_on_next_page=reply.continues_on_next_page)
 
 
-def _parse_reply(content: str) -> OcrReply:
+def _parse_reply(content: str, service: str) -> OcrReply:
     text = content.strip()
     if fenced := _JSON_FENCE.match(text):
         text = fenced.group(1)
     try:
         return OcrReply.model_validate(json.loads(text))
     except (ValueError, ValidationError) as exc:
-        raise OcrError(f"Phản hồi OpenRouter không đúng định dạng: {text[:120]}", retryable=True) from exc
+        raise OcrError(f"Phản hồi {service} không đúng định dạng: {text[:120]}", retryable=True) from exc

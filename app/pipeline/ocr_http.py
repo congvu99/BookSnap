@@ -1,4 +1,4 @@
-"""HTTP call shared by the REST OCR fallbacks (OpenRouter, Mistral): one POST, errors mapped to OcrError."""
+"""HTTP call shared by the REST OCR fallbacks (Cloudflare, OpenRouter, Mistral): one POST, errors mapped to OcrError."""
 
 import httpx
 

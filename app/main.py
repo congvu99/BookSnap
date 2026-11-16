@@ -28,10 +28,10 @@ from app.app_context import AppContext
 from app.auth import auth_routes
 from app.config import Settings, get_settings
 from app.db import Database
+from app.pipeline.ocr_chat_vision import CLOUDFLARE_URL, OPENROUTER_URL, ChatVisionOcrProvider
 from app.pipeline.ocr_fallback import RecitationFallbackOcrProvider
 from app.pipeline.ocr_gemini import GeminiOcrProvider
 from app.pipeline.ocr_mistral import MistralOcrProvider
-from app.pipeline.ocr_openrouter import OpenRouterOcrProvider
 from app.pipeline.ocr_provider import OcrProvider
 from app.pipeline.tts_azure import AzureTtsProvider
 from app.pipeline.tts_gemini import GeminiTtsProvider
@@ -71,15 +71,23 @@ def _configure_logging(level: str) -> None:
 
 def _build_ocr_provider(settings: Settings) -> OcrProvider:
     gemini = GeminiOcrProvider(settings.gemini_api_key, settings.gemini_ocr_model)
+    cloudflare_url = (
+        CLOUDFLARE_URL.format(account_id=settings.cloudflare_account_id) if settings.cloudflare_account_id else ""
+    )
     candidates = (
+        ChatVisionOcrProvider(
+            "Cloudflare", cloudflare_url, settings.cloudflare_api_token, settings.cloudflare_ocr_model
+        ),
         MistralOcrProvider(settings.mistral_api_key, settings.mistral_ocr_model),
-        OpenRouterOcrProvider(settings.openrouter_api_key, settings.openrouter_ocr_model),
+        ChatVisionOcrProvider(
+            "OpenRouter", OPENROUTER_URL, settings.openrouter_api_key, settings.openrouter_ocr_model
+        ),
     )
     fallback = next((provider for provider in candidates if provider.configured), None)
     if fallback is None:
         log.warning("startup ocr_fallback=none reason=no_fallback_key")
         return gemini
-    log.info("startup ocr_fallback=%s", fallback.name)
+    log.info("startup ocr_fallback=%s", fallback.name.lower())
     return RecitationFallbackOcrProvider(primary=gemini, fallback=fallback)
 
 

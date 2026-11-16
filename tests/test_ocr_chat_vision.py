@@ -1,4 +1,4 @@
-"""OpenRouter vision-model fallback (REST mocked with httpx.MockTransport) and the recitation routing."""
+"""OpenAI-compatible vision-model fallback (REST mocked with httpx.MockTransport) and the recitation routing."""
 
 import base64
 import json
@@ -7,14 +7,14 @@ import httpx
 import pytest
 
 from app.pipeline.ocr_fallback import RecitationFallbackOcrProvider
-from app.pipeline.ocr_openrouter import OpenRouterOcrProvider
+from app.pipeline.ocr_chat_vision import CLOUDFLARE_URL, OPENROUTER_URL, ChatVisionOcrProvider
 from app.pipeline.ocr_provider import OcrError, PageText
 
 MODEL = "qwen/qwen2.5-vl-72b-instruct:free"
 
 
-def _provider(handler) -> OpenRouterOcrProvider:
-    return OpenRouterOcrProvider("test-key", MODEL, transport=httpx.MockTransport(handler))
+def _provider(handler) -> ChatVisionOcrProvider:
+    return ChatVisionOcrProvider("OpenRouter", OPENROUTER_URL, "test-key", MODEL, transport=httpx.MockTransport(handler))
 
 
 def _answer(content: str):
@@ -82,12 +82,33 @@ async def test_http_errors_map_to_retry_policy(status: int, retryable: bool, quo
 
 
 async def test_unconfigured_provider_fails_without_calling_openrouter() -> None:
-    provider = OpenRouterOcrProvider("", MODEL)
+    provider = ChatVisionOcrProvider("OpenRouter", OPENROUTER_URL, "", MODEL)
 
     assert provider.configured is False
     with pytest.raises(OcrError) as caught:
         await provider.extract(b"img", "image/jpeg")
     assert caught.value.retryable is False
+
+
+async def test_cloudflare_calls_the_account_endpoint_and_names_itself_in_errors() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(429, text="daily neurons exhausted")
+
+    url = CLOUDFLARE_URL.format(account_id="acc123")
+    provider = ChatVisionOcrProvider("Cloudflare", url, "cf-token", "@cf/meta/x", transport=httpx.MockTransport(handler))
+    with pytest.raises(OcrError) as caught:
+        await provider.extract(b"img", "image/jpeg")
+
+    assert seen[0].url == httpx.URL("https://api.cloudflare.com/client/v4/accounts/acc123/ai/v1/chat/completions")
+    assert caught.value.message == "Hết quota Cloudflare tạm thời (429): daily neurons exhausted"
+    assert caught.value.quota is True
+
+
+def test_missing_account_url_leaves_the_provider_unconfigured() -> None:
+    assert ChatVisionOcrProvider("Cloudflare", "", "cf-token", "@cf/meta/x").configured is False
 
 
 class _ScriptedOcr:

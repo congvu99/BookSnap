@@ -35,8 +35,11 @@ class Settings(BaseSettings):
     azure_tts_rpm: int = 20
     azure_tts_monthly_chars: int = 0
 
-    # Reads the pages Gemini refuses as recitation. Mistral OCR is used when its key is set,
-    # else the OpenRouter vision model; no key at all = no fallback.
+    # Reads the pages Gemini refuses as recitation. The first configured one is used, in this order:
+    # Cloudflare Workers AI, Mistral OCR, OpenRouter; none configured = no fallback.
+    cloudflare_account_id: str = ""
+    cloudflare_api_token: str = ""
+    cloudflare_ocr_model: str = "@cf/meta/llama-4-scout-17b-16e-instruct"
     mistral_api_key: str = ""
     mistral_ocr_model: str = "mistral-ocr-latest"
     openrouter_api_key: str = ""

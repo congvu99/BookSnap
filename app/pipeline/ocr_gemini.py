@@ -30,7 +30,7 @@ PROMPT = (
 
 
 class OcrReply(BaseModel):
-    """JSON shape PROMPT asks every vision model for (Gemini enforces it, the OpenRouter fallback parses it)."""
+    """JSON shape PROMPT asks every vision model for (Gemini enforces it, the chat-vision fallbacks parse it)."""
 
     paragraphs: list[str]
     continues_on_next_page: bool
