@@ -29,7 +29,9 @@ PROMPT = (
 )
 
 
-class _OcrSchema(BaseModel):
+class OcrReply(BaseModel):
+    """JSON shape PROMPT asks every vision model for (Gemini enforces it, the OpenRouter fallback parses it)."""
+
     paragraphs: list[str]
     continues_on_next_page: bool
 
@@ -52,7 +54,7 @@ class GeminiOcrProvider:
                 config=types.GenerateContentConfig(
                     temperature=0,
                     response_mime_type="application/json",
-                    response_schema=_OcrSchema,
+                    response_schema=OcrReply,
                 ),
             )
         except genai_errors.APIError as exc:
@@ -61,7 +63,7 @@ class GeminiOcrProvider:
             raise OcrError(f"Lỗi mạng khi gọi OCR: {exc}", retryable=True) from exc
 
         parsed = response.parsed
-        if isinstance(parsed, _OcrSchema):
+        if isinstance(parsed, OcrReply):
             return PageText(paragraphs=parsed.paragraphs, continues_on_next_page=parsed.continues_on_next_page)
         raise _unparsed_error(response)
 

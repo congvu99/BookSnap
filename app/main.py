@@ -30,8 +30,8 @@ from app.config import Settings, get_settings
 from app.db import Database
 from app.pipeline.ocr_fallback import RecitationFallbackOcrProvider
 from app.pipeline.ocr_gemini import GeminiOcrProvider
+from app.pipeline.ocr_openrouter import OpenRouterOcrProvider
 from app.pipeline.ocr_provider import OcrProvider
-from app.pipeline.ocr_tesseract import TesseractOcrProvider
 from app.pipeline.tts_azure import AzureTtsProvider
 from app.pipeline.tts_gemini import GeminiTtsProvider
 from app.pipeline.worker import Worker
@@ -70,11 +70,11 @@ def _configure_logging(level: str) -> None:
 
 def _build_ocr_provider(settings: Settings) -> OcrProvider:
     gemini = GeminiOcrProvider(settings.gemini_api_key, settings.gemini_ocr_model)
-    tesseract = TesseractOcrProvider()
-    if not tesseract.available:
-        log.warning("startup ocr_fallback=none reason=tesseract_not_installed")
+    openrouter = OpenRouterOcrProvider(settings.openrouter_api_key, settings.openrouter_ocr_model)
+    if not openrouter.configured:
+        log.warning("startup ocr_fallback=none reason=openrouter_not_configured")
         return gemini
-    return RecitationFallbackOcrProvider(primary=gemini, fallback=tesseract)
+    return RecitationFallbackOcrProvider(primary=gemini, fallback=openrouter)
 
 
 @asynccontextmanager

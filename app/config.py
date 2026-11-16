@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     azure_tts_rpm: int = 20
     azure_tts_monthly_chars: int = 0
 
+    # Vision model on OpenRouter: reads the pages Gemini refuses as recitation. Empty key = no fallback.
+    openrouter_api_key: str = ""
+    openrouter_ocr_model: str = "qwen/qwen2.5-vl-72b-instruct:free"
+
     tts_default_provider: TtsProviderName = "gemini"
 
     ocr_concurrency: int = 2
