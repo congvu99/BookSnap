@@ -13,6 +13,8 @@ from app.pipeline.audio_encoding import pcm16_to_mp3
 from app.pipeline.tts_provider import SynthResult, TtsError
 
 GEMINI_TIMEOUT_MS = 120_000  # SDK default is no timeout; a hung call would pin a worker loop
+# speechConfig only exists on v1beta; google-genai 3.x defaults to v1, which rejects it with a 400.
+GEMINI_TTS_API_VERSION = "v1beta"
 
 SAMPLE_RATE = 24000
 
@@ -24,7 +26,8 @@ class GeminiTtsProvider:
         self._api_key = api_key
         self._model = model
         self._style_prompt = style_prompt
-        self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=GEMINI_TIMEOUT_MS)) if api_key else None
+        http_options = types.HttpOptions(timeout=GEMINI_TIMEOUT_MS, api_version=GEMINI_TTS_API_VERSION)
+        self._client = genai.Client(api_key=api_key, http_options=http_options) if api_key else None
 
     @property
     def model(self) -> str:
