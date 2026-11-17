@@ -11,7 +11,9 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Literata:opsz,wght@7..72,400;7..72,600&family=Playfair+Display:wght@500;600;700&display=swap" />
+<!-- Web fonts load without blocking first paint: if Google Fonts is slow or unreachable the app still
+     renders at once in fallback fonts (media="print" is fetched at low priority, then switched on). -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Literata:opsz,wght@7..72,400;7..72,600&family=Playfair+Display:wght@500;600;700&display=swap" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="/css/tokens.css" />
 <link rel="stylesheet" href="/css/app.css" />
 <link rel="stylesheet" href="/css/library.css" />
@@ -60,7 +62,8 @@ html,body{margin:0;background:var(--bg,#FBF7EF)}
 <link rel="modulepreload" href="/js/components/chunk-paragraph.js" />
 <link rel="modulepreload" href="/js/components/connection-diagnostics.js" />
 <link rel="modulepreload" href="/js/components/library-crate.js" />
-<link rel="modulepreload" href="/js/components/library-hero-card.js" />
+<link rel="modulepreload" href="/js/components/library-record-list.js" />
+<link rel="modulepreload" href="/js/components/library-record-art.js" />
 <link rel="modulepreload" href="/js/components/library-rail.js" />
 <link rel="modulepreload" href="/js/components/mini-player.js" />
 <link rel="modulepreload" href="/js/components/now-playing-panel.js" />
@@ -87,6 +90,7 @@ html,body{margin:0;background:var(--bg,#FBF7EF)}
 <link rel="modulepreload" href="/js/icons.js" />
 <link rel="modulepreload" href="/js/library-cache.js" />
 <link rel="modulepreload" href="/js/library-rails.js" />
+<link rel="modulepreload" href="/js/library-record-state.js" />
 <link rel="modulepreload" href="/js/media-session.js" />
 <link rel="modulepreload" href="/js/offline-audio-cache.js" />
 <link rel="modulepreload" href="/js/offline-book-cache.js" />

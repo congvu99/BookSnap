@@ -1,16 +1,16 @@
-// Thư viện chung as Netflix-style rails: hero "Nghe tiếp", then rails (continue, shelf, recent, one per
-// topic). Search swaps the rails for a flat result grid. Layout: docs/mockups/netflix-style-ux-preview.html.
+// Thư viện chung as a jukebox list: the "Nghe tiếp" card, a switch between three views (by topic,
+// newest first, my shelf), then the records. Search swaps the views for one flat result list.
+// Layout: docs/mockups/library-redesign-options.html (D · Hộp đĩa jukebox).
 import { html, useEffect, useMemo, useRef, useState } from '../../vendor/preact-htm.module.js';
 import { booksApi } from '../api-client.js';
 import { authStore, safeLocalStorage } from '../store.js';
 import { openProfileSwitcher } from '../profile-switcher.js';
-import { buildRails } from '../library-rails.js';
+import { buildGroups, LIBRARY_VIEWS } from '../library-rails.js';
 import { listOfflineBooks } from '../offline-book-cache.js';
 import { readLibraryCache, writeLibraryCache } from '../library-cache.js';
 import { setCached } from '../view-cache.js';
 import { matchesQuery } from '../text-fold.js';
-import { LibraryHeroCard } from '../components/library-hero-card.js';
-import { LibraryRail, LibraryBookGrid } from '../components/library-rail.js';
+import { LibraryNowPlaying, LibraryRecordList } from '../components/library-record-list.js';
 import { ProfileAvatar } from '../components/profile-avatar.js';
 import { useVisiblePolling } from '../use-visible-polling.js';
 import { phaseOf } from '../processing-progress.js';
@@ -20,6 +20,27 @@ const OFFLINE_RAIL_TITLE = 'Đã tải để nghe offline';
 const LIVE_POLL_MS = 5000;
 const QUOTA_POLL_MS = 60000;
 const LIVE_PHASES = new Set(['ocr', 'tts', 'tail_wait']);
+const VIEW_STORAGE_KEY = 'booksnap:libraryView';
+const VIEW_LABELS = { topic: 'Theo chủ đề', recent: 'Mới thêm', shelf: 'Kệ của tôi' };
+const EMPTY_VIEW_TEXT = { shelf: 'Chưa có sách nào trên kệ của bạn.' };
+
+/** The list view chosen last time on this device, or the default. */
+function readSavedView() {
+  try {
+    const saved = safeLocalStorage()?.getItem(VIEW_STORAGE_KEY);
+    return LIBRARY_VIEWS.includes(saved) ? saved : LIBRARY_VIEWS[0];
+  } catch {
+    return LIBRARY_VIEWS[0];
+  }
+}
+
+function saveView(view) {
+  try {
+    safeLocalStorage()?.setItem(VIEW_STORAGE_KEY, view);
+  } catch {
+    // Storage full or blocked: the choice simply is not remembered.
+  }
+}
 
 export function LibraryView() {
   const user = authStore.get().user;
@@ -31,6 +52,7 @@ export function LibraryView() {
   const [isOffline, setIsOffline] = useState(false);
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [view, setView] = useState(readSavedView);
   const searchRef = useRef(/** @type {HTMLInputElement|null} */ (null));
   useEffect(() => {
     if (searchOpen && searchRef.current) searchRef.current.focus();
@@ -112,13 +134,18 @@ export function LibraryView() {
 
   const profileName = user ? user.display_name : '';
   const searching = query.trim() !== '';
-  const rails = useMemo(() => {
+  const groups = useMemo(() => {
     const list = books || [];
-    // Offline lists come from the download cache (no shelf/topic info): one flat rail of them.
+    // Offline lists come from the download cache (no shelf/topic info): one flat group of them.
     if (isOffline) return list.length ? [{ key: 'offline', title: OFFLINE_RAIL_TITLE, books: list }] : [];
-    return buildRails(list, continuing, profileName);
-  }, [books, continuing, isOffline, profileName]);
+    return buildGroups(list, view);
+  }, [books, isOffline, view]);
   const results = useMemo(() => (searching ? (books || []).filter((b) => matchesQuery(b.title, query)) : []), [books, query, searching]);
+
+  function chooseView(next) {
+    setView(next);
+    saveView(next);
+  }
 
   const hero = !isOffline && continuing.length > 0 ? continuing[0] : null;
   const hasBooks = books !== null && books.length > 0;
@@ -151,9 +178,9 @@ export function LibraryView() {
         ${isOffline &&
         html`<div class="banner banner-info"><${Icon} name="clock" size=${14} /> Đang ngoại tuyến — chỉ hiện sách đã tải để nghe offline</div>`}
 
-        ${hero && html`<${LibraryHeroCard} book=${hero} />`}
+        ${hero && !searching && html`<${LibraryNowPlaying} book=${hero} />`}
 
-        ${books === null && !error && html`<div class="crate-skeleton skeleton" aria-hidden="true"></div>`}
+        ${books === null && !error && html`<div class="rlist-skeleton skeleton" aria-hidden="true"></div>`}
         ${books !== null && books.length === 0 &&
         html`
           <div class="empty-state">
@@ -170,12 +197,14 @@ export function LibraryView() {
           <input type="search" ref=${searchRef} placeholder="Tìm tên sách…" aria-label="Tìm tên sách" value=${query} onInput=${(e) => setQuery(e.currentTarget.value)} />
         </div>`}
 
-        ${hasBooks && !searching && rails.map((rail) => html`<${LibraryRail} key=${rail.key} rail=${rail} offline=${isOffline} />`)}
+        ${hasBooks && !searching && !isOffline &&
+        html`<div class="lib-views" role="group" aria-label="Cách xếp sách">
+          ${LIBRARY_VIEWS.map((v) => html`<button type="button" key=${v} aria-pressed=${view === v ? 'true' : 'false'} onClick=${() => chooseView(v)}>${VIEW_LABELS[v]}</button>`)}
+        </div>`}
+        ${hasBooks && !searching && html`<${LibraryRecordList} groups=${groups} offline=${isOffline} />`}
+        ${hasBooks && !searching && groups.length === 0 && html`<div class="lib-empty"><p>${EMPTY_VIEW_TEXT[view] || 'Chưa có sách nào ở đây.'}</p></div>`}
         ${hasBooks && searching && results.length > 0 &&
-        html`<section class="rail" aria-label="Kết quả tìm kiếm">
-          <div class="rail-head"><h2 class="rail-title">Kết quả<small aria-live="polite">${results.length}</small></h2></div>
-          <${LibraryBookGrid} books=${results} offline=${isOffline} />
-        </section>`}
+        html`<${LibraryRecordList} groups=${[{ key: 'results', title: 'Kết quả', books: results }]} offline=${isOffline} />`}
         ${hasBooks && searching && results.length === 0 &&
         html`<div class="lib-empty">
           <p>Không có sách nào khớp “${query.trim()}”.</p>

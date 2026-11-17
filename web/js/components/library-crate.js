@@ -5,27 +5,26 @@ import { RecordSleeve } from './record-sleeve.js';
 import { VinylDisc } from './vinyl-disc.js';
 import { Icon } from '../icons.js';
 import { libraryLabel, overallPercent, phaseOf } from '../processing-progress.js';
-import { remainingMinutes } from '../library-rails.js';
 import { prefetchBook } from '../book-prefetch.js';
 
-const BUSY_PHASES = new Set(['ocr', 'tts', 'tail_wait', 'quota']);
+export const BUSY_PHASES = new Set(['ocr', 'tts', 'tail_wait', 'quota']);
 const PHASE_ICON = { failed: 'alert-circle' };
 
 /** Label + icon for a record; offline copies may lack counters, so they fall back to book.state. */
-function stateInfo(book) {
+export function stateInfo(book) {
   if (!book.pages || !book.chunks) return { label: book.state === 'ready' ? 'Sẵn sàng' : 'Chưa có trang', icon: 'clock', phase: book.state };
   const phase = phaseOf(book);
   return { label: libraryLabel(book), icon: PHASE_ICON[phase] || 'clock', phase };
 }
 
 /** Chunk-based fraction of the book already listened to (0-100). */
-function progressPercent(book) {
+export function progressPercent(book) {
   const total = book.chunks ? book.chunks.total : 0;
   if (!book.progress || !total) return 0;
   return Math.min(100, Math.round((book.progress.chunk_seq / total) * 100));
 }
 
-function href(book, offline) {
+export function href(book, offline) {
   // Offline, the status/player views cannot load; the reader falls back to the saved offline copy.
   if (offline) return `#/read/${book.id}`;
   return book.state === 'ready' ? `#/listen/${book.id}` : `#/book/${book.id}`;
@@ -65,22 +64,16 @@ function nameCover(el) {
 }
 
 /**
- * Book card shared by crates, rails and the browse grid.
- * `showRemaining` (continue rail) adds "Còn N phút" under the progress bar.
- * @param {{ book: any, offline: boolean, buildPercents: Map<any, number>, showRemaining?: boolean }} props
+ * Pressing a record: prefetch the book shortly after touch-down and, on a plain click into the player,
+ * name the record's cover so the view transition flies it there. Shared by cards, rows and the hero.
+ * @param {any} book
+ * @param {string} target href the record opens
+ * @param {string} coverSelector element inside the link that flies into the player's cover
  */
-export function LibraryBookCard({ book, offline, buildPercents, showRemaining = false }) {
-  const info = stateInfo(book);
-  const building = !offline && BUSY_PHASES.has(info.phase);
-  // Clamp per book so the pressing bar never moves backwards between refreshes.
-  const minutes = showRemaining ? remainingMinutes(book) : null;
-  const percent = building ? overallPercent(book, buildPercents.get(book.id) || 0) : 0;
-  if (building) buildPercents.set(book.id, percent);
-  const target = href(book, offline);
+export function useRecordPress(book, target, coverSelector) {
   const opensPlayer = target.startsWith('#/listen/');
   const linkRef = useRef(/** @type {HTMLElement|null} */ (null));
-  // Start loading book + chunks + progress shortly after the finger lands, ahead of the click.
-  // A swipe across a rail cancels it (pointercancel / movement), so scrolling never downloads books.
+  // A swipe (pointercancel / movement) cancels the prefetch, so scrolling never downloads books.
   const warmTimer = useRef(/** @type {any} */ (0));
   const warmStart = useRef(/** @type {{x: number, y: number}|null} */ (null));
   const cancelWarm = () => {
@@ -102,11 +95,33 @@ export function LibraryBookCard({ book, offline, buildPercents, showRemaining = 
   };
   useEffect(() => cancelWarm, []);
   const onClick = (e) => {
+    warm();
     if (!opensPlayer || e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    nameCover(linkRef.current ? linkRef.current.querySelector('.sleeve') : null);
+    nameCover(linkRef.current ? linkRef.current.querySelector(coverSelector) : null);
   };
+  const onKeyDown = (e) => e.key === 'Enter' && warm();
+  return { opensPlayer, linkRef, handlers: { onPointerDown, onPointerMove, onPointerCancel: cancelWarm, onKeyDown, onClick } };
+}
+
+/** Build percent for a busy record, clamped per book so the bar never moves backwards between refreshes. */
+export function clampedBuildPercent(book, buildPercents) {
+  const percent = overallPercent(book, buildPercents.get(book.id) || 0);
+  buildPercents.set(book.id, percent);
+  return percent;
+}
+
+/**
+ * Book card used by the browse grid.
+ * @param {{ book: any, offline: boolean, buildPercents: Map<any, number> }} props
+ */
+export function LibraryBookCard({ book, offline, buildPercents }) {
+  const info = stateInfo(book);
+  const building = !offline && BUSY_PHASES.has(info.phase);
+  const percent = building ? clampedBuildPercent(book, buildPercents) : 0;
+  const target = href(book, offline);
+  const { linkRef, handlers } = useRecordPress(book, target, '.sleeve');
   return html`
-    <a class="rec" ref=${linkRef} href=${target} aria-label=${`${book.title}, ${info.label}`} onPointerDown=${onPointerDown} onPointerMove=${onPointerMove} onPointerCancel=${cancelWarm} onKeyDown=${(e) => e.key === 'Enter' && warm()} onClick=${(e) => { warm(); onClick(e); }}>
+    <a class="rec" ref=${linkRef} href=${target} aria-label=${`${book.title}, ${info.label}`} ...${handlers}>
       <div class="rec-art" aria-hidden="true">
         ${book.state === 'ready' && html`<${VinylDisc} book=${book} />`}
         <${RecordSleeve} book=${book} />
@@ -117,7 +132,6 @@ export function LibraryBookCard({ book, offline, buildPercents, showRemaining = 
         ${book.progress && html`<div class="rec-progress"><span style=${{ width: `${progressPercent(book)}%` }}></span></div>`}
         ${building &&
         html`<div class="rec-build-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow=${percent}><span style=${{ width: `${percent}%` }}></span></div>`}
-        ${minutes !== null && html`<div class="rec-remaining">Còn ${minutes} phút</div>`}
         ${info.phase !== 'ready' &&
         html`<div class="rec-state${info.phase === 'failed' ? ' rec-state--failed' : ''}"><${Icon} name=${info.icon} size=${13} /><span>${info.label}</span></div>`}
       </div>

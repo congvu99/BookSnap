@@ -79,14 +79,14 @@ Reader/Camera là màn full-screen, có nút quay lại rõ ràng; bottom nav �
 - Xử lý quyền camera bị từ chối: màn giải thích + hướng dẫn bật lại; yêu cầu HTTPS.
 
 ### 6.2 Thư viện & Đang nghe
-**Thư viện — thùng đĩa than:**
-- **Thùng (crate)**: mỗi chủ đề một thùng (sắp theo bảng chữ cái tiếng Việt), thùng "Chưa phân loại" cuối. Nền `--surface-sunken`, viền vàng 1px, tab thùng in hoa + icon collapsible ở đầu. **Tab thùng sticky** khi cuộn → người dùng biết chủ đề hiện tại. Bên trong mỗi thùng: hero "Nghe tiếp" (card khung `OrnateFrame` + vỏ đĩa), rồi lưới 2 cột vỏ đĩa vuông (mỗi sách một vỏ).
-- **Vỏ đĩa vuông (sleeve)**: tỉ lệ 1:1, **5 màu da** chọn cố định theo `hash(book.id) % 5`: wine, moss, slate, amber, parchment. Khung hoa văn góc lượn + 4 góc + 2 fleuron, tên sách Playfair 600 ở giữa, co chữ theo độ dài (tối đa 3 dòng). Bìa là trang trí (`aria-hidden`), tên sách luôn hiện dạng chữ cạnh vỏ. Sách chưa `ready` không có đĩa ("Đang ép đĩa · x/y"). Chữ bìa ≥4.5:1 trên cả 5 màu.
-- **Hero "Nghe tiếp"**: vỏ đĩa nhớ sách user đang nghe dở (fetch `/api/me/continue`), đĩa ló ra bên phải (trạng thái ấy), nút primary "Nghe tiếp" hoặc "Tiếp tục đọc", nền giống thùng.
-- **Menu chủ đề (iOS)**: nút segmented "Mọi chủ đề ⌃⌄" ở trên hero, pull-down menu (không cuộn ngang chip), chọn → filter các thùng khác ở dưới, empty state khi chọn chủ đề không có sách.
-- **Tìm kiếm**: ô bỏ dấu (client-side, accent-insensitive; không yêu cầu server).
-- Dưới vỏ: tên, tiến độ nghe của user hiện tại (thanh mảnh `--primary`), trạng thái xử lý ("Đang chuyển giọng · 12/20 đoạn").
-- Empty state: minh hoạ thùng đĩa SVG + "Chụp trang sách đầu tiên".
+**Thư viện — hộp đĩa jukebox** (mockup: `docs/mockups/library-redesign-options.html`, phương án D):
+- **Thẻ "Nghe tiếp"**: sách nghe gần nhất (`/api/me/continue`): đĩa có vòng tiến độ, tên Playfair, "Chụp bởi … · chủ đề", nút play tròn `--primary`, "Đoạn x/y · còn N phút". Cả thẻ là một link vào `#/listen/:id`.
+- **Chuyển cách xếp** (segmented, nhớ lựa chọn theo máy ở `booksnap:libraryView`): **Theo chủ đề** (mặc định; nhóm theo chủ đề xếp theo bảng chữ cái tiếng Việt, "Chưa phân loại" cuối, tiêu đề nhóm in hoa màu `--gold-ink` + số lượng) · **Mới thêm** (mới nhất trước) · **Kệ của tôi**.
+- **Dòng sách**: đĩa 64px có **vòng tiến độ**: `--primary` = phần đã nghe, `--gold` = tiến độ ép đĩa (đĩa quay chậm). Dòng phụ: "Chụp bởi … · còn N phút" / "· N đoạn", hoặc trạng thái ("Đang ép đĩa · x/y" màu `--gold-ink`, "Có lỗi" màu `--danger`). Bên phải: nút play viền (mở player) hoặc `›` (mở màn trạng thái).
+- **Tìm kiếm**: ô bỏ dấu (client-side), kết quả là một nhóm "Kết quả" cùng kiểu dòng.
+- Offline: một nhóm "Đã tải để nghe offline", ẩn nút chuyển cách xếp.
+- Vỏ đĩa vuông (sleeve, 5 màu da theo `hash(book.id) % 5`) vẫn dùng ở player, mini player, đánh dấu và màn `#/browse/:railKey`; màu nhãn đĩa lấy từ cùng bảng màu.
+- Empty state: minh hoạ + "Chụp trang sách đầu tiên".
 
 **Chế độ Đang nghe:**
 - Route: `#/listen/:id` (cùng `ReaderView` instance với `#/read/:id`, không ngắt audio khi chuyển mode).

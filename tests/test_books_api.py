@@ -42,6 +42,7 @@ async def test_create_list_get_book_with_defaults(alice, app):
     assert book["tts_provider"] == "gemini"
     assert book["tts_voice"] == ctx_of(app).settings.gemini_tts_voice
     assert book["can_manage"] is True and book["created_by_name"] == "Alice Nguyễn"
+    assert book["created_by_avatar"] == "c1"
     assert book["state"] == "empty" and book["pages"]["next_seq"] == 0
     listed = (await alice.get("/api/books")).json()
     assert [b["id"] for b in listed] == [book["id"]]

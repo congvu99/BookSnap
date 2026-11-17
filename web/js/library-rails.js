@@ -1,4 +1,5 @@
-// Pure helpers that turn the flat library list into Netflix-style rails (no Preact, node-testable).
+// Pure helpers that turn the flat library list into rails (browse screen) and the grouped record list
+// of the library screen (no Preact, node-testable).
 
 export const UNSORTED_LABEL = 'Chưa phân loại';
 export const RECENT_RAIL_MAX = 12;
@@ -44,6 +45,24 @@ export function buildRails(books, continuing, profileName) {
 /** One rail with its full (uncapped) list for the browse screen, or null when unknown / empty. */
 export function railByKey(books, continuing, profileName, key) {
   return allRails(books, continuing, profileName).find((r) => r.key === key) || null;
+}
+
+/** The three ways the library screen lists records; the first is the default. */
+export const LIBRARY_VIEWS = ['topic', 'recent', 'shelf'];
+
+/**
+ * Groups for the library record list. 'topic': one group per topic (vi collation, unsorted last);
+ * 'recent': every book newest first; 'shelf': the profile's shelf. Flat views have one untitled group.
+ * @returns {{key: string, title: string, books: any[]}[]}
+ */
+export function buildGroups(books, view) {
+  const list = Array.isArray(books) ? books : [];
+  if (view === 'recent') return list.length ? [{ key: 'recent', title: '', books: [...list].sort(byCreatedDesc) }] : [];
+  if (view === 'shelf') {
+    const shelf = list.filter((b) => b.on_shelf);
+    return shelf.length ? [{ key: 'shelf', title: '', books: shelf }] : [];
+  }
+  return topicRails(list);
 }
 
 /** Whole minutes left to listen (rounded up), or null when unknown. */

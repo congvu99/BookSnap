@@ -6,7 +6,7 @@
 // Background music (/audio/ambient/*) has its own cache that survives SHELL_CACHE bumps so ~15MB
 // is not re-downloaded on every deploy. To replace one track, ship it under a new file name; bump
 // AMBIENT_CACHE only when every track changes (that forces all of them to download again).
-const SHELL_CACHE = 'booksnap-shell-v41';
+const SHELL_CACHE = 'booksnap-shell-v44';
 const AUDIO_CACHE = 'booksnap-audio-v1';
 const AMBIENT_CACHE = 'booksnap-ambient-v2'; // v2: tracks re-normalised to -18 LUFS
 const KEPT_CACHES = [SHELL_CACHE, AUDIO_CACHE, AMBIENT_CACHE];
@@ -50,6 +50,7 @@ const SHELL_ASSETS = [
   '/js/icons.js',
   '/js/library-cache.js',
   '/js/library-rails.js',
+  '/js/library-record-state.js',
   '/js/media-session.js',
   '/js/offline-audio-cache.js',
   '/js/offline-book-cache.js',
@@ -85,7 +86,8 @@ const SHELL_ASSETS = [
   '/js/components/connection-diagnostics.js',
   '/js/components/library-crate.js',
   '/js/components/library-rail.js',
-  '/js/components/library-hero-card.js',
+  '/js/components/library-record-list.js',
+  '/js/components/library-record-art.js',
   '/js/components/mini-player.js',
   '/js/components/now-playing-panel.js',
   '/js/components/ornament-shapes.js',

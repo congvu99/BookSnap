@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRails, railByKey, remainingMinutes, RECENT_RAIL_MAX } from '../../web/js/library-rails.js';
+import { buildGroups, buildRails, railByKey, remainingMinutes, RECENT_RAIL_MAX } from '../../web/js/library-rails.js';
 
 const book = (id, extra = {}) => ({ id, title: `B${id}`, created_at: `2026-01-${String(id).padStart(2, '0')}`, topic: null, on_shelf: false, ...extra });
 
@@ -42,4 +42,26 @@ test('remainingMinutes', () => {
   assert.equal(remainingMinutes({ duration_ms: 600000, chunks: { total: 10 }, progress: { chunk_seq: 5 } }), 5);
   assert.equal(remainingMinutes({ duration_ms: 600000, chunks: { total: 10 } }), 10);
   assert.equal(remainingMinutes({ duration_ms: null, chunks: { total: 10 } }), null);
+});
+
+test('buildGroups by topic: vi collation, unsorted last, every book kept', () => {
+  const books = [book(1, { topic: { id: 'z', name: 'Đời sống' } }), book(2), book(3, { topic: { id: 'a', name: 'Ăn uống' } }), book(4, { topic: { id: 'z', name: 'Đời sống' } })];
+  const groups = buildGroups(books, 'topic');
+  assert.deepEqual(groups.map((g) => g.title), ['Ăn uống', 'Đời sống', 'Chưa phân loại']);
+  assert.deepEqual(groups[1].books.map((b) => b.id), [1, 4]);
+});
+
+test('buildGroups recent is one uncapped newest-first group; shelf keeps only shelved books', () => {
+  const books = Array.from({ length: 20 }, (_, i) => book(i + 1, { on_shelf: i % 5 === 0 }));
+  const [recent] = buildGroups(books, 'recent');
+  assert.equal(recent.books.length, 20);
+  assert.equal(recent.books[0].id, 20);
+  assert.equal(recent.title, '');
+  assert.deepEqual(buildGroups(books, 'shelf')[0].books.map((b) => b.id), [1, 6, 11, 16]);
+});
+
+test('buildGroups returns no groups for an empty view', () => {
+  assert.deepEqual(buildGroups([book(1)], 'shelf'), []);
+  assert.deepEqual(buildGroups(null, 'recent'), []);
+  assert.deepEqual(buildGroups([], 'topic'), []);
 });

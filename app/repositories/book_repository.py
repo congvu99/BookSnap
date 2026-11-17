@@ -18,6 +18,7 @@ class Book:
 @dataclass(frozen=True)
 class BookSummary(Book):
     created_by_name: str
+    created_by_avatar: str
     topic_id: str | None
     topic_name: str | None
     pages_total: int
@@ -47,7 +48,7 @@ class BookSummary(Book):
 
 
 _SUMMARY_SQL = """
-SELECT b.*, u.display_name AS created_by_name, t.name AS topic_name,
+SELECT b.*, u.display_name AS created_by_name, u.avatar AS created_by_avatar, t.name AS topic_name,
        COALESCE(ps.total, 0) AS pages_total,
        COALESCE(ps.done, 0) AS pages_done,
        COALESCE(ps.failed, 0) AS pages_failed,

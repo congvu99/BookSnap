@@ -132,7 +132,7 @@ BookSnap/
 │           ├── tonearm.js               [~50 LOC] Brass tonearm (angle by % progress, lift on pause)
 │           ├── now-playing-panel.js     [~120 LOC] Listen mode: full-screen sleeve/disc + controls
 │           ├── library-crate.js         [~90 LOC] Crate section (topic tab + grid of sleeves)
-│           ├── library-hero-card.js     [~80 LOC] Hero "Continue" card (sleeve + disc + button)
+│           ├── library-record-list.js   [~110 LOC] Library list: "Nghe tiếp" card + grouped record rows with progress ring
 │           ├── library-account-menu.js  [~50 LOC] Account menu (logout, language)
 │           ├── topic-filter-menu.js     [~60 LOC] iOS segmented "Mọi chủ đề ⌃⌄" pull-down
 │           ├── voice-picker.js          [~150 LOC] Voice choice UI: chips (2 cols mobile), ▶ preview, disabled state

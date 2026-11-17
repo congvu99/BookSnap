@@ -34,8 +34,10 @@
 
   --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-cover: 'Playfair Display', Georgia, 'Times New Roman', serif;
-  --font-read: 'Literata', Georgia, serif;
+  /* No Georgia fallback: it lacks precomposed Vietnamese letters (ế, ắ…) and splits their accents
+     while the web font is still loading or failed to load. */
+  --font-cover: 'Playfair Display', 'Times New Roman', serif;
+  --font-read: 'Literata', 'Times New Roman', serif;
   --display-weight: 800;
   --display-tracking: -.025em;
 

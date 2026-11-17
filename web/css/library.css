@@ -1,4 +1,4 @@
-/* Library record crates (mockup: docs/mockups/vinyl-library-preview.html) */
+/* Library: jukebox record list (mockup: docs/mockups/library-redesign-options.html, option D) */
 /* ——— Header ——— */
 .eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold-ink); margin: 0; }
 .lozenge { display: inline-block; flex: none; width: 7px; height: 7px; background: currentColor; -webkit-mask: var(--lozenge-mask) center / contain no-repeat; mask: var(--lozenge-mask) center / contain no-repeat; }
@@ -17,17 +17,85 @@ a.menu-item { text-decoration: none; }
 .menu-item.menu-item--signout { font-family: var(--font-display); font-weight: 600; }
 .menu-item.menu-item--action .icon { visibility: visible; color: var(--ink-muted); }
 
-/* ——— Hero "Nghe tiếp": the one ornate card on this screen ——— */
-.ornate.hero { display: grid; grid-template-columns: 1fr 138px; gap: 8px; align-items: center; margin-top: var(--space-2); padding: 26px 18px 22px 22px; overflow: hidden; border-radius: 2px;
-  background: radial-gradient(90% 120% at 100% 0, var(--highlight), transparent 70%), var(--surface); }
-.hero-text { min-width: 0; }
-.hero .eyebrow { display: flex; align-items: center; gap: 7px; }
-.hero-title { font-size: 25px; line-height: 1.28; margin: 4px 0; padding-top: .1em; text-wrap: balance; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.hero-meta { font-size: 13px; color: var(--ink-muted); font-variant-numeric: tabular-nums; margin: 0; }
-.hero .btn { margin-top: 14px; padding-inline: 12px; white-space: nowrap; }
-.hero-art { position: relative; height: 112px; }
-.hero-art .disc { position: absolute; width: 96px; top: 8px; left: 38px; }
-.hero-art .sleeve { position: absolute; width: 100px; top: 6px; left: 0; z-index: 1; }
+/* ——— "Nghe tiếp" card: the last played record inside its listening ring ——— */
+.lib-now { display: grid; grid-template-columns: 118px 1fr; gap: 16px; align-items: center; margin-top: var(--space-3); padding: 16px; color: inherit; text-decoration: none;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 10px 24px -14px rgba(31, 27, 22, .35); }
+.lib-now-text { min-width: 0; }
+.lib-now .eyebrow { display: flex; align-items: center; gap: 7px; color: var(--primary); font-weight: 600; }
+.lib-now-title { margin: 4px 0 2px; padding-top: .1em; font: 700 20px/1.25 var(--font-cover); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lib-now-play { margin-top: 10px; display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--primary); color: var(--on-primary); }
+.lib-now-play .icon { display: flex; margin-left: 2px; }
+.lib-now-play svg, .rrow-action.is-play svg { fill: currentColor; }
+
+/* ——— Record with a progress ring: listened share (primary) or build progress (gold) ——— */
+.ringed { position: relative; aspect-ratio: 1; width: 100%; }
+.ringed-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.ringed-track, .ringed-fill { fill: none; stroke-width: 3.4; }
+.ringed-track { stroke: var(--border); }
+.ringed-fill { stroke-linecap: round; transition: stroke-dasharray 400ms ease-out; }
+.ringed-fill.is-listened { stroke: var(--primary); }
+.ringed-fill.is-building { stroke: var(--gold); }
+.ringed .disc { position: absolute; inset: 8%; width: auto; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .28)); }
+.ringed-needle { fill: var(--primary); stroke: var(--bg); stroke-width: 2; }
+.lib-now .ringed-needle { stroke: var(--surface); }
+/* Waiting for a Gemini turn: a 12-tick clock face with one gold dot going round. */
+.ringed-tick { stroke: var(--ink-muted); stroke-opacity: .55; stroke-width: 1.1; stroke-linecap: round; }
+.ringed-tick.is-major { stroke-width: 1.9; }
+.ringed-orbit { transform-box: view-box; transform-origin: 50px 50px; animation: disc-spin 8s linear infinite; }
+.ringed-orbit-dot { fill: var(--gold); }
+/* Who captured the book: the profile avatar, small, on the record's lower right. */
+.ringed .profile-avatar { position: absolute; right: -3px; bottom: -3px; width: 22px; height: 22px; font-size: 12px; box-shadow: inset 0 0 0 1px rgba(240, 213, 152, .45), 0 0 0 2px var(--bg); }
+.lib-now .ringed .profile-avatar { width: 30px; height: 30px; font-size: 15px; box-shadow: inset 0 0 0 1px rgba(240, 213, 152, .45), 0 0 0 2.5px var(--surface); }
+
+/* ——— Record art for states without words (components/library-record-art.js) ——— */
+.ringed { --matte: color-mix(in srgb, var(--gold) 24%, var(--surface)); --matte-line: color-mix(in srgb, var(--gold) 55%, var(--surface)); }
+.rart-mark-wrap { position: absolute; inset: 8%; pointer-events: none; }
+.rart-mark { display: block; width: 100%; height: 100%; }
+.rart-glyph { fill: var(--cover-ornament); }
+.rart-glyph-stroke { fill: none; stroke: var(--cover-ornament); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.rart-disc svg { overflow: visible; }
+.rart-matte { fill: var(--matte); }
+.rart-matte-ring { fill: none; stroke: var(--matte-line); stroke-width: 1; stroke-dasharray: 2 5; }
+.rart-sweep { transform-box: view-box; transform-origin: 100px 100px; animation: disc-spin 2.6s linear infinite; }
+.rart-sweep-beam { fill: var(--gold); fill-opacity: .35; }
+.rart-sweep-edge { stroke: var(--gold); stroke-width: 3; }
+.rart-page { fill: none; stroke: var(--cover-ornament); stroke-width: 2.2; }
+.rart-page-lines { stroke: var(--cover-ornament); stroke-width: 2; }
+.rart-cutter { stroke: var(--gold); stroke-width: 3; stroke-linecap: round; }
+.rart-more { animation: rart-breathe 2.4s ease-in-out infinite; }
+.rart-more-badge { fill: var(--gold); stroke: var(--bg); stroke-width: 4; }
+.rart-more-plus { stroke: #fff; stroke-width: 4.5; stroke-linecap: round; }
+.rart-crack { fill: none; stroke: var(--matte-line); stroke-width: 3; stroke-linejoin: round; }
+.rart-danger { fill: var(--danger); }
+.rart-danger-mark { stroke: #fff; stroke-width: 6; stroke-linecap: round; }
+.rart-danger-dot { fill: #fff; }
+.rart-outline { fill: none; stroke: var(--ink-muted); stroke-opacity: .5; stroke-width: 3; stroke-dasharray: 8 8; }
+.is-empty .disc, .is-failed .disc { filter: none; }
+@keyframes rart-breathe { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) {
+  .ringed-orbit, .rart-sweep, .rart-more { animation: none; }
+}
+
+/* ——— View switch: Theo chủ đề / Mới thêm / Kệ của tôi ——— */
+.lib-views { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin-top: var(--space-4); padding: 3px; border-radius: 10px; background: var(--surface-sunken); }
+.lib-views button { min-height: 40px; padding: 0 4px; border: 0; border-radius: 8px; background: none; color: var(--ink-muted); font: 600 14px var(--font-ui); cursor: pointer; white-space: nowrap; transition: background-color 160ms ease-out, color 160ms ease-out; }
+.lib-views button[aria-pressed='true'] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(31, 27, 22, .14); }
+
+/* ——— Grouped record list ——— */
+.rgroup { margin-top: 18px; }
+.rgroup-title { display: flex; align-items: center; gap: 8px; margin: 0 0 2px; font: 700 12px/1.5 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--gold-ink); }
+.rgroup-title small { font: 500 12px var(--font-ui); letter-spacing: 0; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.rgroup-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.rlist { list-style: none; margin: 0; padding: 0; }
+.rlist li + li { border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent); }
+.rrow { display: grid; grid-template-columns: 64px 1fr auto; gap: 14px; align-items: center; min-height: 64px; padding: 9px 0; color: inherit; text-decoration: none; }
+.rrow-title { min-width: 0; font: 600 16px/1.35 var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rrow.is-dim .rrow-title { color: var(--ink-muted); }
+.rrow-action { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; color: var(--ink-muted); }
+.rrow-action.is-play { border: 1.5px solid var(--border); color: var(--primary); }
+.rrow-action.is-play .icon { margin-left: 2px; }
+.rrow-action .icon { display: flex; }
+.rlist-skeleton { height: 320px; margin-top: var(--space-6); border-radius: 16px; }
 
 /* ——— Search + toolbar ——— */
 .search { position: relative; margin: 14px 0 6px; }
@@ -60,19 +128,7 @@ a.menu-item { text-decoration: none; }
 .menu-item:active { background: var(--surface-sunken); }
 .menu-item:focus-visible { outline-offset: -3px; }
 
-/* ——— Rails: title + count + "Xem tất cả ›" above a snap-scrolling row of cards ——— */
-.rail { margin-top: 22px; }
-.rail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.rail-title { margin: 0; min-width: 0; font: var(--display-weight, 800) 19px/1.25 var(--font-display); letter-spacing: var(--display-tracking, -.02em); }
-.rail-title small { margin-left: 8px; font: 500 12px/1 var(--font-ui); letter-spacing: 0; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-.see-all { display: inline-flex; align-items: center; gap: 3px; flex: none; min-height: 40px; margin-right: -6px; padding: 0 6px; border-radius: 4px; color: var(--gold-ink); font-size: 13px; font-weight: 600; letter-spacing: .02em; text-decoration: none; white-space: nowrap; }
-.see-all-arrow { display: inline-block; font-size: 18px; line-height: 1; transition: transform 200ms cubic-bezier(.2, .9, .3, 1.3); }
-.see-all:hover .see-all-arrow, .see-all:focus-visible .see-all-arrow { transform: translateX(4px); }
-.see-all:active { background: var(--surface-sunken); }
-.rail-row { display: flex; align-items: flex-start; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 20px; margin: 0 -20px; padding: 10px 20px 6px; scrollbar-width: none; }
-.rail-row::-webkit-scrollbar { display: none; }
-.rail-row .rec { scroll-snap-align: start; }
-.rec-remaining { margin-top: 4px; font-size: 12px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+/* ——— Browse grid (#/browse/:railKey) ——— */
 .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); align-items: flex-start; gap: 18px 12px; padding-top: 14px; }
 .book-grid .rec { flex: none; }
 
@@ -112,7 +168,6 @@ a.menu-item { text-decoration: none; }
 
 @media (max-width: 380px) {
   .lib-header { padding-inline: 14px; }
-  .ornate.hero { grid-template-columns: 1fr 112px; padding-inline: 18px 12px; }
-  .hero-art .sleeve { width: 84px; } .hero-art .disc { width: 80px; left: 32px; }
-  .hero-title { font-size: 22px; }
+  .lib-now { grid-template-columns: 96px 1fr; gap: 12px; padding: 14px; }
+  .rrow { grid-template-columns: 56px 1fr auto; gap: 12px; }
 }
